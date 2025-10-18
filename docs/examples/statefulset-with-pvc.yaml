@@ -1,0 +1,147 @@
+# Example: StatefulSet with Persistent Volume
+#
+# This example shows how to deploy a stateful application with persistent storage
+# Useful for databases, message queues, and applications that need persistent data
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: stateful-apps
+---
+# Storage Class for dynamic provisioning
+apiVersion: storage.k8s.io/v1
+kind: StorageClass
+metadata:
+  name: local-storage
+provisioner: kubernetes.io/no-provisioner
+volumeBindingMode: WaitForFirstConsumer
+---
+apiVersion: v1
+kind: PersistentVolume
+metadata:
+  name: pv-tools-01
+spec:
+  capacity:
+    storage: 10Gi
+  accessModes:
+  - ReadWriteOnce
+  persistentVolumeReclaimPolicy: Retain
+  storageClassName: local-storage
+  local:
+    path: /mnt/disks/ssd1
+  nodeAffinity:
+    required:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: workload
+          operator: In
+          values:
+          - tools
+---
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres
+  namespace: stateful-apps
+spec:
+  serviceName: postgres
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+  template:
+    metadata:
+      labels:
+        app: postgres
+    spec:
+      # Target tools workers
+      nodeSelector:
+        workload: tools
+
+      tolerations:
+      - key: workload
+        operator: Equal
+        value: tools
+        effect: NoSchedule
+
+      containers:
+      - name: postgres
+        image: postgres:15-alpine
+        ports:
+        - containerPort: 5432
+          name: postgres
+        env:
+        - name: POSTGRES_DB
+          value: myapp
+        - name: POSTGRES_USER
+          value: admin
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        volumeMounts:
+        - name: postgres-data
+          mountPath: /var/lib/postgresql/data
+          subPath: postgres
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "250m"
+          limits:
+            memory: "512Mi"
+            cpu: "500m"
+
+  # PVC Template for dynamic volume provisioning
+  volumeClaimTemplates:
+  - metadata:
+      name: postgres-data
+    spec:
+      accessModes: [ "ReadWriteOnce" ]
+      storageClassName: local-storage
+      resources:
+        requests:
+          storage: 10Gi
+---
+# Secret for database password
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: stateful-apps
+type: Opaque
+stringData:
+  password: "change-this-password"  # Change in production!
+---
+# Headless service for StatefulSet
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: stateful-apps
+spec:
+  clusterIP: None
+  selector:
+    app: postgres
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+
+# To deploy:
+# 1. Create directory on worker node:
+#    ssh -i ~/.ssh/kubernetes-clusters/production.pem root@10.8.0.13
+#    mkdir -p /mnt/disks/ssd1
+#    chmod 777 /mnt/disks/ssd1
+#
+# 2. Deploy the application:
+#    kubectl apply -f statefulset-with-pvc.yaml
+#
+# 3. Verify:
+#    kubectl get statefulset -n stateful-apps
+#    kubectl get pvc -n stateful-apps
+#    kubectl get pods -n stateful-apps
+#
+# 4. Connect to database:
+#    kubectl exec -it postgres-0 -n stateful-apps -- psql -U admin -d myapp

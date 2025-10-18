@@ -1,0 +1,78 @@
+# Pulumi sensitive files
+Pulumi.yaml
+Pulumi.*.yaml
+.pulumi/
+*.pulumi.yaml
+
+# Pulumi state and secrets
+pulumi-state.json
+*.stack.json
+
+# SSH Keys
+*.pem
+*.key
+id_rsa*
+id_ed25519*
+
+# Secrets and credentials
+.env
+.env.*
+secrets/
+credentials/
+*.secret
+*.creds
+
+# Kubeconfig
+kubeconfig
+.kube/
+*.kubeconfig
+
+# Terraform (if any)
+.terraform/
+*.tfstate
+*.tfstate.backup
+
+# IDE and editors
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+
+# Build artifacts
+bin/
+build/
+dist/
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# VPN configs with sensitive data
+wireguard/
+*.conf
+
+# Backup files
+*.backup
+*.bak
+
+# OS files
+Thumbs.db
+.Spotlight-V100
+.Trashes
+
+# Shell scripts with hardcoded credentials
+deploy-auto.sh
+deploy-now.sh
+deploy.sh
+quick-deploy.sh
+setup-env.sh
+
+# Large binary files
+kubernetes-create
