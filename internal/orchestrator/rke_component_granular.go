@@ -4,41 +4,41 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // RKEMasterNodeComponent represents RKE configuration for a master node
 type RKEMasterNodeComponent struct {
 	pulumi.ResourceState
 
-	NodeName          pulumi.StringOutput `pulumi:"nodeName"`
-	ControlPlane      pulumi.StringOutput `pulumi:"controlPlane"`
-	Etcd              pulumi.StringOutput `pulumi:"etcd"`
-	KubeAPIServer     pulumi.StringOutput `pulumi:"kubeAPIServer"`
-	KubeScheduler     pulumi.StringOutput `pulumi:"kubeScheduler"`
-	KubeController    pulumi.StringOutput `pulumi:"kubeController"`
-	Status            pulumi.StringOutput `pulumi:"status"`
+	NodeName       pulumi.StringOutput `pulumi:"nodeName"`
+	ControlPlane   pulumi.StringOutput `pulumi:"controlPlane"`
+	Etcd           pulumi.StringOutput `pulumi:"etcd"`
+	KubeAPIServer  pulumi.StringOutput `pulumi:"kubeAPIServer"`
+	KubeScheduler  pulumi.StringOutput `pulumi:"kubeScheduler"`
+	KubeController pulumi.StringOutput `pulumi:"kubeController"`
+	Status         pulumi.StringOutput `pulumi:"status"`
 }
 
 // RKEWorkerNodeComponent represents RKE configuration for a worker node
 type RKEWorkerNodeComponent struct {
 	pulumi.ResourceState
 
-	NodeName      pulumi.StringOutput `pulumi:"nodeName"`
-	Kubelet       pulumi.StringOutput `pulumi:"kubelet"`
-	KubeProxy     pulumi.StringOutput `pulumi:"kubeProxy"`
+	NodeName         pulumi.StringOutput `pulumi:"nodeName"`
+	Kubelet          pulumi.StringOutput `pulumi:"kubelet"`
+	KubeProxy        pulumi.StringOutput `pulumi:"kubeProxy"`
 	ContainerRuntime pulumi.StringOutput `pulumi:"containerRuntime"`
-	Status        pulumi.StringOutput `pulumi:"status"`
+	Status           pulumi.StringOutput `pulumi:"status"`
 }
 
 // RKENetworkComponent represents RKE network plugin configuration
 type RKENetworkComponent struct {
 	pulumi.ResourceState
 
-	Plugin     pulumi.StringOutput `pulumi:"plugin"`
-	PodCIDR    pulumi.StringOutput `pulumi:"podCIDR"`
+	Plugin      pulumi.StringOutput `pulumi:"plugin"`
+	PodCIDR     pulumi.StringOutput `pulumi:"podCIDR"`
 	ServiceCIDR pulumi.StringOutput `pulumi:"serviceCIDR"`
-	Status     pulumi.StringOutput `pulumi:"status"`
+	Status      pulumi.StringOutput `pulumi:"status"`
 }
 
 // NewRKEComponentGranular creates granular RKE components for each node

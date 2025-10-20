@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // Provider defines the interface for cloud providers
@@ -42,19 +42,19 @@ type Provider interface {
 
 // NodeOutput represents the output of a created node
 type NodeOutput struct {
-	ID            pulumi.IDOutput
-	Name          string
-	PublicIP      pulumi.StringOutput
-	PrivateIP     pulumi.StringOutput
-	Provider      string
-	Region        string
-	Size          string
-	Status        pulumi.StringOutput
-	Labels        map[string]string
-	WireGuardIP   string
-	WireGuardKey  pulumi.StringOutput
-	SSHUser       string
-	SSHKeyPath    string
+	ID           pulumi.IDOutput
+	Name         string
+	PublicIP     pulumi.StringOutput
+	PrivateIP    pulumi.StringOutput
+	Provider     string
+	Region       string
+	Size         string
+	Status       pulumi.StringOutput
+	Labels       map[string]string
+	WireGuardIP  string
+	WireGuardKey pulumi.StringOutput
+	SSHUser      string
+	SSHKeyPath   string
 }
 
 // NetworkOutput represents network creation output

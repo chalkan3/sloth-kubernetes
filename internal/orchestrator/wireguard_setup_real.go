@@ -4,7 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/internal/orchestrator/components"
+	"sloth-kubernetes/pkg/config"
 )
 
 // RealWireGuardPeerComponent with actual WireGuard installation
@@ -23,7 +24,7 @@ type RealWireGuardPeerComponent struct {
 }
 
 // NewRealWireGuardComponent installs WireGuard on actual nodes
-func NewRealWireGuardComponent(ctx *pulumi.Context, name string, config *config.ClusterConfig, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, opts ...pulumi.ResourceOption) (*WireGuardComponent, error) {
+func NewRealWireGuardComponent(ctx *pulumi.Context, name string, config *config.ClusterConfig, nodes []*components.RealNodeComponent, sshPrivateKey pulumi.StringOutput, opts ...pulumi.ResourceOption) (*WireGuardComponent, error) {
 	component := &WireGuardComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:network:WireGuard", name, component, opts...)
 	if err != nil {

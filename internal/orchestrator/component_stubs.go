@@ -4,15 +4,15 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
-	"kubernetes-create/pkg/security"
+	"sloth-kubernetes/pkg/config"
+	"sloth-kubernetes/pkg/security"
 )
 
 // SSHKeyComponent manages SSH keys
 type SSHKeyComponent struct {
 	pulumi.ResourceState
 	PublicKey      pulumi.StringOutput `pulumi:"publicKey"`
-	PrivateKey     pulumi.StringOutput `pulumi:"privateKey"`      // PEM format for remote.Command
+	PrivateKey     pulumi.StringOutput `pulumi:"privateKey"` // PEM format for remote.Command
 	PrivateKeyPath pulumi.StringOutput `pulumi:"privateKeyPath"`
 }
 
@@ -75,7 +75,7 @@ func NewNetworkComponent(ctx *pulumi.Context, name string, config *config.Cluste
 	ctx.RegisterComponentResource("kubernetes-create:network:Network", name, component, opts...)
 
 	component.Networks = pulumi.Map{
-		"cidr": pulumi.String(config.Network.CIDR),
+		"cidr":   pulumi.String(config.Network.CIDR),
 		"status": pulumi.String("created"),
 	}.ToMapOutput()
 
@@ -115,9 +115,9 @@ func NewDNSComponent(ctx *pulumi.Context, name string, config *config.ClusterCon
 // WireGuardComponent manages WireGuard VPN
 type WireGuardComponent struct {
 	pulumi.ResourceState
-	Status         pulumi.StringOutput `pulumi:"status"`
-	ClientConfigs  pulumi.MapOutput    `pulumi:"clientConfigs"`
-	MeshStatus     pulumi.MapOutput    `pulumi:"meshStatus"`
+	Status        pulumi.StringOutput `pulumi:"status"`
+	ClientConfigs pulumi.MapOutput    `pulumi:"clientConfigs"`
+	MeshStatus    pulumi.MapOutput    `pulumi:"meshStatus"`
 }
 
 func NewWireGuardComponent(ctx *pulumi.Context, name string, config *config.ClusterConfig, nodes pulumi.ArrayOutput, sshKeyPath pulumi.StringOutput, opts ...pulumi.ResourceOption) (*WireGuardComponent, error) {
@@ -132,9 +132,9 @@ func NewWireGuardComponent(ctx *pulumi.Context, name string, config *config.Clus
 		for i := range nodes {
 			configs[fmt.Sprintf("node-%d", i)] = map[string]interface{}{
 				"privateKey": "generated-private-key",
-				"publicKey": "generated-public-key",
-				"address": fmt.Sprintf("10.8.0.%d/24", i+10),
-				"endpoint": config.Network.WireGuard.ServerEndpoint,
+				"publicKey":  "generated-public-key",
+				"address":    fmt.Sprintf("10.8.0.%d/24", i+10),
+				"endpoint":   config.Network.WireGuard.ServerEndpoint,
 			}
 		}
 		return configs
@@ -142,16 +142,16 @@ func NewWireGuardComponent(ctx *pulumi.Context, name string, config *config.Clus
 
 	// Mesh network status
 	component.MeshStatus = pulumi.Map{
-		"type": pulumi.String("full-mesh"),
-		"nodes": pulumi.String("6"),
+		"type":        pulumi.String("full-mesh"),
+		"nodes":       pulumi.String("6"),
 		"connections": pulumi.String("30"), // n*(n-1)/2 for full mesh
-		"status": pulumi.String("configured"),
+		"status":      pulumi.String("configured"),
 	}.ToMapOutput()
 
 	ctx.RegisterResourceOutputs(component, pulumi.Map{
-		"status": component.Status,
+		"status":        component.Status,
 		"clientConfigs": component.ClientConfigs,
-		"meshStatus": component.MeshStatus,
+		"meshStatus":    component.MeshStatus,
 	})
 	return component, nil
 }
@@ -219,8 +219,8 @@ users:
 	component.ClusterState = pulumi.String("Active").ToStringOutput()
 
 	ctx.RegisterResourceOutputs(component, pulumi.Map{
-		"status": component.Status,
-		"kubeConfig": component.KubeConfig,
+		"status":       component.Status,
+		"kubeConfig":   component.KubeConfig,
 		"clusterState": component.ClusterState,
 	})
 	return component, nil

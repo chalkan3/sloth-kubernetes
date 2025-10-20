@@ -64,7 +64,12 @@ This project automates the deployment of a highly available Kubernetes cluster s
   - `worker-3`: `workload=misc` (for experiments, testing)
 
 ### Operations
-- **GitOps Ready**: Pre-installed ArgoCD for GitOps workflows
+- **GitOps Addons**: GitOps-first addon management with ArgoCD
+  - Bootstrap ArgoCD from your Git repository
+  - Auto-sync addons from Git commits
+  - Declarative addon management
+  - Full audit trail via Git history
+- **Node Management**: Complete node lifecycle (list, add, remove, ssh, upgrade)
 - **Ingress Controller**: Nginx Ingress with SSL passthrough
 - **Secure Access**: VPN-only access, no public exposure
 - **Complete Documentation**: Extensive docs with examples and diagrams
@@ -130,6 +135,105 @@ pulumi stack output kubeConfig --show-secrets > ~/.kube/config
 kubectl get nodes
 
 # Should show 6 nodes all Ready
+```
+
+## CLI Management
+
+The project includes a comprehensive CLI for cluster and addon management:
+
+### Installation
+
+```bash
+# Build the CLI
+go build -o kubernetes-create
+
+# Move to PATH (optional)
+sudo mv kubernetes-create /usr/local/bin/
+```
+
+### Cluster Management
+
+```bash
+# Deploy cluster
+kubernetes-create deploy --config cluster.yaml
+
+# Preview changes (dry-run)
+kubernetes-create deploy --config cluster.yaml --dry-run
+
+# Show cluster status
+kubernetes-create status
+
+# Destroy cluster
+kubernetes-create destroy
+```
+
+### Node Management
+
+```bash
+# List all nodes
+kubernetes-create nodes list
+
+# Add nodes
+kubernetes-create nodes add --count 2
+
+# Remove a node
+kubernetes-create nodes remove worker-3
+
+# SSH into a node
+kubernetes-create nodes ssh master-1
+
+# Upgrade Kubernetes
+kubernetes-create nodes upgrade --version v1.29.0+rke2r1
+```
+
+### GitOps Addon Management
+
+The CLI features a **GitOps-first addon management system** using ArgoCD:
+
+```bash
+# Generate GitOps repository template
+kubernetes-create addons template --output my-gitops-repo
+
+# Bootstrap ArgoCD from your Git repository
+kubernetes-create addons bootstrap --repo https://github.com/you/gitops-repo
+
+# List installed addons
+kubernetes-create addons list
+
+# Show ArgoCD and addon status
+kubernetes-create addons status
+
+# Force sync from Git
+kubernetes-create addons sync
+```
+
+#### How GitOps Addons Work
+
+1. **Create a Git repository** with addon manifests in `addons/` directory
+2. **Bootstrap ArgoCD** from that repository using the CLI
+3. **Commit changes** to add/update/remove addons
+4. **ArgoCD auto-syncs** - Changes are automatically applied to the cluster
+
+This provides:
+- ✅ **Declarative management** - Describe desired state in Git
+- ✅ **Auto-sync** - Automatic synchronization of changes
+- ✅ **Audit trail** - Full Git history of all changes
+- ✅ **Easy rollback** - Simple `git revert` to undo changes
+- ✅ **Self-healing** - ArgoCD corrects drift automatically
+
+See [ADDONS_GITOPS.md](./ADDONS_GITOPS.md) for complete documentation.
+
+### Configuration Management
+
+```bash
+# Generate example configuration
+kubernetes-create config generate
+
+# Generate minimal configuration
+kubernetes-create config generate --format minimal
+
+# Save to file
+kubernetes-create config generate -o cluster.yaml
 ```
 
 ## Configuration
@@ -235,12 +339,23 @@ See `docs/examples/` for more complete examples.
 
 ## Documentation
 
-Complete documentation is available in the `docs/` directory:
+Complete documentation is available:
 
-- **[docs/README.md](docs/README.md)** - Complete cluster documentation
-- **[docs/QUICK_START.md](docs/QUICK_START.md)** - Quick start guide
-- **[docs/NETWORK_DIAGRAM.md](docs/NETWORK_DIAGRAM.md)** - Network architecture diagrams
-- **[docs/examples/](docs/examples/)** - Deployment examples
+### Core Documentation
+- **[README.md](./README.md)** - This file (overview and quick start)
+- **[STATE_MANAGEMENT.md](./STATE_MANAGEMENT.md)** - Pulumi state management guide
+- **[DRY_RUN_USAGE.md](./DRY_RUN_USAGE.md)** - Preview/dry-run functionality
+- **[IMPROVEMENTS_SUMMARY.md](./IMPROVEMENTS_SUMMARY.md)** - All improvements and features
+
+### Feature Documentation
+- **[NODES_MANAGEMENT.md](./NODES_MANAGEMENT.md)** - Complete node management guide (50+ pages)
+- **[ADDONS_GITOPS.md](./ADDONS_GITOPS.md)** - GitOps addon management guide (50+ pages)
+- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and changes
+
+### Examples
+- **[examples/cluster-basic.yaml](./examples/cluster-basic.yaml)** - Full configuration example
+- **[examples/cluster-minimal.yaml](./examples/cluster-minimal.yaml)** - Minimal configuration
+- **[examples/README.md](./examples/README.md)** - Configuration guide
 
 ## Features Roadmap
 

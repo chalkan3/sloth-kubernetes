@@ -6,15 +6,15 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // NginxIngressManager manages NGINX Ingress Controller installation
 type NginxIngressManager struct {
-	ctx         *pulumi.Context
-	domain      string
-	masterNode  *providers.NodeOutput
-	sshKeyPath  string
+	ctx        *pulumi.Context
+	domain     string
+	masterNode *providers.NodeOutput
+	sshKeyPath string
 }
 
 // NewNginxIngressManager creates a new NGINX Ingress manager

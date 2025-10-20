@@ -55,9 +55,9 @@ func NewHealthCheckComponentGranular(ctx *pulumi.Context, name string, nodes pul
 			}
 
 			results[nodeName] = map[string]interface{}{
-				"status":  "healthy",
-				"checks":  6, // SSH, Network, Disk, Memory, CPU, Overall
-				"node":    nodeHealth,
+				"status":      "healthy",
+				"checks":      6, // SSH, Network, Disk, Memory, CPU, Overall
+				"node":        nodeHealth,
 				"provisioned": true,
 			}
 			totalChecks += 6

@@ -28,11 +28,11 @@ type DependencyValidationResult struct {
 
 // ValidateDependenciesArgs are the arguments for dependency validation
 type ValidateDependenciesArgs struct {
-	NodeName   string
-	NodeIP     pulumi.StringInput
-	SSHKey     pulumi.StringInput
-	Checks     []DependencyCheck
-	DependsOn  []pulumi.Resource
+	NodeName  string
+	NodeIP    pulumi.StringInput
+	SSHKey    pulumi.StringInput
+	Checks    []DependencyCheck
+	DependsOn []pulumi.Resource
 }
 
 // ValidateDependencies validates that all required dependencies are installed on a node

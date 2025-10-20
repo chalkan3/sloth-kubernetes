@@ -102,26 +102,26 @@ type AWSProvider struct {
 
 // AzureProvider configuration
 type AzureProvider struct {
-	Enabled         bool                   `yaml:"enabled" json:"enabled"`
-	SubscriptionID  string                 `yaml:"subscriptionId" json:"subscriptionId"`
-	TenantID        string                 `yaml:"tenantId" json:"tenantId"`
-	ClientID        string                 `yaml:"clientId" json:"clientId"`
-	ClientSecret    string                 `yaml:"clientSecret" json:"clientSecret"`
-	ResourceGroup   string                 `yaml:"resourceGroup" json:"resourceGroup"`
-	Location        string                 `yaml:"location" json:"location"`
-	VirtualNetwork  *VPCConfig             `yaml:"virtualNetwork,omitempty" json:"virtualNetwork,omitempty"`
-	Custom          map[string]interface{} `yaml:"custom" json:"custom"`
+	Enabled        bool                   `yaml:"enabled" json:"enabled"`
+	SubscriptionID string                 `yaml:"subscriptionId" json:"subscriptionId"`
+	TenantID       string                 `yaml:"tenantId" json:"tenantId"`
+	ClientID       string                 `yaml:"clientId" json:"clientId"`
+	ClientSecret   string                 `yaml:"clientSecret" json:"clientSecret"`
+	ResourceGroup  string                 `yaml:"resourceGroup" json:"resourceGroup"`
+	Location       string                 `yaml:"location" json:"location"`
+	VirtualNetwork *VPCConfig             `yaml:"virtualNetwork,omitempty" json:"virtualNetwork,omitempty"`
+	Custom         map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
 // GCPProvider configuration
 type GCPProvider struct {
-	Enabled      bool                   `yaml:"enabled" json:"enabled"`
-	ProjectID    string                 `yaml:"projectId" json:"projectId"`
-	Credentials  string                 `yaml:"credentials" json:"credentials"`
-	Region       string                 `yaml:"region" json:"region"`
-	Zone         string                 `yaml:"zone" json:"zone"`
-	Network      *VPCConfig             `yaml:"network,omitempty" json:"network,omitempty"`
-	Custom       map[string]interface{} `yaml:"custom" json:"custom"`
+	Enabled     bool                   `yaml:"enabled" json:"enabled"`
+	ProjectID   string                 `yaml:"projectId" json:"projectId"`
+	Credentials string                 `yaml:"credentials" json:"credentials"`
+	Region      string                 `yaml:"region" json:"region"`
+	Zone        string                 `yaml:"zone" json:"zone"`
+	Network     *VPCConfig             `yaml:"network,omitempty" json:"network,omitempty"`
+	Custom      map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
 // NetworkConfig defines network settings
@@ -146,29 +146,42 @@ type NetworkConfig struct {
 
 // WireGuardConfig for VPN setup
 type WireGuardConfig struct {
-	Enabled          bool              `yaml:"enabled" json:"enabled"`
-	ServerEndpoint   string            `yaml:"serverEndpoint" json:"serverEndpoint"`
-	ServerPublicKey  string            `yaml:"serverPublicKey" json:"serverPublicKey"`
-	ServerPrivateKey string            `yaml:"serverPrivateKey" json:"serverPrivateKey"`
-	ClientIPBase     string            `yaml:"clientIpBase" json:"clientIpBase"`
-	Port             int               `yaml:"port" json:"port"`
-	AllowedIPs       []string          `yaml:"allowedIps" json:"allowedIps"`
-	DNS              []string          `yaml:"dns" json:"dns"`
-	MTU              int               `yaml:"mtu" json:"mtu"`
-	PersistentKeepalive int            `yaml:"persistentKeepalive" json:"persistentKeepalive"`
-	Peers            []WireGuardPeer   `yaml:"peers" json:"peers"`
-	AutoConfig       bool              `yaml:"autoConfig" json:"autoConfig"`
-	MeshNetworking   bool              `yaml:"meshNetworking" json:"meshNetworking"`
-	SSHPrivateKeyPath string           `yaml:"sshPrivateKeyPath" json:"sshPrivateKeyPath"`
+	// Creation settings
+	Create          bool   `yaml:"create" json:"create"`                   // Auto-create WireGuard server
+	Provider        string `yaml:"provider" json:"provider"`               // Provider for WG server (digitalocean/linode)
+	Region          string `yaml:"region" json:"region"`                   // Region for WG server
+	Size            string `yaml:"size" json:"size"`                       // Server size
+	Image           string `yaml:"image" json:"image"`                     // Server image (default: ubuntu-22-04-x64)
+	Name            string `yaml:"name" json:"name"`                       // Server name
+	ServerIPAddress string `yaml:"serverIpAddress" json:"serverIpAddress"` // Server public IP (auto-set if creating)
+
+	// Connection settings (used if Create=false, or auto-generated if Create=true)
+	Enabled             bool            `yaml:"enabled" json:"enabled"`
+	ServerEndpoint      string          `yaml:"serverEndpoint" json:"serverEndpoint"`
+	ServerPublicKey     string          `yaml:"serverPublicKey" json:"serverPublicKey"`
+	ServerPrivateKey    string          `yaml:"serverPrivateKey" json:"serverPrivateKey"` // Only if creating
+	ClientIPBase        string          `yaml:"clientIpBase" json:"clientIpBase"`
+	Port                int             `yaml:"port" json:"port"`
+	AllowedIPs          []string        `yaml:"allowedIps" json:"allowedIps"`
+	DNS                 []string        `yaml:"dns" json:"dns"`
+	MTU                 int             `yaml:"mtu" json:"mtu"`
+	PersistentKeepalive int             `yaml:"persistentKeepalive" json:"persistentKeepalive"`
+	Peers               []WireGuardPeer `yaml:"peers" json:"peers"`
+	AutoConfig          bool            `yaml:"autoConfig" json:"autoConfig"`
+	MeshNetworking      bool            `yaml:"meshNetworking" json:"meshNetworking"`
+	SSHPrivateKeyPath   string          `yaml:"sshPrivateKeyPath" json:"sshPrivateKeyPath"`
+
+	// Network configuration
+	SubnetCIDR string `yaml:"subnetCidr" json:"subnetCidr"` // VPN subnet (e.g., 10.8.0.0/24)
 }
 
 // WireGuardPeer represents a WireGuard peer
 type WireGuardPeer struct {
-	Name            string   `yaml:"name" json:"name"`
-	PublicKey       string   `yaml:"publicKey" json:"publicKey"`
-	AllowedIPs      []string `yaml:"allowedIps" json:"allowedIps"`
-	Endpoint        string   `yaml:"endpoint" json:"endpoint"`
-	PresharedKey    string   `yaml:"presharedKey" json:"presharedKey"`
+	Name         string   `yaml:"name" json:"name"`
+	PublicKey    string   `yaml:"publicKey" json:"publicKey"`
+	AllowedIPs   []string `yaml:"allowedIps" json:"allowedIps"`
+	Endpoint     string   `yaml:"endpoint" json:"endpoint"`
+	PresharedKey string   `yaml:"presharedKey" json:"presharedKey"`
 }
 
 // SecurityConfig defines security settings
@@ -186,23 +199,23 @@ type SecurityConfig struct {
 
 // NodeConfig represents individual node configuration
 type NodeConfig struct {
-	Name         string                 `yaml:"name" json:"name"`
-	Provider     string                 `yaml:"provider" json:"provider"`
-	Pool         string                 `yaml:"pool" json:"pool"`
-	Roles        []string               `yaml:"roles" json:"roles"`
-	Size         string                 `yaml:"size" json:"size"`
-	Image        string                 `yaml:"image" json:"image"`
-	Region       string                 `yaml:"region" json:"region"`
-	Zone         string                 `yaml:"zone" json:"zone"`
-	PrivateIP    string                 `yaml:"privateIp" json:"privateIp"`
-	PublicIP     string                 `yaml:"publicIp" json:"publicIp"`
-	WireGuardIP  string                 `yaml:"wireguardIp" json:"wireguardIp"`
-	Labels       map[string]string      `yaml:"labels" json:"labels"`
-	Taints       []TaintConfig          `yaml:"taints" json:"taints"`
-	UserData     string                 `yaml:"userData" json:"userData"`
-	SSHKey       string                 `yaml:"sshKey" json:"sshKey"`
-	Monitoring   bool                   `yaml:"monitoring" json:"monitoring"`
-	Custom       map[string]interface{} `yaml:"custom" json:"custom"`
+	Name        string                 `yaml:"name" json:"name"`
+	Provider    string                 `yaml:"provider" json:"provider"`
+	Pool        string                 `yaml:"pool" json:"pool"`
+	Roles       []string               `yaml:"roles" json:"roles"`
+	Size        string                 `yaml:"size" json:"size"`
+	Image       string                 `yaml:"image" json:"image"`
+	Region      string                 `yaml:"region" json:"region"`
+	Zone        string                 `yaml:"zone" json:"zone"`
+	PrivateIP   string                 `yaml:"privateIp" json:"privateIp"`
+	PublicIP    string                 `yaml:"publicIp" json:"publicIp"`
+	WireGuardIP string                 `yaml:"wireguardIp" json:"wireguardIp"`
+	Labels      map[string]string      `yaml:"labels" json:"labels"`
+	Taints      []TaintConfig          `yaml:"taints" json:"taints"`
+	UserData    string                 `yaml:"userData" json:"userData"`
+	SSHKey      string                 `yaml:"sshKey" json:"sshKey"`
+	Monitoring  bool                   `yaml:"monitoring" json:"monitoring"`
+	Custom      map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
 // NodePool defines a pool of similar nodes
@@ -228,33 +241,72 @@ type NodePool struct {
 
 // KubernetesConfig for Kubernetes-specific settings
 type KubernetesConfig struct {
-	Version             string                 `yaml:"version" json:"version"`
-	NetworkPlugin       string                 `yaml:"networkPlugin" json:"networkPlugin"`
-	PodCIDR             string                 `yaml:"podCidr" json:"podCidr"`
-	ServiceCIDR         string                 `yaml:"serviceCidr" json:"serviceCidr"`
-	ClusterDNS          string                 `yaml:"clusterDns" json:"clusterDns"`
-	ClusterDomain       string                 `yaml:"clusterDomain" json:"clusterDomain"`
-	APIServer           APIServerConfig        `yaml:"apiServer" json:"apiServer"`
-	ControllerManager   ControllerConfig       `yaml:"controllerManager" json:"controllerManager"`
-	Scheduler           SchedulerConfig        `yaml:"scheduler" json:"scheduler"`
-	Kubelet             KubeletConfig          `yaml:"kubelet" json:"kubelet"`
-	Etcd                EtcdConfig             `yaml:"etcd" json:"etcd"`
-	Addons              []AddonConfig          `yaml:"addons" json:"addons"`
-	Features            map[string]bool        `yaml:"features" json:"features"`
-	Admission           AdmissionConfig        `yaml:"admission" json:"admission"`
-	AuditLog            bool                   `yaml:"auditLog" json:"auditLog"`
-	EncryptSecrets      bool                   `yaml:"encryptSecrets" json:"encryptSecrets"`
-	Monitoring          bool                   `yaml:"monitoring" json:"monitoring"`
-	Custom              map[string]interface{} `yaml:"custom" json:"custom"`
+	Version           string                 `yaml:"version" json:"version"`
+	Distribution      string                 `yaml:"distribution" json:"distribution"` // rke2, k3s, kubeadm
+	NetworkPlugin     string                 `yaml:"networkPlugin" json:"networkPlugin"`
+	PodCIDR           string                 `yaml:"podCidr" json:"podCidr"`
+	ServiceCIDR       string                 `yaml:"serviceCidr" json:"serviceCidr"`
+	ClusterDNS        string                 `yaml:"clusterDns" json:"clusterDns"`
+	ClusterDomain     string                 `yaml:"clusterDomain" json:"clusterDomain"`
+	RKE2              *RKE2Config            `yaml:"rke2,omitempty" json:"rke2,omitempty"`
+	APIServer         APIServerConfig        `yaml:"apiServer" json:"apiServer"`
+	ControllerManager ControllerConfig       `yaml:"controllerManager" json:"controllerManager"`
+	Scheduler         SchedulerConfig        `yaml:"scheduler" json:"scheduler"`
+	Kubelet           KubeletConfig          `yaml:"kubelet" json:"kubelet"`
+	Etcd              EtcdConfig             `yaml:"etcd" json:"etcd"`
+	Addons            []AddonConfig          `yaml:"addons" json:"addons"`
+	Features          map[string]bool        `yaml:"features" json:"features"`
+	Admission         AdmissionConfig        `yaml:"admission" json:"admission"`
+	AuditLog          bool                   `yaml:"auditLog" json:"auditLog"`
+	EncryptSecrets    bool                   `yaml:"encryptSecrets" json:"encryptSecrets"`
+	Monitoring        bool                   `yaml:"monitoring" json:"monitoring"`
+	Custom            map[string]interface{} `yaml:"custom" json:"custom"`
+}
+
+// RKE2Config specific configuration for RKE2 distribution
+type RKE2Config struct {
+	Version             string            `yaml:"version" json:"version"`                         // e.g., "v1.28.5+rke2r1"
+	Channel             string            `yaml:"channel" json:"channel"`                         // stable, latest, testing
+	ClusterToken        string            `yaml:"clusterToken" json:"clusterToken"`               // Shared secret for cluster
+	TLSSan              []string          `yaml:"tlsSan" json:"tlsSan"`                           // Additional SANs for API server
+	DisableComponents   []string          `yaml:"disableComponents" json:"disableComponents"`     // Components to disable (e.g., rke2-ingress-nginx)
+	DataDir             string            `yaml:"dataDir" json:"dataDir"`                         // Data directory (default: /var/lib/rancher/rke2)
+	NodeTaint           []string          `yaml:"nodeTaint" json:"nodeTaint"`                     // Taints to apply to nodes
+	NodeLabel           []string          `yaml:"nodeLabel" json:"nodeLabel"`                     // Labels to apply to nodes
+	ContainerRuntimeEndpoint string       `yaml:"containerRuntimeEndpoint" json:"containerRuntimeEndpoint"` // Container runtime endpoint
+	SnapshotScheduleCron string            `yaml:"snapshotScheduleCron" json:"snapshotScheduleCron"` // Etcd snapshot schedule
+	SnapshotRetention   int               `yaml:"snapshotRetention" json:"snapshotRetention"`     // Number of snapshots to retain
+	SystemDefaultRegistry string          `yaml:"systemDefaultRegistry" json:"systemDefaultRegistry"` // Private registry for system images
+	Profiles            []string          `yaml:"profiles" json:"profiles"`                       // CIS profiles to enable
+	SeLinux             bool              `yaml:"selinux" json:"selinux"`                         // Enable SELinux
+	SecretsEncryption   bool              `yaml:"secretsEncryption" json:"secretsEncryption"`     // Enable secrets encryption
+	WriteKubeconfigMode string            `yaml:"writeKubeconfigMode" json:"writeKubeconfigMode"` // Kubeconfig file permissions
+	ProtectKernelDefaults bool            `yaml:"protectKernelDefaults" json:"protectKernelDefaults"` // Protect kernel defaults
+	ExtraServerArgs     map[string]string `yaml:"extraServerArgs" json:"extraServerArgs"`         // Extra arguments for server
+	ExtraAgentArgs      map[string]string `yaml:"extraAgentArgs" json:"extraAgentArgs"`           // Extra arguments for agent
 }
 
 // Helper types for various configurations
 type VPCConfig struct {
-	ID      string `yaml:"id" json:"id"`
-	Name    string `yaml:"name" json:"name"`
-	CIDR    string `yaml:"cidr" json:"cidr"`
-	Region  string `yaml:"region" json:"region"`
-	Private bool   `yaml:"private" json:"private"`
+	// Creation settings
+	Create  bool   `yaml:"create" json:"create"`   // Auto-create VPC
+	ID      string `yaml:"id" json:"id"`           // Existing VPC ID (if not creating)
+	Name    string `yaml:"name" json:"name"`       // VPC name
+	CIDR    string `yaml:"cidr" json:"cidr"`       // VPC CIDR block
+	Region  string `yaml:"region" json:"region"`   // VPC region
+	Private bool   `yaml:"private" json:"private"` // Private VPC
+
+	// Advanced settings
+	EnableDNS         bool     `yaml:"enableDns" json:"enableDns"`                 // Enable DNS resolution
+	EnableDNSHostname bool     `yaml:"enableDnsHostname" json:"enableDnsHostname"` // Enable DNS hostnames
+	Subnets           []string `yaml:"subnets" json:"subnets"`                     // Subnet CIDRs to create
+	InternetGateway   bool     `yaml:"internetGateway" json:"internetGateway"`     // Create internet gateway
+	NATGateway        bool     `yaml:"natGateway" json:"natGateway"`               // Create NAT gateway
+	Tags              []string `yaml:"tags" json:"tags"`                           // VPC tags
+
+	// Provider-specific
+	DigitalOcean *DOVPCConfig     `yaml:"digitalocean,omitempty" json:"digitalocean,omitempty"`
+	Linode       *LinodeVPCConfig `yaml:"linode,omitempty" json:"linode,omitempty"`
 }
 
 type SubnetConfig struct {
@@ -357,10 +409,10 @@ type TLSConfig struct {
 }
 
 type RBACConfig struct {
-	Enabled       bool              `yaml:"enabled" json:"enabled"`
-	DefaultPolicy string            `yaml:"defaultPolicy" json:"defaultPolicy"`
-	Roles         []RoleConfig      `yaml:"roles" json:"roles"`
-	Bindings      []BindingConfig   `yaml:"bindings" json:"bindings"`
+	Enabled       bool            `yaml:"enabled" json:"enabled"`
+	DefaultPolicy string          `yaml:"defaultPolicy" json:"defaultPolicy"`
+	Roles         []RoleConfig    `yaml:"roles" json:"roles"`
+	Bindings      []BindingConfig `yaml:"bindings" json:"bindings"`
 }
 
 type RoleConfig struct {
@@ -378,18 +430,18 @@ type BindingConfig struct {
 }
 
 type PodSecurityConfig struct {
-	PolicyLevel      string `yaml:"policyLevel" json:"policyLevel"`
-	EnforceProfile   string `yaml:"enforceProfile" json:"enforceProfile"`
-	AuditProfile     string `yaml:"auditProfile" json:"auditProfile"`
-	WarnProfile      string `yaml:"warnProfile" json:"warnProfile"`
+	PolicyLevel    string `yaml:"policyLevel" json:"policyLevel"`
+	EnforceProfile string `yaml:"enforceProfile" json:"enforceProfile"`
+	AuditProfile   string `yaml:"auditProfile" json:"auditProfile"`
+	WarnProfile    string `yaml:"warnProfile" json:"warnProfile"`
 }
 
 type SecretsConfig struct {
-	Provider       string                 `yaml:"provider" json:"provider"`
-	Encryption     bool                   `yaml:"encryption" json:"encryption"`
-	KeyManagement  string                 `yaml:"keyManagement" json:"keyManagement"`
-	ExternalSecrets bool                  `yaml:"externalSecrets" json:"externalSecrets"`
-	Custom         map[string]interface{} `yaml:"custom" json:"custom"`
+	Provider        string                 `yaml:"provider" json:"provider"`
+	Encryption      bool                   `yaml:"encryption" json:"encryption"`
+	KeyManagement   string                 `yaml:"keyManagement" json:"keyManagement"`
+	ExternalSecrets bool                   `yaml:"externalSecrets" json:"externalSecrets"`
+	Custom          map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
 type ComplianceConfig struct {
@@ -414,29 +466,29 @@ type TaintConfig struct {
 }
 
 type AutoScalingConfig struct {
-	Enabled     bool   `yaml:"enabled" json:"enabled"`
-	MinNodes    int    `yaml:"minNodes" json:"minNodes"`
-	MaxNodes    int    `yaml:"maxNodes" json:"maxNodes"`
-	TargetCPU   int    `yaml:"targetCpu" json:"targetCpu"`
-	TargetMemory int   `yaml:"targetMemory" json:"targetMemory"`
-	ScaleDown   string `yaml:"scaleDown" json:"scaleDown"`
-	ScaleUp     string `yaml:"scaleUp" json:"scaleUp"`
+	Enabled      bool   `yaml:"enabled" json:"enabled"`
+	MinNodes     int    `yaml:"minNodes" json:"minNodes"`
+	MaxNodes     int    `yaml:"maxNodes" json:"maxNodes"`
+	TargetCPU    int    `yaml:"targetCpu" json:"targetCpu"`
+	TargetMemory int    `yaml:"targetMemory" json:"targetMemory"`
+	ScaleDown    string `yaml:"scaleDown" json:"scaleDown"`
+	ScaleUp      string `yaml:"scaleUp" json:"scaleUp"`
 }
 
 type BackupConfig struct {
-	Enabled       bool          `yaml:"enabled" json:"enabled"`
-	Schedule      string        `yaml:"schedule" json:"schedule"`
-	Retention     int           `yaml:"retention" json:"retention"`
-	Provider      string        `yaml:"provider" json:"provider"`
-	Location      string        `yaml:"location" json:"location"`
-	IncludeEtcd   bool          `yaml:"includeEtcd" json:"includeEtcd"`
-	IncludeVolumes bool         `yaml:"includeVolumes" json:"includeVolumes"`
+	Enabled        bool   `yaml:"enabled" json:"enabled"`
+	Schedule       string `yaml:"schedule" json:"schedule"`
+	Retention      int    `yaml:"retention" json:"retention"`
+	Provider       string `yaml:"provider" json:"provider"`
+	Location       string `yaml:"location" json:"location"`
+	IncludeEtcd    bool   `yaml:"includeEtcd" json:"includeEtcd"`
+	IncludeVolumes bool   `yaml:"includeVolumes" json:"includeVolumes"`
 }
 
 type BackupPolicy struct {
-	Enabled    bool   `yaml:"enabled" json:"enabled"`
-	Frequency  string `yaml:"frequency" json:"frequency"`
-	Retention  int    `yaml:"retention" json:"retention"`
+	Enabled   bool   `yaml:"enabled" json:"enabled"`
+	Frequency string `yaml:"frequency" json:"frequency"`
+	Retention int    `yaml:"retention" json:"retention"`
 }
 
 type MaintenanceWindow struct {
@@ -458,27 +510,27 @@ type MonitoringConfig struct {
 }
 
 type PrometheusConfig struct {
-	Enabled        bool     `yaml:"enabled" json:"enabled"`
-	Retention      string   `yaml:"retention" json:"retention"`
-	StorageSize    string   `yaml:"storageSize" json:"storageSize"`
-	Replicas       int      `yaml:"replicas" json:"replicas"`
-	ScrapeInterval string   `yaml:"scrapeInterval" json:"scrapeInterval"`
+	Enabled        bool              `yaml:"enabled" json:"enabled"`
+	Retention      string            `yaml:"retention" json:"retention"`
+	StorageSize    string            `yaml:"storageSize" json:"storageSize"`
+	Replicas       int               `yaml:"replicas" json:"replicas"`
+	ScrapeInterval string            `yaml:"scrapeInterval" json:"scrapeInterval"`
 	ExternalLabels map[string]string `yaml:"externalLabels" json:"externalLabels"`
 }
 
 type GrafanaConfig struct {
-	Enabled      bool     `yaml:"enabled" json:"enabled"`
-	AdminPassword string  `yaml:"adminPassword" json:"adminPassword"`
-	Ingress      bool     `yaml:"ingress" json:"ingress"`
-	Domain       string   `yaml:"domain" json:"domain"`
-	Dashboards   []string `yaml:"dashboards" json:"dashboards"`
+	Enabled       bool     `yaml:"enabled" json:"enabled"`
+	AdminPassword string   `yaml:"adminPassword" json:"adminPassword"`
+	Ingress       bool     `yaml:"ingress" json:"ingress"`
+	Domain        string   `yaml:"domain" json:"domain"`
+	Dashboards    []string `yaml:"dashboards" json:"dashboards"`
 }
 
 type AlertManagerConfig struct {
-	Enabled   bool              `yaml:"enabled" json:"enabled"`
-	Replicas  int               `yaml:"replicas" json:"replicas"`
-	Routes    []AlertRoute      `yaml:"routes" json:"routes"`
-	Receivers []AlertReceiver   `yaml:"receivers" json:"receivers"`
+	Enabled   bool            `yaml:"enabled" json:"enabled"`
+	Replicas  int             `yaml:"replicas" json:"replicas"`
+	Routes    []AlertRoute    `yaml:"routes" json:"routes"`
+	Receivers []AlertReceiver `yaml:"receivers" json:"receivers"`
 }
 
 type AlertRoute struct {
@@ -487,17 +539,17 @@ type AlertRoute struct {
 }
 
 type AlertReceiver struct {
-	Name     string                 `yaml:"name" json:"name"`
-	Type     string                 `yaml:"type" json:"type"`
-	Config   map[string]interface{} `yaml:"config" json:"config"`
+	Name   string                 `yaml:"name" json:"name"`
+	Type   string                 `yaml:"type" json:"type"`
+	Config map[string]interface{} `yaml:"config" json:"config"`
 }
 
 type LoggingConfig struct {
-	Provider     string   `yaml:"provider" json:"provider"`
-	Backend      string   `yaml:"backend" json:"backend"`
-	Retention    string   `yaml:"retention" json:"retention"`
-	Aggregation  bool     `yaml:"aggregation" json:"aggregation"`
-	Parsers      []string `yaml:"parsers" json:"parsers"`
+	Provider    string   `yaml:"provider" json:"provider"`
+	Backend     string   `yaml:"backend" json:"backend"`
+	Retention   string   `yaml:"retention" json:"retention"`
+	Aggregation bool     `yaml:"aggregation" json:"aggregation"`
+	Parsers     []string `yaml:"parsers" json:"parsers"`
 }
 
 type TracingConfig struct {
@@ -507,19 +559,19 @@ type TracingConfig struct {
 }
 
 type StorageConfig struct {
-	DefaultClass    string                 `yaml:"defaultClass" json:"defaultClass"`
-	Classes         []StorageClass         `yaml:"classes" json:"classes"`
-	PersistentVolumes []PersistentVolume   `yaml:"persistentVolumes" json:"persistentVolumes"`
-	CSIDrivers      []CSIDriver            `yaml:"csiDrivers" json:"csiDrivers"`
-	Custom          map[string]interface{} `yaml:"custom" json:"custom"`
+	DefaultClass      string                 `yaml:"defaultClass" json:"defaultClass"`
+	Classes           []StorageClass         `yaml:"classes" json:"classes"`
+	PersistentVolumes []PersistentVolume     `yaml:"persistentVolumes" json:"persistentVolumes"`
+	CSIDrivers        []CSIDriver            `yaml:"csiDrivers" json:"csiDrivers"`
+	Custom            map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
 type StorageClass struct {
-	Name         string                 `yaml:"name" json:"name"`
-	Provisioner  string                 `yaml:"provisioner" json:"provisioner"`
-	ReclaimPolicy string                `yaml:"reclaimPolicy" json:"reclaimPolicy"`
+	Name              string            `yaml:"name" json:"name"`
+	Provisioner       string            `yaml:"provisioner" json:"provisioner"`
+	ReclaimPolicy     string            `yaml:"reclaimPolicy" json:"reclaimPolicy"`
 	VolumeBindingMode string            `yaml:"volumeBindingMode" json:"volumeBindingMode"`
-	Parameters   map[string]string      `yaml:"parameters" json:"parameters"`
+	Parameters        map[string]string `yaml:"parameters" json:"parameters"`
 }
 
 type PersistentVolume struct {
@@ -538,10 +590,10 @@ type CSIDriver struct {
 }
 
 type APIServerConfig struct {
-	ExtraArgs       map[string]string `yaml:"extraArgs" json:"extraArgs"`
-	ExtraVolumes    []VolumeMount     `yaml:"extraVolumes" json:"extraVolumes"`
-	AuditLog        bool              `yaml:"auditLog" json:"auditLog"`
-	EncryptionConfig bool             `yaml:"encryptionConfig" json:"encryptionConfig"`
+	ExtraArgs        map[string]string `yaml:"extraArgs" json:"extraArgs"`
+	ExtraVolumes     []VolumeMount     `yaml:"extraVolumes" json:"extraVolumes"`
+	AuditLog         bool              `yaml:"auditLog" json:"auditLog"`
+	EncryptionConfig bool              `yaml:"encryptionConfig" json:"encryptionConfig"`
 }
 
 type ControllerConfig struct {
@@ -556,22 +608,22 @@ type SchedulerConfig struct {
 }
 
 type KubeletConfig struct {
-	ExtraArgs        map[string]string `yaml:"extraArgs" json:"extraArgs"`
-	ExtraVolumes     []VolumeMount     `yaml:"extraVolumes" json:"extraVolumes"`
-	ClusterDNS       string            `yaml:"clusterDns" json:"clusterDns"`
-	ClusterDomain    string            `yaml:"clusterDomain" json:"clusterDomain"`
-	RegistryMirrors  []string          `yaml:"registryMirrors" json:"registryMirrors"`
+	ExtraArgs       map[string]string `yaml:"extraArgs" json:"extraArgs"`
+	ExtraVolumes    []VolumeMount     `yaml:"extraVolumes" json:"extraVolumes"`
+	ClusterDNS      string            `yaml:"clusterDns" json:"clusterDns"`
+	ClusterDomain   string            `yaml:"clusterDomain" json:"clusterDomain"`
+	RegistryMirrors []string          `yaml:"registryMirrors" json:"registryMirrors"`
 }
 
 type EtcdConfig struct {
-	External        bool              `yaml:"external" json:"external"`
-	Endpoints       []string          `yaml:"endpoints" json:"endpoints"`
-	CAFile          string            `yaml:"caFile" json:"caFile"`
-	CertFile        string            `yaml:"certFile" json:"certFile"`
-	KeyFile         string            `yaml:"keyFile" json:"keyFile"`
-	BackupInterval  time.Duration     `yaml:"backupInterval" json:"backupInterval"`
-	BackupRetention int               `yaml:"backupRetention" json:"backupRetention"`
-	Snapshot        *SnapshotConfig   `yaml:"snapshot,omitempty" json:"snapshot,omitempty"`
+	External        bool            `yaml:"external" json:"external"`
+	Endpoints       []string        `yaml:"endpoints" json:"endpoints"`
+	CAFile          string          `yaml:"caFile" json:"caFile"`
+	CertFile        string          `yaml:"certFile" json:"certFile"`
+	KeyFile         string          `yaml:"keyFile" json:"keyFile"`
+	BackupInterval  time.Duration   `yaml:"backupInterval" json:"backupInterval"`
+	BackupRetention int             `yaml:"backupRetention" json:"backupRetention"`
+	Snapshot        *SnapshotConfig `yaml:"snapshot,omitempty" json:"snapshot,omitempty"`
 }
 
 type SnapshotConfig struct {
@@ -599,4 +651,25 @@ type AddonConfig struct {
 type AdmissionConfig struct {
 	Plugins []string          `yaml:"plugins" json:"plugins"`
 	Config  map[string]string `yaml:"config" json:"config"`
+}
+
+// Provider-specific VPC configurations
+
+// DOVPCConfig - DigitalOcean specific VPC settings
+type DOVPCConfig struct {
+	IPRange     string `yaml:"ipRange" json:"ipRange"`         // IP range for VPC
+	Description string `yaml:"description" json:"description"` // VPC description
+}
+
+// LinodeVPCConfig - Linode specific VPC settings
+type LinodeVPCConfig struct {
+	Label       string               `yaml:"label" json:"label"`             // VPC label
+	Description string               `yaml:"description" json:"description"` // VPC description
+	Subnets     []LinodeSubnetConfig `yaml:"subnets" json:"subnets"`         // VPC subnets
+}
+
+// LinodeSubnetConfig - Linode VPC subnet configuration
+type LinodeSubnetConfig struct {
+	Label string `yaml:"label" json:"label"` // Subnet label
+	IPv4  string `yaml:"ipv4" json:"ipv4"`   // IPv4 CIDR
 }

@@ -9,7 +9,7 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // OSFirewallManager manages operating system level firewall rules
@@ -24,12 +24,12 @@ type OSFirewallManager struct {
 
 // FirewallResult represents the result of firewall configuration
 type FirewallResult struct {
-	NodeName      string
-	Success       bool
-	RulesApplied  []FirewallRule
-	Error         error
-	Timestamp     time.Time
-	FirewallType  string // ufw, iptables, firewalld
+	NodeName     string
+	Success      bool
+	RulesApplied []FirewallRule
+	Error        error
+	Timestamp    time.Time
+	FirewallType string // ufw, iptables, firewalld
 }
 
 // FirewallRule represents a single firewall rule
@@ -45,32 +45,32 @@ type FirewallRule struct {
 // KubernetesFirewallPorts defines all required ports for Kubernetes components
 var KubernetesFirewallPorts = struct {
 	// Master/Control Plane Ports
-	APIServer          FirewallRule
-	ETCD               FirewallRule
-	ETCDPeer           FirewallRule
-	Scheduler          FirewallRule
-	ControllerManager  FirewallRule
-	Kubelet            FirewallRule
-	KubeProxy          FirewallRule
+	APIServer         FirewallRule
+	ETCD              FirewallRule
+	ETCDPeer          FirewallRule
+	Scheduler         FirewallRule
+	ControllerManager FirewallRule
+	Kubelet           FirewallRule
+	KubeProxy         FirewallRule
 
 	// Worker Ports
-	NodePortServices   FirewallRule
+	NodePortServices FirewallRule
 
 	// Network Plugin Ports
-	Flannel            FirewallRule
-	Calico             FirewallRule
-	CanalBGP           FirewallRule
-	Weave              FirewallRule
+	Flannel  FirewallRule
+	Calico   FirewallRule
+	CanalBGP FirewallRule
+	Weave    FirewallRule
 
 	// Additional Ports
-	SSH                FirewallRule
-	WireGuard          FirewallRule
-	DockerRegistry     FirewallRule
-	MetricsServer      FirewallRule
+	SSH            FirewallRule
+	WireGuard      FirewallRule
+	DockerRegistry FirewallRule
+	MetricsServer  FirewallRule
 
 	// Ingress Controller
-	HTTPIngress        FirewallRule
-	HTTPSIngress       FirewallRule
+	HTTPIngress  FirewallRule
+	HTTPSIngress FirewallRule
 }{
 	// Master/Control Plane Ports
 	APIServer: FirewallRule{

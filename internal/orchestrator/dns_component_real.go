@@ -5,7 +5,7 @@ import (
 
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // RealDNSRecordComponent represents a real DNS record in DigitalOcean

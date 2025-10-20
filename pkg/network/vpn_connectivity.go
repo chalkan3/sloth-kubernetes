@@ -8,7 +8,7 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // VPNConnectivityChecker validates VPN connectivity between all nodes
@@ -24,11 +24,11 @@ type VPNConnectivityChecker struct {
 
 // ConnectivityResult represents the connectivity status from one node to all others
 type ConnectivityResult struct {
-	SourceNode    string
-	Timestamp     time.Time
-	Connections   map[string]*ConnectionStatus
-	AllConnected  bool
-	Error         error
+	SourceNode   string
+	Timestamp    time.Time
+	Connections  map[string]*ConnectionStatus
+	AllConnected bool
+	Error        error
 }
 
 // ConnectionStatus represents a single connection status
@@ -45,12 +45,12 @@ type ConnectionStatus struct {
 
 // WireGuardStats contains WireGuard interface statistics
 type WireGuardStats struct {
-	Interface        string
-	PublicKey        string
-	Endpoint         string
-	LastHandshake    time.Time
-	TransferRX       int64
-	TransferTX       int64
+	Interface           string
+	PublicKey           string
+	Endpoint            string
+	LastHandshake       time.Time
+	TransferRX          int64
+	TransferTX          int64
 	PersistentKeepAlive int
 }
 

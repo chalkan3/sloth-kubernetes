@@ -6,15 +6,15 @@ import (
 
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // Manager handles DNS record creation
 type Manager struct {
-	ctx      *pulumi.Context
-	domain   string
-	records  []*digitalocean.DnsRecord
-	nodes    []*providers.NodeOutput
+	ctx     *pulumi.Context
+	domain  string
+	records []*digitalocean.DnsRecord
+	nodes   []*providers.NodeOutput
 }
 
 // NewManager creates a new DNS manager
@@ -263,11 +263,11 @@ func (m *Manager) UpdateIngressRecord(ingressIP pulumi.StringOutput) error {
 func (m *Manager) CreateClusterRecords() error {
 	// Create CNAME records for convenience
 	conveniences := map[string]string{
-		"k8s":         "api",
-		"kubernetes":  "api",
-		"cluster":     "api",
-		"rancher":     "kube-ingress",
-		"dashboard":   "kube-ingress",
+		"k8s":        "api",
+		"kubernetes": "api",
+		"cluster":    "api",
+		"rancher":    "kube-ingress",
+		"dashboard":  "kube-ingress",
 	}
 
 	for name, target := range conveniences {

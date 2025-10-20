@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/internal/orchestrator"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/internal/orchestrator"
+	"sloth-kubernetes/pkg/config"
 )
 
 func main() {

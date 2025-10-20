@@ -2,7 +2,7 @@ package orchestrator
 
 import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // HealthCheckComponent performs health checks on all nodes
@@ -31,7 +31,7 @@ func NewHealthCheckComponent(ctx *pulumi.Context, name string, nodes pulumi.Arra
 		for _, n := range nodes {
 			node := n.(*providers.NodeOutput)
 			healthResults[node.Name] = map[string]interface{}{
-				"status": "pending",
+				"status":  "pending",
 				"healthy": false,
 			}
 		}

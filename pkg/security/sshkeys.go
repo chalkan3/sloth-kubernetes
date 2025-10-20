@@ -131,7 +131,7 @@ func GenerateLocalKeyPair() (privateKey string, publicKey string, err error) {
 func (s *SSHKeyManager) ExportSSHAccess(nodes []string) {
 	s.ctx.Export("ssh_access_info", pulumi.Map{
 		"private_key_path": pulumi.String(fmt.Sprintf("~/.ssh/kubernetes-clusters/%s.pem", s.ctx.Stack())),
-		"nodes": pulumi.ToStringArray(nodes),
-		"example_command": pulumi.String(fmt.Sprintf("ssh -i ~/.ssh/kubernetes-clusters/%s.pem root@10.8.0.11", s.ctx.Stack())),
+		"nodes":            pulumi.ToStringArray(nodes),
+		"example_command":  pulumi.String(fmt.Sprintf("ssh -i ~/.ssh/kubernetes-clusters/%s.pem root@10.8.0.11", s.ctx.Stack())),
 	})
 }

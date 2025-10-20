@@ -1,0 +1,237 @@
+apiVersion: kubernetes-create.io/v1
+kind: ClusterConfig
+metadata:
+  name: production-cluster
+  environment: production
+  description: Production Kubernetes cluster with auto-created VPC and VPN
+  owner: devops-team
+  labels:
+    environment: production
+    managed-by: kubernetes-create
+
+# 1️⃣ PROVIDERS - Configure cloud providers
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    monitoring: true
+    # VPC will be auto-created (see vpc section below)
+    vpc:
+      create: true
+      name: k8s-vpc-do
+      cidr: 10.10.0.0/16
+      region: nyc3
+      enableDns: true
+      tags:
+        - kubernetes
+        - production
+      digitalocean:
+        ipRange: 10.10.0.0/16
+        description: Kubernetes cluster VPC
+
+  linode:
+    enabled: true
+    token: ${LINODE_TOKEN}
+    region: us-east
+    privateIp: true
+    # VPC will be auto-created
+    vpc:
+      create: true
+      name: k8s-vpc-linode
+      cidr: 10.11.0.0/16
+      region: us-east
+      enableDns: true
+      tags:
+        - kubernetes
+        - production
+      linode:
+        label: k8s-vpc-linode
+        description: Kubernetes cluster VPC
+        subnets:
+          - label: k8s-subnet-1
+            ipv4: 10.11.1.0/24
+
+# 2️⃣ NETWORK - Network configuration with VPN
+network:
+  mode: wireguard  # Use WireGuard VPN for cross-provider networking
+  cidr: 10.8.0.0/16
+  podCidr: 10.244.0.0/16
+  serviceCidr: 10.96.0.0/12
+  crossProviderNetworking: true
+  enableNodePorts: true
+
+  # 🔐 WireGuard VPN - Auto-create VPN server
+  wireguard:
+    # AUTO-CREATE VPN SERVER
+    create: true
+    provider: digitalocean  # Create VPN server on DigitalOcean
+    region: nyc3
+    size: s-1vcpu-1gb      # Small server for VPN
+    image: ubuntu-22-04-x64
+    name: wireguard-vpn-server
+
+    # VPN Configuration (auto-generated if create=true)
+    enabled: true
+    port: 51820
+    clientIpBase: 10.8.0
+    subnetCidr: 10.8.0.0/24
+    mtu: 1420
+    persistentKeepalive: 25
+    autoConfig: true
+    meshNetworking: true
+    allowedIps:
+      - 10.8.0.0/24
+      - 10.10.0.0/16  # DO VPC
+      - 10.11.0.0/16  # Linode VPC
+    dns:
+      - 1.1.1.1
+      - 8.8.8.8
+
+  # DNS Configuration
+  dns:
+    provider: digitalocean
+    domain: k8s.example.com
+    records:
+      - name: api
+        type: A
+        ttl: 300
+      - name: "*.apps"
+        type: A
+        ttl: 300
+
+# 3️⃣ CLUSTER - Kubernetes cluster configuration
+cluster:
+  type: rke2
+  version: v1.28.5+rke2r1
+  distribution: rke2
+  highAvailability: true
+  multiCloud: true
+
+# 4️⃣ KUBERNETES - RKE2 specific configuration
+kubernetes:
+  version: v1.28.5+rke2r1
+  channel: stable
+  cni: calico
+
+  rke2:
+    version: v1.28.5+rke2r1
+    channel: stable
+    disableComponents:
+      - rke2-ingress-nginx  # We'll install via GitOps
+    tlsSan:
+      - api.k8s.example.com
+    snapshotScheduleCron: "0 */12 * * *"  # Every 12 hours
+    snapshotRetention: 7
+    secretsEncryption: true
+
+# 5️⃣ NODE POOLS - Define node pools across providers
+nodePools:
+  # DigitalOcean Masters
+  do-masters:
+    provider: digitalocean
+    region: nyc3
+    size: s-2vcpu-4gb
+    image: ubuntu-22-04-x64
+    count: 1
+    role: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+      cloud-provider: digitalocean
+    taints: []
+
+  # DigitalOcean Workers
+  do-workers:
+    provider: digitalocean
+    region: nyc3
+    size: s-2vcpu-4gb
+    image: ubuntu-22-04-x64
+    count: 2
+    role: worker
+    labels:
+      node-role.kubernetes.io/worker: "true"
+      cloud-provider: digitalocean
+      workload: tools
+    taints:
+      - key: workload
+        value: tools
+        effect: NoSchedule
+
+  # Linode Masters
+  linode-masters:
+    provider: linode
+    region: us-east
+    size: g6-standard-2
+    image: linode/ubuntu22.04
+    count: 2
+    role: master
+    labels:
+      node-role.kubernetes.io/master: "true"
+      cloud-provider: linode
+    taints: []
+
+  # Linode Workers
+  linode-workers:
+    provider: linode
+    region: us-east
+    size: g6-standard-2
+    image: linode/ubuntu22.04
+    count: 1
+    role: worker
+    labels:
+      node-role.kubernetes.io/worker: "true"
+      cloud-provider: linode
+      workload: misc
+    taints:
+      - key: workload
+        value: misc
+        effect: NoSchedule
+
+# 6️⃣ SECURITY - Security configuration
+security:
+  ssh:
+    generateKeys: true
+    keyPath: ~/.ssh/k8s-cluster
+    allowedIPs:
+      - 0.0.0.0/0  # Only accessible via VPN anyway
+
+  rbac:
+    enabled: true
+
+  podSecurity:
+    enabled: true
+    defaultPolicy: restricted
+
+# 7️⃣ ADDONS - GitOps addon management
+addons:
+  gitops:
+    enabled: true
+    repository: https://github.com/your-org/k8s-gitops
+    branch: main
+    path: addons/
+
+---
+# Workflow após deploy:
+#
+# 1️⃣ DEPLOY COMPLETO (VPC + VPN + Cluster):
+#    kubernetes-create deploy --config cluster-with-vpc-vpn.yaml
+#
+# O que acontece:
+#   ✅ Step 1: Cria VPCs na DigitalOcean (10.10.0.0/16) e Linode (10.11.0.0/16)
+#   ✅ Step 2: Cria servidor WireGuard na DigitalOcean
+#   ✅ Step 3: Configura WireGuard server (gera keys, configura interfaces)
+#   ✅ Step 4: Cria 6 VMs (3 masters + 3 workers) nas VPCs
+#   ✅ Step 5: Configura WireGuard clients em todos os nodes
+#   ✅ Step 6: Instala RKE2 Kubernetes cluster
+#   ✅ Step 7: Configura networking cross-provider via VPN
+#
+# 2️⃣ VERIFICAR:
+#    kubernetes-create status
+#    kubectl get nodes
+#
+# 3️⃣ ADICIONAR ADDONS:
+#    kubernetes-create addons bootstrap --repo https://github.com/your-org/k8s-gitops
+#
+# 4️⃣ GERENCIAR NODES:
+#    kubernetes-create nodes list
+#    kubernetes-create nodes add --count 2

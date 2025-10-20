@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // IngressControllerComponent represents the NGINX ingress controller

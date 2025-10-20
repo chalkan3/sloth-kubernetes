@@ -8,27 +8,27 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // NodeStatus represents the health status of a node
 type NodeStatus struct {
-	NodeName    string
-	IsHealthy   bool
-	LastCheck   time.Time
-	Error       error
-	Services    map[string]bool
+	NodeName  string
+	IsHealthy bool
+	LastCheck time.Time
+	Error     error
+	Services  map[string]bool
 }
 
 // HealthChecker manages health checks for nodes
 type HealthChecker struct {
-	ctx         *pulumi.Context
-	nodes       []*providers.NodeOutput
-	sshKeyPath  string
-	statuses    map[string]*NodeStatus
-	mu          sync.RWMutex
+	ctx           *pulumi.Context
+	nodes         []*providers.NodeOutput
+	sshKeyPath    string
+	statuses      map[string]*NodeStatus
+	mu            sync.RWMutex
 	checkInterval time.Duration
-	timeout     time.Duration
+	timeout       time.Duration
 }
 
 // NewHealthChecker creates a new health checker
@@ -374,7 +374,7 @@ func (h *HealthChecker) reportStatus(ctx context.Context) {
 			h.mu.RLock()
 
 			readyCount := 0
-//			totalCount := len(h.statuses)
+			//			totalCount := len(h.statuses)
 
 			statusMessages := []string{}
 			for name, status := range h.statuses {

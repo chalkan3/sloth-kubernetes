@@ -5,7 +5,8 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/internal/orchestrator/components"
+	"sloth-kubernetes/pkg/config"
 )
 
 // RealRKEComponent with actual RKE installation
@@ -21,7 +22,7 @@ type RealRKEComponent struct {
 }
 
 // NewRealRKEComponent installs RKE on actual nodes
-func NewRealRKEComponent(ctx *pulumi.Context, name string, clusterConfig *config.ClusterConfig, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, opts ...pulumi.ResourceOption) (*RealRKEComponent, error) {
+func NewRealRKEComponent(ctx *pulumi.Context, name string, clusterConfig *config.ClusterConfig, nodes []*components.RealNodeComponent, sshPrivateKey pulumi.StringOutput, opts ...pulumi.ResourceOption) (*RealRKEComponent, error) {
 	component := &RealRKEComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:cluster:RealRKE", name, component, opts...)
 	if err != nil {
@@ -152,7 +153,7 @@ echo "Prerequisites installed successfully"
 }
 
 // installRKECluster installs the RKE cluster using rke up
-func installRKECluster(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, clusterConfig *config.ClusterConfig, parent pulumi.Resource) (pulumi.StringOutput, error) {
+func installRKECluster(ctx *pulumi.Context, name string, nodes []*components.RealNodeComponent, sshPrivateKey pulumi.StringOutput, clusterConfig *config.ClusterConfig, parent pulumi.Resource) (pulumi.StringOutput, error) {
 	// Build RKE cluster.yml configuration
 	rkeConfigTemplate := `nodes:
 %s

@@ -1,0 +1,56 @@
+apiVersion: kubernetes-create.io/v1
+kind: ClusterConfig
+metadata:
+  name: simple-cluster
+  environment: development
+
+# Providers com VPC auto-criada
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    vpc:
+      create: true
+      name: k8s-vpc
+      cidr: 10.10.0.0/16
+
+# Network com VPN auto-criada
+network:
+  mode: wireguard
+  wireguard:
+    create: true           # Auto-criar VPN server
+    provider: digitalocean
+    region: nyc3
+    size: s-1vcpu-1gb
+    enabled: true
+    port: 51820
+    subnetCidr: 10.8.0.0/24
+
+# Kubernetes
+kubernetes:
+  version: v1.28.5+rke2r1
+
+# Node pools
+nodePools:
+  masters:
+    provider: digitalocean
+    count: 1
+    size: s-2vcpu-4gb
+    role: master
+
+  workers:
+    provider: digitalocean
+    count: 2
+    size: s-2vcpu-4gb
+    role: worker
+
+---
+# Deploy:
+# kubernetes-create deploy --config cluster-minimal-with-vpn.yaml
+#
+# Isso cria:
+# ✅ VPC (10.10.0.0/16)
+# ✅ WireGuard VPN server
+# ✅ 3 nodes (1 master + 2 workers)
+# ✅ Kubernetes cluster conectado via VPN

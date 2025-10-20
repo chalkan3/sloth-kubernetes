@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // NodeDeploymentComponent handles node deployment
@@ -19,15 +19,15 @@ type NodeDeploymentComponent struct {
 type IndividualNodeComponent struct {
 	pulumi.ResourceState
 
-	NodeName   pulumi.StringOutput `pulumi:"nodeName"`
-	Provider   pulumi.StringOutput `pulumi:"provider"`
-	Region     pulumi.StringOutput `pulumi:"region"`
-	Size       pulumi.StringOutput `pulumi:"size"`
-	PublicIP   pulumi.StringOutput `pulumi:"publicIP"`
-	PrivateIP  pulumi.StringOutput `pulumi:"privateIP"`
+	NodeName    pulumi.StringOutput `pulumi:"nodeName"`
+	Provider    pulumi.StringOutput `pulumi:"provider"`
+	Region      pulumi.StringOutput `pulumi:"region"`
+	Size        pulumi.StringOutput `pulumi:"size"`
+	PublicIP    pulumi.StringOutput `pulumi:"publicIP"`
+	PrivateIP   pulumi.StringOutput `pulumi:"privateIP"`
 	WireGuardIP pulumi.StringOutput `pulumi:"wireGuardIP"`
-	Roles      pulumi.ArrayOutput  `pulumi:"roles"`
-	Status     pulumi.StringOutput `pulumi:"status"`
+	Roles       pulumi.ArrayOutput  `pulumi:"roles"`
+	Status      pulumi.StringOutput `pulumi:"status"`
 }
 
 // NewNodeDeploymentComponent creates a new node deployment component with individual node components

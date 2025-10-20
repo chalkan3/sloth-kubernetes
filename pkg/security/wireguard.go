@@ -7,8 +7,8 @@ import (
 
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/config"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // WireGuardManager manages WireGuard VPN configuration

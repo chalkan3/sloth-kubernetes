@@ -1,0 +1,38 @@
+apiVersion: kubernetes-create.io/v1
+kind: Cluster
+metadata:
+  name: my-cluster
+
+spec:
+  providers:
+    digitalocean:
+      enabled: true
+      token: ${DIGITALOCEAN_TOKEN}
+      region: nyc3
+
+  network:
+    dns:
+      domain: example.com
+      provider: digitalocean
+
+  kubernetes:
+    distribution: rke2
+    version: v1.28.5+rke2r1
+    networkPlugin: calico
+
+  nodePools:
+    - name: masters
+      provider: digitalocean
+      count: 3
+      roles: [master]
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+      region: nyc3
+
+    - name: workers
+      provider: digitalocean
+      count: 3
+      roles: [worker]
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+      region: nyc3

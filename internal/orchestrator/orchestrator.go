@@ -5,14 +5,14 @@ import (
 	"sync"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/cluster"
-	"kubernetes-create/pkg/config"
-	"kubernetes-create/pkg/dns"
-	"kubernetes-create/pkg/health"
-	"kubernetes-create/pkg/ingress"
-	"kubernetes-create/pkg/network"
-	"kubernetes-create/pkg/providers"
-	"kubernetes-create/pkg/security"
+	"sloth-kubernetes/pkg/cluster"
+	"sloth-kubernetes/pkg/config"
+	"sloth-kubernetes/pkg/dns"
+	"sloth-kubernetes/pkg/health"
+	"sloth-kubernetes/pkg/ingress"
+	"sloth-kubernetes/pkg/network"
+	"sloth-kubernetes/pkg/providers"
+	"sloth-kubernetes/pkg/security"
 )
 
 // Orchestrator coordinates the entire cluster deployment
@@ -71,7 +71,7 @@ func (o *Orchestrator) Deploy() error {
 	// Phase 4: Configure OS-level firewalls on nodes
 	// OS firewall configuration moved to component
 	// if err := o.configureOSFirewalls(); err != nil {
-		// 	return fmt.Errorf("failed to configure OS firewalls: %w", err)
+	// 	return fmt.Errorf("failed to configure OS firewalls: %w", err)
 	// }
 
 	// Phase 5: Configure DNS records
@@ -725,7 +725,7 @@ func (o *Orchestrator) exportOutputs() {
 	o.ctx.Export("access_info", pulumi.Map{
 		"wireguard_required": pulumi.Bool(o.config.Network.WireGuard != nil && o.config.Network.WireGuard.Enabled),
 		"api_endpoint":       pulumi.String(fmt.Sprintf("https://10.8.0.11:6443")), // Master 1 WireGuard IP
-		"ssh_user":          pulumi.String("root"),
+		"ssh_user":           pulumi.String("root"),
 	})
 }
 

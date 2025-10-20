@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // ValidationResult represents the result of a validation

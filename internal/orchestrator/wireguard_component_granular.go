@@ -4,21 +4,21 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // WireGuardPeerComponent represents a single WireGuard peer configuration
 type WireGuardPeerComponent struct {
 	pulumi.ResourceState
 
-	PeerName       pulumi.StringOutput `pulumi:"peerName"`
-	PrivateKey     pulumi.StringOutput `pulumi:"privateKey"`
-	PublicKey      pulumi.StringOutput `pulumi:"publicKey"`
-	Address        pulumi.StringOutput `pulumi:"address"`
-	ListenPort     pulumi.IntOutput    `pulumi:"listenPort"`
-	AllowedIPs     pulumi.ArrayOutput  `pulumi:"allowedIPs"`
-	PeerConnections pulumi.IntOutput   `pulumi:"peerConnections"`
-	Status         pulumi.StringOutput `pulumi:"status"`
+	PeerName        pulumi.StringOutput `pulumi:"peerName"`
+	PrivateKey      pulumi.StringOutput `pulumi:"privateKey"`
+	PublicKey       pulumi.StringOutput `pulumi:"publicKey"`
+	Address         pulumi.StringOutput `pulumi:"address"`
+	ListenPort      pulumi.IntOutput    `pulumi:"listenPort"`
+	AllowedIPs      pulumi.ArrayOutput  `pulumi:"allowedIPs"`
+	PeerConnections pulumi.IntOutput    `pulumi:"peerConnections"`
+	Status          pulumi.StringOutput `pulumi:"status"`
 }
 
 // WireGuardTunnelComponent represents a tunnel between two peers
@@ -104,13 +104,13 @@ func NewWireGuardComponentGranular(ctx *pulumi.Context, name string, config *con
 
 	// Mesh network status
 	component.MeshStatus = pulumi.Map{
-		"type":        pulumi.String("full-mesh"),
-		"nodes":       pulumi.Int(len(peerComponents)),
-		"tunnels":     pulumi.Int(tunnelCount),
-		"status":      pulumi.String("configured"),
-		"encryption":  pulumi.String("ChaCha20-Poly1305"),
-		"mtu":         pulumi.Int(config.Network.WireGuard.MTU),
-		"keepalive":   pulumi.Int(config.Network.WireGuard.PersistentKeepalive),
+		"type":       pulumi.String("full-mesh"),
+		"nodes":      pulumi.Int(len(peerComponents)),
+		"tunnels":    pulumi.Int(tunnelCount),
+		"status":     pulumi.String("configured"),
+		"encryption": pulumi.String("ChaCha20-Poly1305"),
+		"mtu":        pulumi.Int(config.Network.WireGuard.MTU),
+		"keepalive":  pulumi.Int(config.Network.WireGuard.PersistentKeepalive),
 	}.ToMapOutput()
 
 	// Register outputs

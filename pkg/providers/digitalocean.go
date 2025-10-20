@@ -6,17 +6,17 @@ import (
 
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // DigitalOceanProvider implements the Provider interface for DigitalOcean
 type DigitalOceanProvider struct {
-	config    *config.DigitalOceanProvider
-	vpc       *digitalocean.Vpc
-	firewall  *digitalocean.Firewall
-	sshKeys   pulumi.StringArray
-	nodes     []*NodeOutput
-	ctx       *pulumi.Context
+	config   *config.DigitalOceanProvider
+	vpc      *digitalocean.Vpc
+	firewall *digitalocean.Firewall
+	sshKeys  pulumi.StringArray
+	nodes    []*NodeOutput
+	ctx      *pulumi.Context
 }
 
 // NewDigitalOceanProvider creates a new DigitalOcean provider
@@ -141,18 +141,18 @@ func (p *DigitalOceanProvider) CreateNode(ctx *pulumi.Context, node *config.Node
 
 	// Create node output
 	output := &NodeOutput{
-		ID:           droplet.ID(),
-		Name:         node.Name,
-		PublicIP:     droplet.Ipv4Address,
-		PrivateIP:    droplet.Ipv4AddressPrivate,
-		Provider:     "digitalocean",
-		Region:       node.Region,
-		Size:         node.Size,
-		Status:       droplet.Status,
-		Labels:       node.Labels,
-		WireGuardIP:  node.WireGuardIP,
-		SSHUser:      "root",
-		SSHKeyPath:   "~/.ssh/id_rsa",
+		ID:          droplet.ID(),
+		Name:        node.Name,
+		PublicIP:    droplet.Ipv4Address,
+		PrivateIP:   droplet.Ipv4AddressPrivate,
+		Provider:    "digitalocean",
+		Region:      node.Region,
+		Size:        node.Size,
+		Status:      droplet.Status,
+		Labels:      node.Labels,
+		WireGuardIP: node.WireGuardIP,
+		SSHUser:     "root",
+		SSHKeyPath:  "~/.ssh/id_rsa",
 	}
 
 	// Export node information
@@ -366,12 +366,12 @@ func (p *DigitalOceanProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *confi
 
 	// Create load balancer
 	loadBalancer, err := digitalocean.NewLoadBalancer(ctx, lb.Name, &digitalocean.LoadBalancerArgs{
-		Name:             pulumi.String(lb.Name),
-		Region:           pulumi.String(p.config.Region),
-		Size:             pulumi.String("lb-small"),
-		ForwardingRules:  forwardingRules,
-		DropletIds:       dropletIds,
-		VpcUuid:          p.vpc.ID(),
+		Name:                pulumi.String(lb.Name),
+		Region:              pulumi.String(p.config.Region),
+		Size:                pulumi.String("lb-small"),
+		ForwardingRules:     forwardingRules,
+		DropletIds:          dropletIds,
+		VpcUuid:             p.vpc.ID(),
 		RedirectHttpToHttps: pulumi.Bool(true),
 	})
 	if err != nil {
@@ -379,9 +379,9 @@ func (p *DigitalOceanProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *confi
 	}
 
 	output := &LoadBalancerOutput{
-		ID:       loadBalancer.ID(),
-		IP:       loadBalancer.Ip,
-		Status:   loadBalancer.Status,
+		ID:     loadBalancer.ID(),
+		IP:     loadBalancer.Ip,
+		Status: loadBalancer.Status,
 	}
 
 	ctx.Export(fmt.Sprintf("%s_ip", lb.Name), loadBalancer.Ip)

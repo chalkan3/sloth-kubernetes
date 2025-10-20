@@ -22,7 +22,7 @@ func NewVPNVerificationComponent(ctx *pulumi.Context, name string, nodes pulumi.
 
 	// Create connectivity matrix placeholder
 	component.ConnectivityMatrix = pulumi.Map{
-		"status": pulumi.String("pending"),
+		"status":  pulumi.String("pending"),
 		"message": pulumi.String("VPN connectivity will be verified after node deployment"),
 	}.ToMapOutput()
 

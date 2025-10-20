@@ -4,7 +4,7 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // DNSRecordComponent represents a single DNS record
@@ -91,10 +91,10 @@ func NewDNSComponentGranular(ctx *pulumi.Context, name string, config *config.Cl
 
 	// Set component outputs
 	component.Records = pulumi.Map{
-		"domain": pulumi.String(domain),
-		"provider": pulumi.String(config.Network.DNS.Provider),
+		"domain":       pulumi.String(domain),
+		"provider":     pulumi.String(config.Network.DNS.Provider),
 		"totalRecords": pulumi.Int(len(dnsRecords)),
-		"status": pulumi.String("configured"),
+		"status":       pulumi.String("configured"),
 	}.ToMapOutput()
 
 	// Register outputs

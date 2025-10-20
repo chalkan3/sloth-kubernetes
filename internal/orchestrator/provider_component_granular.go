@@ -4,18 +4,18 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // DigitalOceanProviderComponent represents DigitalOcean provider initialization
 type DigitalOceanProviderComponent struct {
 	pulumi.ResourceState
 
-	Token      pulumi.StringOutput `pulumi:"token"`
-	Region     pulumi.StringOutput `pulumi:"region"`
-	VPCConfig  pulumi.MapOutput    `pulumi:"vpcConfig"`
-	SSHKeys    pulumi.ArrayOutput  `pulumi:"sshKeys"`
-	Status     pulumi.StringOutput `pulumi:"status"`
+	Token     pulumi.StringOutput `pulumi:"token"`
+	Region    pulumi.StringOutput `pulumi:"region"`
+	VPCConfig pulumi.MapOutput    `pulumi:"vpcConfig"`
+	SSHKeys   pulumi.ArrayOutput  `pulumi:"sshKeys"`
+	Status    pulumi.StringOutput `pulumi:"status"`
 }
 
 // LinodeProviderComponent represents Linode provider initialization

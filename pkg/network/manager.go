@@ -5,8 +5,8 @@ import (
 	"net"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
-	"kubernetes-create/pkg/providers"
+	"sloth-kubernetes/pkg/config"
+	"sloth-kubernetes/pkg/providers"
 )
 
 // Manager handles network orchestration across providers
@@ -83,8 +83,8 @@ func (m *Manager) CreateFirewalls(nodes map[string][]*providers.NodeOutput) erro
 // createFirewallConfig creates firewall configuration for a provider
 func (m *Manager) createFirewallConfig(providerName string) *config.FirewallConfig {
 	firewallConfig := &config.FirewallConfig{
-		Name:         fmt.Sprintf("%s-firewall", m.ctx.Stack()),
-		InboundRules: []config.FirewallRule{},
+		Name:          fmt.Sprintf("%s-firewall", m.ctx.Stack()),
+		InboundRules:  []config.FirewallRule{},
 		OutboundRules: []config.FirewallRule{},
 	}
 

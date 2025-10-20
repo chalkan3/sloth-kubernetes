@@ -1,0 +1,123 @@
+apiVersion: kubernetes-create.io/v1
+kind: Cluster
+metadata:
+  name: production-cluster
+  labels:
+    env: production
+    managed-by: kubernetes-create
+  annotations:
+    description: "Multi-cloud Kubernetes cluster with RKE2"
+    owner: "devops-team"
+
+spec:
+  # Cloud Providers Configuration
+  providers:
+    digitalocean:
+      enabled: true
+      token: ${DIGITALOCEAN_TOKEN}
+      region: nyc3
+      tags:
+        - kubernetes
+        - production
+
+    linode:
+      enabled: true
+      token: ${LINODE_TOKEN}
+      region: us-east
+      rootPassword: ${LINODE_ROOT_PASSWORD}
+      tags:
+        - kubernetes
+        - production
+
+  # Network Configuration
+  network:
+    dns:
+      domain: example.com
+      provider: digitalocean
+
+    wireguard:
+      enabled: true
+      serverEndpoint: ${WIREGUARD_ENDPOINT}
+      serverPublicKey: ${WIREGUARD_PUBKEY}
+      clientIPBase: 10.100.0.0/24
+      port: 51820
+      mtu: 1420
+      persistentKeepalive: 25
+
+  # Kubernetes Configuration
+  kubernetes:
+    distribution: rke2
+    version: v1.28.5+rke2r1
+    networkPlugin: calico
+    podCIDR: 10.42.0.0/16
+    serviceCIDR: 10.43.0.0/16
+    clusterDNS: 10.43.0.10
+    clusterDomain: cluster.local
+
+    # RKE2-specific configuration
+    rke2:
+      channel: stable
+      clusterToken: your-secure-cluster-token-change-this
+      tlsSan:
+        - api.example.com
+        - kubernetes.example.com
+      disableComponents:
+        - rke2-ingress-nginx
+      snapshotScheduleCron: "0 */12 * * *"
+      snapshotRetention: 5
+      secretsEncryption: true
+      writeKubeconfigMode: "0600"
+
+  # Node Pools Configuration
+  nodePools:
+    # DigitalOcean Master Node
+    - name: do-masters
+      provider: digitalocean
+      count: 1
+      roles:
+        - master
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+      region: nyc3
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: digitalocean
+
+    # Linode Master Nodes (for HA)
+    - name: linode-masters
+      provider: linode
+      count: 2
+      roles:
+        - master
+      size: g6-standard-2
+      image: linode/ubuntu22.04
+      region: us-east
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: linode
+
+    # DigitalOcean Worker Nodes
+    - name: do-workers
+      provider: digitalocean
+      count: 2
+      roles:
+        - worker
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+      region: nyc3
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: digitalocean
+
+    # Linode Worker Node
+    - name: linode-workers
+      provider: linode
+      count: 1
+      roles:
+        - worker
+      size: g6-standard-2
+      image: linode/ubuntu22.04
+      region: us-east
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: linode

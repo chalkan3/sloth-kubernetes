@@ -23,17 +23,17 @@ func NewOSFirewallComponent(ctx *pulumi.Context, name string, nodes pulumi.Array
 	// Define Kubernetes required ports
 	masterRules := map[string]interface{}{
 		"kubernetes-api": "6443/tcp",
-		"etcd":          "2379-2380/tcp",
-		"kubelet":       "10250-10252/tcp",
-		"calico":        "4789/udp",
-		"wireguard":     "51820/udp",
+		"etcd":           "2379-2380/tcp",
+		"kubelet":        "10250-10252/tcp",
+		"calico":         "4789/udp",
+		"wireguard":      "51820/udp",
 	}
 
 	workerRules := map[string]interface{}{
-		"kubelet":    "10250/tcp",
-		"nodeports":  "30000-32767/tcp",
-		"calico":     "4789/udp",
-		"wireguard":  "51820/udp",
+		"kubelet":   "10250/tcp",
+		"nodeports": "30000-32767/tcp",
+		"calico":    "4789/udp",
+		"wireguard": "51820/udp",
 	}
 
 	// Set component outputs

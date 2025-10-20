@@ -6,7 +6,7 @@ import (
 
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"kubernetes-create/pkg/config"
+	"sloth-kubernetes/pkg/config"
 )
 
 // LinodeProvider implements the Provider interface for Linode/Akamai
@@ -103,18 +103,18 @@ func (p *LinodeProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig
 
 	// Create node output
 	output := &NodeOutput{
-		ID:           instance.ID(),
-		Name:         node.Name,
-		PublicIP:     instance.IpAddress,
-		PrivateIP:    instance.PrivateIpAddress,
-		Provider:     "linode",
-		Region:       node.Region,
-		Size:         node.Size,
-		Status:       instance.Status,
-		Labels:       node.Labels,
-		WireGuardIP:  node.WireGuardIP,
-		SSHUser:      "root",
-		SSHKeyPath:   "~/.ssh/id_rsa",
+		ID:          instance.ID(),
+		Name:        node.Name,
+		PublicIP:    instance.IpAddress,
+		PrivateIP:   instance.PrivateIpAddress,
+		Provider:    "linode",
+		Region:      node.Region,
+		Size:        node.Size,
+		Status:      instance.Status,
+		Labels:      node.Labels,
+		WireGuardIP: node.WireGuardIP,
+		SSHUser:     "root",
+		SSHKeyPath:  "~/.ssh/id_rsa",
 	}
 
 	// Export node information
@@ -312,14 +312,14 @@ func (p *LinodeProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.Load
 				fmt.Sscanf(string(id), "%d", &idInt)
 				return idInt
 			}).(pulumi.IntOutput),
-			Port:           pulumi.Int(port.Port),
-			Protocol:       pulumi.String(strings.ToLower(port.Protocol)),
-			Algorithm:      pulumi.String("roundrobin"),
-			Check:          pulumi.String("http"),
-			CheckInterval:  pulumi.Int(30),
-			CheckTimeout:   pulumi.Int(5),
-			CheckAttempts:  pulumi.Int(3),
-			Stickiness:     pulumi.String("table"),
+			Port:          pulumi.Int(port.Port),
+			Protocol:      pulumi.String(strings.ToLower(port.Protocol)),
+			Algorithm:     pulumi.String("roundrobin"),
+			Check:         pulumi.String("http"),
+			CheckInterval: pulumi.Int(30),
+			CheckTimeout:  pulumi.Int(5),
+			CheckAttempts: pulumi.Int(3),
+			Stickiness:    pulumi.String("table"),
 		})
 		if err != nil {
 			return nil, fmt.Errorf("failed to create NodeBalancer config: %w", err)
