@@ -1,444 +1,496 @@
-# Kube RKE Multi-Cloud
+# 🦥 Sloth Kubernetes
 
-Production-grade Kubernetes cluster deployment across multiple cloud providers using RKE2, WireGuard VPN mesh, and Pulumi Infrastructure as Code.
+> Multi-cloud Kubernetes cluster deployment tool with RKE2, WireGuard VPN, and automated networking
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Pulumi](https://img.shields.io/badge/Pulumi-v3-5430ED?logo=pulumi)](https://www.pulumi.com/)
-[![Kubernetes](https://img.shields.io/badge/Kubernetes-v1.33.5-326CE5?logo=kubernetes)](https://kubernetes.io/)
-[![Go](https://img.shields.io/badge/Go-1.21+-00ADD8?logo=go)](https://golang.org/)
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=flat&logo=go)](https://go.dev/)
+[![Test Coverage](https://img.shields.io/badge/coverage-46.1%25-yellow)](./TESTS_COVERAGE_REPORT.md)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-## Overview
+Sloth Kubernetes is a **single-binary CLI tool** for deploying production-ready Kubernetes clusters across multiple cloud providers with automated VPC creation, WireGuard VPN mesh networking, and GitOps-based addon management.
 
-This project automates the deployment of a highly available Kubernetes cluster spanning multiple cloud providers (DigitalOcean and Linode) with a secure WireGuard VPN mesh network. Built with Pulumi and Go, it creates a production-ready cluster with:
-
-- **High Availability**: 3 master nodes with etcd cluster
-- **Multi-Cloud**: Nodes distributed across DigitalOcean and Linode
-- **Private Networking**: Full WireGuard VPN mesh between all nodes
-- **Security-First**: VPN-only access, no public exposure
-- **Fully Automated**: Complete infrastructure as code
-- **Production Ready**: ArgoCD, Nginx Ingress, Calico CNI
-
-## Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│                     Control Plane (HA)                          │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
-│  │  master-1   │  │  master-2   │  │  master-3   │            │
-│  │ 10.8.0.10   │  │ 10.8.0.11   │  │ 10.8.0.12   │            │
-│  │ DigitalOcean│  │   Linode    │  │   Linode    │            │
-│  └─────────────┘  └─────────────┘  └─────────────┘            │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              │ WireGuard VPN Mesh
-                              │
-┌─────────────────────────────────────────────────────────────────┐
-│                        Worker Nodes                              │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐            │
-│  │  worker-1   │  │  worker-2   │  │  worker-3   │            │
-│  │ 10.8.0.13   │  │ 10.8.0.14   │  │ 10.8.0.15   │            │
-│  │DigitalOcean │  │DigitalOcean │  │   Linode    │            │
-│  └─────────────┘  └─────────────┘  └─────────────┘            │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## Features
-
-### Infrastructure
-- **Multi-Cloud Support**: Seamlessly deploy across DigitalOcean and Linode
-- **Automated Provisioning**: Fully automated VM creation and configuration
-- **Smart Retries**: Intelligent retry logic for apt-get operations to handle unattended-upgrades
-- **Dependency Validation**: Automatic validation of all prerequisites before proceeding
-
-### Networking
-- **WireGuard VPN Mesh**: Full mesh VPN with direct tunnels between all nodes
-- **Private Cluster**: All inter-node communication over encrypted WireGuard tunnels
-- **Automated DNS**: Automatic DNS record creation for cluster endpoints
-- **Calico CNI**: Production-grade pod networking
-
-### Kubernetes
-- **RKE2 Distribution**: Rancher's next-generation Kubernetes distribution
-- **High Availability**: 3 master nodes with etcd cluster
-- **Node Taints**: Worker nodes pre-configured with workload-specific taints
-  - `worker-1`, `worker-2`: `workload=tools` (for CI/CD, monitoring)
-  - `worker-3`: `workload=misc` (for experiments, testing)
-
-### Operations
-- **GitOps Addons**: GitOps-first addon management with ArgoCD
-  - Bootstrap ArgoCD from your Git repository
-  - Auto-sync addons from Git commits
-  - Declarative addon management
-  - Full audit trail via Git history
-- **Node Management**: Complete node lifecycle (list, add, remove, ssh, upgrade)
-- **Ingress Controller**: Nginx Ingress with SSL passthrough
-- **Secure Access**: VPN-only access, no public exposure
-- **Complete Documentation**: Extensive docs with examples and diagrams
-
-## Prerequisites
-
-- **Pulumi**: v3.x or higher
-- **Go**: 1.21 or higher
-- **Cloud Accounts**:
-  - DigitalOcean account with API token
-  - Linode account with API token
-- **WireGuard VPN Server**: Pre-configured WireGuard server
-- **Domain**: DNS domain for cluster endpoints (e.g., via DigitalOcean DNS)
-
-## Quick Start
-
-### 1. Clone and Configure
+## ⚡ Quick Start (No Dependencies!)
 
 ```bash
-# Clone the repository
-git clone https://github.com/YOUR_USERNAME/kube-rke-multi-cloud.git
-cd kube-rke-multi-cloud
+# Clone and build
+git clone https://github.com/chalkan3/sloth-kubernetes.git
+cd sloth-kubernetes
+go build -o sloth-kubernetes
 
-# Install dependencies
-go mod download
-
-# Configure Pulumi stack
-pulumi stack init production
-
-# Set required configuration
-pulumi config set digitaloceanToken <YOUR_DO_TOKEN> --secret
-pulumi config set linodeToken <YOUR_LINODE_TOKEN> --secret
-pulumi config set wireguardServerEndpoint <YOUR_VPN_SERVER:51820>
-pulumi config set wireguardServerPublicKey <YOUR_VPN_PUBLIC_KEY>
+# Deploy cluster
+./sloth-kubernetes deploy --config cluster.yaml
 ```
 
-### 2. Deploy the Cluster
+**That's it!** No need to install Pulumi CLI, Terraform, or any other tools. Everything is embedded in the single binary.
+
+---
+
+## ✨ Key Features
+
+### 🎯 Zero External Dependencies
+- ✅ **Single binary** - No Pulumi CLI installation required
+- ✅ **Embedded Pulumi** - Uses Pulumi Automation API (library only)
+- ✅ **Self-contained** - All logic built into the Go binary
+- ✅ **State Management** - Automatic state handling (local or remote)
+
+### 🌐 Multi-Cloud Support
+- **DigitalOcean** - Droplets, VPCs, DNS
+- **Linode** - Instances, VPCs, NodeBalancers
+- Deploy nodes across both providers in a single cluster
+
+### 🔒 Automated Networking
+- **Auto VPC Creation** - Automatic VPC provisioning with custom CIDRs
+- **WireGuard VPN Mesh** - Secure multi-cloud networking with automatic peer configuration
+- **Sequential Deployment** - VPC → VPN → Cluster in one command
+
+### 🚀 Kubernetes Distribution
+- **RKE2** - Production-ready Kubernetes with 40+ configuration options
+- **K3s** - Lightweight Kubernetes for smaller deployments
+- **HA Masters** - Odd-number master nodes for high availability
+- **Etcd Snapshots** - Automatic backup scheduling
+
+### 🎯 GitOps Ready
+- **ArgoCD Bootstrap** - Automatic ArgoCD installation from Git repository
+- **Self-Managed** - GitOps repo manages its own deployment
+- **Declarative Config** - Kubernetes-style YAML configuration
+
+---
+
+## 📦 Installation
+
+### Option 1: From Source (Recommended)
 
 ```bash
-# Preview the deployment
-pulumi preview
-
-# Deploy
-pulumi up
+git clone https://github.com/chalkan3/sloth-kubernetes.git
+cd sloth-kubernetes
+go build -o sloth-kubernetes
+sudo mv sloth-kubernetes /usr/local/bin/
 ```
 
-The deployment will:
-1. Generate SSH keys for cluster access
-2. Create 6 VMs (3 masters + 3 workers) across clouds
-3. Install and configure Docker, WireGuard, and prerequisites
-4. Set up WireGuard mesh VPN between all nodes
-5. Install RKE2 Kubernetes cluster
-6. Create DNS records for cluster endpoints
-7. Output kubeconfig and connection details
+### Option 2: Quick Build
 
-### 3. Access the Cluster
+```bash
+go install github.com/chalkan3/sloth-kubernetes@latest
+```
+
+### Prerequisites
+
+**Only these are required:**
+- ✅ Go 1.23+ (for building)
+- ✅ Cloud provider tokens (DigitalOcean and/or Linode)
+- ✅ SSH key pair
+
+**NOT required:**
+- ❌ Pulumi CLI
+- ❌ Terraform
+- ❌ kubectl (for deployment, but needed later to manage cluster)
+- ❌ Docker
+
+---
+
+## 🎮 Usage
+
+### 1. Create Configuration
+
+Create `cluster.yaml`:
+
+```yaml
+apiVersion: sloth-kubernetes.io/v1
+kind: ClusterConfig
+metadata:
+  name: production-cluster
+
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    vpc:
+      create: true              # ✨ Auto-create VPC
+      name: k8s-vpc
+      cidr: 10.10.0.0/16
+
+network:
+  mode: wireguard
+  wireguard:
+    create: true                # ✨ Auto-create VPN
+    provider: digitalocean
+    region: nyc3
+    port: 51820
+    subnetCidr: 10.8.0.0/24
+    meshNetworking: true
+
+kubernetes:
+  distribution: rke2
+  version: v1.28.5+rke2r1
+  networkPlugin: calico
+
+nodePools:
+  masters:
+    provider: digitalocean
+    count: 3                    # HA with 3 masters
+    size: s-2vcpu-4gb
+    roles: [master]
+  workers:
+    provider: digitalocean
+    count: 3
+    size: s-2vcpu-4gb
+    roles: [worker]
+```
+
+### 2. Deploy
+
+```bash
+# Preview what will be created
+sloth-kubernetes deploy --config cluster.yaml --dry-run
+
+# Deploy for real
+sloth-kubernetes deploy --config cluster.yaml
+```
+
+### 3. Access Cluster
 
 ```bash
 # Get kubeconfig
-pulumi stack output kubeConfig --show-secrets > ~/.kube/config
+sloth-kubernetes kubeconfig -o ~/.kube/config
 
 # Verify cluster
 kubectl get nodes
-
-# Should show 6 nodes all Ready
 ```
 
-## CLI Management
+---
 
-The project includes a comprehensive CLI for cluster and addon management:
-
-### Installation
-
-```bash
-# Build the CLI
-go build -o kubernetes-create
-
-# Move to PATH (optional)
-sudo mv kubernetes-create /usr/local/bin/
-```
+## 🔧 CLI Commands
 
 ### Cluster Management
 
 ```bash
 # Deploy cluster
-kubernetes-create deploy --config cluster.yaml
+sloth-kubernetes deploy --config cluster.yaml
 
 # Preview changes (dry-run)
-kubernetes-create deploy --config cluster.yaml --dry-run
+sloth-kubernetes deploy --config cluster.yaml --dry-run
 
-# Show cluster status
-kubernetes-create status
+# Check status
+sloth-kubernetes status
 
 # Destroy cluster
-kubernetes-create destroy
+sloth-kubernetes destroy
 ```
 
 ### Node Management
 
 ```bash
-# List all nodes
-kubernetes-create nodes list
+# List nodes
+sloth-kubernetes nodes list
 
-# Add nodes
-kubernetes-create nodes add --count 2
+# Add workers
+sloth-kubernetes nodes add --count 2 --pool workers
 
-# Remove a node
-kubernetes-create nodes remove worker-3
+# Remove node
+sloth-kubernetes nodes remove node-name
 
-# SSH into a node
-kubernetes-create nodes ssh master-1
+# SSH into node
+sloth-kubernetes nodes ssh master-1
 
 # Upgrade Kubernetes
-kubernetes-create nodes upgrade --version v1.29.0+rke2r1
+sloth-kubernetes nodes upgrade --version v1.29.0+rke2r1
 ```
 
-### GitOps Addon Management
-
-The CLI features a **GitOps-first addon management system** using ArgoCD:
+### GitOps Addons
 
 ```bash
-# Generate GitOps repository template
-kubernetes-create addons template --output my-gitops-repo
+# Bootstrap ArgoCD from Git repo
+sloth-kubernetes addons bootstrap --repo https://github.com/user/gitops-repo
 
-# Bootstrap ArgoCD from your Git repository
-kubernetes-create addons bootstrap --repo https://github.com/you/gitops-repo
+# List addons
+sloth-kubernetes addons list
 
-# List installed addons
-kubernetes-create addons list
-
-# Show ArgoCD and addon status
-kubernetes-create addons status
-
-# Force sync from Git
-kubernetes-create addons sync
+# Install addon
+sloth-kubernetes addons install cert-manager
 ```
 
-#### How GitOps Addons Work
-
-1. **Create a Git repository** with addon manifests in `addons/` directory
-2. **Bootstrap ArgoCD** from that repository using the CLI
-3. **Commit changes** to add/update/remove addons
-4. **ArgoCD auto-syncs** - Changes are automatically applied to the cluster
-
-This provides:
-- ✅ **Declarative management** - Describe desired state in Git
-- ✅ **Auto-sync** - Automatic synchronization of changes
-- ✅ **Audit trail** - Full Git history of all changes
-- ✅ **Easy rollback** - Simple `git revert` to undo changes
-- ✅ **Self-healing** - ArgoCD corrects drift automatically
-
-See [ADDONS_GITOPS.md](./ADDONS_GITOPS.md) for complete documentation.
-
-### Configuration Management
+### Configuration
 
 ```bash
-# Generate example configuration
-kubernetes-create config generate
+# Generate example config
+sloth-kubernetes config generate > cluster.yaml
 
-# Generate minimal configuration
-kubernetes-create config generate --format minimal
-
-# Save to file
-kubernetes-create config generate -o cluster.yaml
+# Validate config
+sloth-kubernetes config validate -f cluster.yaml
 ```
-
-## Configuration
-
-### Pulumi Configuration
-
-| Key | Description | Required | Secret |
-|-----|-------------|----------|--------|
-| `digitaloceanToken` | DigitalOcean API token | Yes | Yes |
-| `linodeToken` | Linode API token | Yes | Yes |
-| `wireguardServerEndpoint` | WireGuard VPN server endpoint | Yes | No |
-| `wireguardServerPublicKey` | WireGuard VPN server public key | Yes | No |
-| `rke2ClusterToken` | RKE2 cluster join token (auto-generated if not set) | No | Yes |
-
-### Node Pools
-
-The default configuration creates:
-
-| Pool | Provider | Count | Size | Role |
-|------|----------|-------|------|------|
-| do-masters | DigitalOcean | 1 | s-2vcpu-4gb | Master |
-| do-workers | DigitalOcean | 2 | s-2vcpu-4gb | Worker (tools) |
-| linode-masters | Linode | 2 | g6-standard-2 | Master |
-| linode-workers | Linode | 1 | g6-standard-2 | Worker (misc) |
-
-You can customize these in `main.go` or implement configuration file support.
-
-## Project Structure
-
-```
-.
-├── main.go                          # Main Pulumi program
-├── go.mod                           # Go dependencies
-├── internal/
-│   └── orchestrator/               # Orchestration logic
-│       ├── cluster_orchestrator.go  # Main orchestrator
-│       ├── node_deployment.go       # Node provisioning
-│       ├── node_provisioning.go     # Dependency installation
-│       ├── rke2_installer.go        # RKE2 deployment
-│       ├── wireguard_mesh.go        # WireGuard mesh setup
-│       ├── dns_manager.go           # DNS record management
-│       └── ...
-├── pkg/
-│   ├── config/                     # Configuration structs
-│   ├── providers/                  # Cloud provider implementations
-│   ├── security/                   # SSH key generation
-│   └── network/                    # Network utilities
-└── docs/                           # Complete documentation
-    ├── README.md                   # Main documentation
-    ├── QUICK_START.md             # Quick reference
-    ├── NETWORK_DIAGRAM.md         # Network architecture
-    └── examples/                   # Deployment examples
-```
-
-## Usage Examples
-
-### Deploy Application to Tools Workers
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: my-app
-spec:
-  replicas: 2
-  template:
-    spec:
-      nodeSelector:
-        workload: tools
-      tolerations:
-      - key: workload
-        operator: Equal
-        value: tools
-        effect: NoSchedule
-      containers:
-      - name: app
-        image: my-app:latest
-```
-
-### Expose Service via Ingress
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  name: my-app
-  annotations:
-    kubernetes.io/ingress.class: nginx
-spec:
-  rules:
-  - host: myapp.kube.yourdomain.com
-    http:
-      paths:
-      - path: /
-        backend:
-          service:
-            name: my-app
-            port:
-              number: 80
-```
-
-See `docs/examples/` for more complete examples.
-
-## Documentation
-
-Complete documentation is available:
-
-### Core Documentation
-- **[README.md](./README.md)** - This file (overview and quick start)
-- **[STATE_MANAGEMENT.md](./STATE_MANAGEMENT.md)** - Pulumi state management guide
-- **[DRY_RUN_USAGE.md](./DRY_RUN_USAGE.md)** - Preview/dry-run functionality
-- **[IMPROVEMENTS_SUMMARY.md](./IMPROVEMENTS_SUMMARY.md)** - All improvements and features
-
-### Feature Documentation
-- **[NODES_MANAGEMENT.md](./NODES_MANAGEMENT.md)** - Complete node management guide (50+ pages)
-- **[ADDONS_GITOPS.md](./ADDONS_GITOPS.md)** - GitOps addon management guide (50+ pages)
-- **[CHANGELOG.md](./CHANGELOG.md)** - Version history and changes
-
-### Examples
-- **[examples/cluster-basic.yaml](./examples/cluster-basic.yaml)** - Full configuration example
-- **[examples/cluster-minimal.yaml](./examples/cluster-minimal.yaml)** - Minimal configuration
-- **[examples/README.md](./examples/README.md)** - Configuration guide
-
-## Features Roadmap
-
-### Code Improvements Needed
-- [ ] Remove duplicate code (files with `_real`, `_granular` suffixes)
-- [ ] Rename components to more descriptive names
-- [ ] Extract configuration to YAML files
-- [ ] Add comprehensive error handling
-- [ ] Implement configuration validation schema
-- [ ] Add unit tests for core components
-
-### Feature Enhancements
-- [ ] Support for additional cloud providers (AWS, GCP, Azure)
-- [ ] Automated backup and restore for etcd
-- [ ] Cluster autoscaling support
-- [ ] Monitoring stack (Prometheus + Grafana)
-- [ ] Logging stack (ELK or Loki)
-- [ ] Cert-manager for automatic TLS
-- [ ] External-DNS for automated DNS management
-- [ ] StorageClass configurations for persistent volumes
-
-## Security Considerations
-
-⚠️ **Important Security Notes**:
-
-1. **Sensitive Files**: The following files are gitignored and contain sensitive data:
-   - `Pulumi.yaml` and `Pulumi.*.yaml` (contain configuration)
-   - `.pulumi/` (Pulumi state)
-   - `*.pem`, `*.key` (SSH keys)
-   - kubeconfig files
-
-2. **Secrets Management**: All secrets should be stored in Pulumi config with `--secret` flag:
-   ```bash
-   pulumi config set mySecret "value" --secret
-   ```
-
-3. **VPN Access**: The cluster is accessible ONLY via WireGuard VPN. Ensure your VPN server is properly secured.
-
-4. **SSH Keys**: Generated SSH keys are stored securely and should never be committed to version control.
-
-## Troubleshooting
-
-### Common Issues
-
-**Issue**: apt-get lock errors during provisioning
-**Solution**: The code includes intelligent retry logic that handles unattended-upgrades. Wait for retries to complete.
-
-**Issue**: Cannot access cluster via kubectl
-**Solution**: Ensure you're connected to the WireGuard VPN and have the correct kubeconfig.
-
-**Issue**: Pods not scheduling on workers
-**Solution**: Ensure pods have the correct `nodeSelector` and `tolerations` for tainted nodes.
-
-See `docs/README.md#troubleshooting` for complete troubleshooting guide.
-
-## Contributing
-
-Contributions are welcome! Please:
-
-1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/amazing-feature`)
-3. Commit your changes (`git commit -m 'Add amazing feature'`)
-4. Push to the branch (`git push origin feature/amazing-feature`)
-5. Open a Pull Request
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Acknowledgments
-
-- **Pulumi**: For the excellent Infrastructure as Code platform
-- **RKE2**: Rancher's production-grade Kubernetes distribution
-- **WireGuard**: For the modern, fast VPN protocol
-- **DigitalOcean & Linode**: For reliable cloud infrastructure
-
-## Support
-
-For issues, questions, or contributions:
-- Open an issue on GitHub
-- Check the [documentation](docs/)
-- Review [examples](docs/examples/)
 
 ---
 
-**Built with ❤️ using Pulumi, Go, and Kubernetes**
+## 🏗️ How It Works
+
+### No Pulumi CLI Required!
+
+Sloth Kubernetes uses **Pulumi Automation API**, which is a Go library that embeds all Pulumi functionality directly into the binary:
+
+```go
+// This is what happens internally:
+stack, err := auto.UpsertStackInlineSource(ctx, stackName, "sloth-kubernetes", program)
+result, err := stack.Up(ctx)
+```
+
+**Benefits:**
+- ✅ No external CLI installation
+- ✅ No `pulumi` command needed
+- ✅ No separate Pulumi.yaml files
+- ✅ Everything is programmatic
+- ✅ State managed automatically
+
+### State Storage
+
+By default, state is stored locally in `~/.pulumi/`. You can configure remote state:
+
+```yaml
+# In your config
+pulumi:
+  backend: "s3://my-bucket/sloth-kubernetes"
+```
+
+Or set environment variable:
+```bash
+export PULUMI_BACKEND_URL="s3://my-bucket"
+```
+
+---
+
+## 🌐 Architecture
+
+### Deployment Flow
+
+```
+┌────────────────────────────────────────────────┐
+│ 1. VPC Creation                                │
+│    ├── DigitalOcean VPC (10.10.0.0/16)        │
+│    └── Linode VPC (10.11.0.0/16)              │
+└────────────────────────────────────────────────┘
+                    ↓
+┌────────────────────────────────────────────────┐
+│ 2. VPN Setup                                   │
+│    ├── WireGuard server deployment            │
+│    ├── Key generation                          │
+│    └── Mesh networking configuration           │
+└────────────────────────────────────────────────┘
+                    ↓
+┌────────────────────────────────────────────────┐
+│ 3. Cluster Deployment                          │
+│    ├── SSH key provisioning                    │
+│    ├── Master nodes (3 for HA)                 │
+│    ├── Worker nodes                            │
+│    ├── RKE2 installation                       │
+│    └── Cluster bootstrap                       │
+└────────────────────────────────────────────────┘
+                    ↓
+┌────────────────────────────────────────────────┐
+│ 4. Network Configuration                       │
+│    ├── WireGuard clients on all nodes         │
+│    ├── Peer-to-peer mesh                      │
+│    └── Cross-cloud connectivity                │
+└────────────────────────────────────────────────┘
+```
+
+### Network Topology
+
+```
+┌─────────────────────────────────────────────────────┐
+│            WireGuard VPN Mesh (10.8.0.0/24)         │
+│                                                      │
+│  ┌──────────────────┐      ┌──────────────────┐    │
+│  │  DigitalOcean    │      │     Linode       │    │
+│  │  VPC             │◄────►│     VPC          │    │
+│  │  10.10.0.0/16    │ VPN  │  10.11.0.0/16    │    │
+│  │                  │      │                  │    │
+│  │  • 3 Masters     │      │  • Optional      │    │
+│  │  • 3 Workers     │      │    nodes         │    │
+│  └──────────────────┘      └──────────────────┘    │
+│                                                      │
+│  All nodes communicate via encrypted WireGuard      │
+└─────────────────────────────────────────────────────┘
+```
+
+---
+
+## 📖 Documentation
+
+Comprehensive documentation available:
+
+- [**VPC + VPN + Cluster Guide**](./VPC_VPN_CLUSTER.md) - 70+ pages complete guide
+- [**Test Coverage Report**](./TESTS_COVERAGE_REPORT.md) - 46.1% coverage, 71 tests
+- [**Node Management**](./NODES_MANAGEMENT.md) - Node operations guide
+- [**GitOps Addons**](./ADDONS_GITOPS.md) - ArgoCD and addon management
+- [**Configuration Examples**](./examples/) - Sample configurations
+- [**State Management**](./STATE_MANAGEMENT.md) - Pulumi state guide
+- [**Changelog**](./CHANGELOG.md) - Version history
+
+---
+
+## 🔧 Configuration Examples
+
+### Multi-Cloud Cluster
+
+```yaml
+providers:
+  digitalocean:
+    enabled: true
+    vpc:
+      create: true
+      cidr: 10.10.0.0/16
+
+  linode:
+    enabled: true
+    vpc:
+      create: true
+      cidr: 10.11.0.0/16
+
+nodePools:
+  do-masters:
+    provider: digitalocean
+    count: 1
+    roles: [master]
+
+  linode-masters:
+    provider: linode
+    count: 2
+    roles: [master]
+```
+
+### With RKE2 Options
+
+```yaml
+kubernetes:
+  distribution: rke2
+  rke2:
+    channel: stable
+    snapshotScheduleCron: "0 */12 * * *"
+    snapshotRetention: 5
+    secretsEncryption: true
+    disableComponents:
+      - rke2-ingress-nginx
+    profiles:
+      - cis-1.6
+```
+
+See [examples/](./examples/) for more.
+
+---
+
+## 🧪 Testing
+
+**46.1% test coverage** with **71 tests** (all passing ✅)
+
+```bash
+# Run all tests
+go test ./pkg/vpc ./pkg/vpn ./pkg/config
+
+# With coverage
+go test ./pkg/vpc ./pkg/vpn ./pkg/config -cover
+
+# HTML report
+go test ./pkg/vpc ./pkg/vpn ./pkg/config -coverprofile=coverage.out
+go tool cover -html=coverage.out
+```
+
+### Coverage by Package
+
+- `pkg/config`: 53.4% (56 tests)
+- `pkg/vpc`: 2.1% (9 tests)
+- `pkg/vpn`: 7.7% (14 tests)
+
+See [TESTS_COVERAGE_REPORT.md](./TESTS_COVERAGE_REPORT.md) for details.
+
+---
+
+## ❓ FAQ
+
+### Do I need Pulumi CLI installed?
+
+**No!** Sloth Kubernetes uses Pulumi Automation API (a Go library), not the CLI. Everything is embedded in the binary.
+
+### Where is the state stored?
+
+By default: `~/.pulumi/stacks/`. You can configure S3, Azure Blob, GCS, or Pulumi Cloud.
+
+### Can I use my existing VPC?
+
+Yes! Set `create: false` and provide the VPC ID:
+
+```yaml
+vpc:
+  create: false
+  id: "vpc-existing"
+```
+
+### Do I need a WireGuard server?
+
+No! Set `create: true` and it will be created automatically:
+
+```yaml
+wireguard:
+  create: true
+  provider: digitalocean
+```
+
+### How do I update the cluster?
+
+```bash
+# Update config file
+vim cluster.yaml
+
+# Preview changes
+sloth-kubernetes deploy --config cluster.yaml --dry-run
+
+# Apply
+sloth-kubernetes deploy --config cluster.yaml
+```
+
+---
+
+## 🚀 Roadmap
+
+- [ ] AWS, GCP, Azure support
+- [ ] Terraform backend support
+- [ ] Cluster autoscaling
+- [ ] Monitoring stack (Prometheus/Grafana)
+- [ ] Backup/restore automation
+- [ ] Web UI dashboard
+
+---
+
+## 🤝 Contributing
+
+Contributions welcome! Please:
+
+1. Fork the repo
+2. Create feature branch
+3. Commit changes
+4. Push and open PR
+
+---
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE)
+
+---
+
+## 🙏 Acknowledgments
+
+- [Pulumi](https://pulumi.com) - Infrastructure as Code
+- [RKE2](https://docs.rke2.io/) - Kubernetes distribution
+- [WireGuard](https://www.wireguard.com/) - VPN protocol
+- [ArgoCD](https://argo-cd.readthedocs.io/) - GitOps
+
+---
+
+## 📧 Support
+
+- 📖 [Documentation](./VPC_VPN_CLUSTER.md)
+- 🐛 [Issues](https://github.com/chalkan3/sloth-kubernetes/issues)
+- 💬 [Discussions](https://github.com/chalkan3/sloth-kubernetes/discussions)
+
+---
+
+**🦥 Built with Sloth Kubernetes - Deploy Kubernetes slowly but surely!**
