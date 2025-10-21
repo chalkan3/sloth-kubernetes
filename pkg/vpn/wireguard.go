@@ -149,6 +149,9 @@ func (m *WireGuardManager) createLinodeWireGuard(cfg *config.WireGuardConfig, ss
 		image = "linode/ubuntu22.04"
 	}
 
+	// Use the SSH key directly - it's already normalized in sshkeys.go
+	// The key is in format: "ssh-rsa AAAAB3..." (type + key-data only, no comment)
+
 	// Create WireGuard server instance
 	instance, err := linode.NewInstance(m.ctx, cfg.Name, &linode.InstanceArgs{
 		Label:          pulumi.String(cfg.Name),

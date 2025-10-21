@@ -38,10 +38,16 @@ func (m *VPCManager) CreateDigitalOceanVPC(cfg *config.DigitalOceanProvider) (*V
 
 	vpcCfg := cfg.VPC
 
+	// Use provider region if VPC region is not specified
+	region := vpcCfg.Region
+	if region == "" {
+		region = cfg.Region
+	}
+
 	// Create VPC
 	vpc, err := digitalocean.NewVpc(m.ctx, vpcCfg.Name, &digitalocean.VpcArgs{
 		Name:        pulumi.String(vpcCfg.Name),
-		Region:      pulumi.String(vpcCfg.Region),
+		Region:      pulumi.String(region),
 		IpRange:     pulumi.String(vpcCfg.CIDR),
 		Description: pulumi.String(fmt.Sprintf("VPC for Kubernetes cluster - %s", vpcCfg.Name)),
 	})
@@ -59,7 +65,7 @@ func (m *VPCManager) CreateDigitalOceanVPC(cfg *config.DigitalOceanProvider) (*V
 		ID:       vpc.ID(),
 		Name:     vpcCfg.Name,
 		CIDR:     vpcCfg.CIDR,
-		Region:   vpcCfg.Region,
+		Region:   region,
 	}, nil
 }
 
@@ -71,10 +77,16 @@ func (m *VPCManager) CreateLinodeVPC(cfg *config.LinodeProvider) (*VPCResult, er
 
 	vpcCfg := cfg.VPC
 
+	// Use provider region if VPC region is not specified
+	region := vpcCfg.Region
+	if region == "" {
+		region = cfg.Region
+	}
+
 	// Create VPC
 	vpcArgs := &linode.VpcArgs{
 		Label:       pulumi.String(vpcCfg.Name),
-		Region:      pulumi.String(vpcCfg.Region),
+		Region:      pulumi.String(region),
 		Description: pulumi.String(fmt.Sprintf("VPC for Kubernetes cluster - %s", vpcCfg.Name)),
 	}
 
@@ -92,7 +104,7 @@ func (m *VPCManager) CreateLinodeVPC(cfg *config.LinodeProvider) (*VPCResult, er
 		ID:       vpc.ID(),
 		Name:     vpcCfg.Name,
 		CIDR:     vpcCfg.CIDR,
-		Region:   vpcCfg.Region,
+		Region:   region,
 	}, nil
 }
 

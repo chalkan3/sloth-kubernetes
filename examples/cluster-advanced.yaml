@@ -1,0 +1,143 @@
+# Advanced configuration with granular node settings
+metadata:
+  name: production-multicloud
+
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    vpc:
+      create: true
+      name: sloth-prod-do-vpc
+      cidr: 10.10.0.0/16
+      description: "Production DigitalOcean VPC"
+
+  linode:
+    enabled: true
+    token: ${LINODE_TOKEN}
+    region: us-ord
+    vpc:
+      create: true
+      name: sloth-prod-linode-vpc
+      linode:
+        label: sloth-prod-linode-vpc
+        subnets:
+          - label: prod-subnet
+            ipv4: 10.11.0.0/24
+
+network:
+  mode: wireguard
+  dns:
+    domain: example.com  # Replace with your domain
+    provider: digitalocean
+  wireguard:
+    enabled: true
+    create: true
+    provider: linode
+    region: us-ord
+    size: g6-nanode-1
+    name: vpn-gateway
+    port: 51820
+    subnetCidr: 10.8.0.0/24
+    meshNetworking: true
+    allowedIPs:
+      - 10.8.0.0/24
+      - 10.10.0.0/16
+      - 10.11.0.0/16
+
+kubernetes:
+  distribution: rke2
+  version: v1.28.5+rke2r1
+  podCidr: 10.42.0.0/16
+  serviceCidr: 10.43.0.0/16
+  clusterDns: 10.43.0.10
+  networkPlugin: calico
+  rke2:
+    channel: stable
+    clusterToken: "change-this-to-secure-random-token"
+    tlsSan:
+      - kubernetes.example.com
+      - api.example.com
+    disableComponents:
+      - rke2-ingress-nginx
+    snapshotScheduleCron: "0 */6 * * *"
+    snapshotRetention: 10
+    secretsEncryption: true
+
+# Individual nodes with custom names and IPs
+nodes:
+  - name: master-primary-nyc
+    provider: digitalocean
+    region: nyc3
+    size: s-4vcpu-8gb
+    image: ubuntu-22-04-x64
+    roles:
+      - master
+    wireGuardIP: 10.8.0.10
+    labels:
+      node-type: master
+      location: nyc
+      tier: primary
+    monitoring: true
+
+  - name: master-secondary-ord
+    provider: linode
+    region: us-ord
+    size: g6-standard-4
+    image: linode/ubuntu22.04
+    roles:
+      - master
+    wireGuardIP: 10.8.0.11
+    labels:
+      node-type: master
+      location: ord
+      tier: secondary
+    monitoring: true
+
+  - name: master-tertiary-ord
+    provider: linode
+    region: us-ord
+    size: g6-standard-4
+    image: linode/ubuntu22.04
+    roles:
+      - master
+    wireGuardIP: 10.8.0.12
+    labels:
+      node-type: master
+      location: ord
+      tier: tertiary
+    monitoring: true
+
+# Node pools for workers with custom naming
+nodePools:
+  do-workers:
+    provider: digitalocean
+    region: nyc3
+    count: 2
+    size: s-4vcpu-8gb
+    image: ubuntu-22-04-x64
+    roles:
+      - worker
+    labels:
+      workload: general
+      location: nyc
+      provider: digitalocean
+
+  linode-workers:
+    provider: linode
+    region: us-ord
+    count: 2
+    size: g6-standard-4
+    image: linode/ubuntu22.04
+    roles:
+      - worker
+    labels:
+      workload: general
+      location: ord
+      provider: linode
+
+sshKey:
+  name: sloth-prod-key
+  publicKeyPath: ~/.ssh/id_rsa.pub
+  privateKeyPath: ~/.ssh/id_rsa

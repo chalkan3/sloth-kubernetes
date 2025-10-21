@@ -144,8 +144,8 @@ func LoadFromK8sYAML(filePath string) (*ClusterConfig, error) {
 	}
 
 	// Validate API version and kind
-	if k8sConfig.APIVersion != "kubernetes-create.io/v1" && k8sConfig.APIVersion != "v1" {
-		return nil, fmt.Errorf("unsupported apiVersion: %s (expected: kubernetes-create.io/v1)", k8sConfig.APIVersion)
+	if k8sConfig.APIVersion != "kubernetes-create.io/v1" && k8sConfig.APIVersion != "sloth-kubernetes.io/v1" && k8sConfig.APIVersion != "v1" {
+		return nil, fmt.Errorf("unsupported apiVersion: %s (expected: sloth-kubernetes.io/v1 or kubernetes-create.io/v1)", k8sConfig.APIVersion)
 	}
 	if k8sConfig.Kind != "Cluster" {
 		return nil, fmt.Errorf("unsupported kind: %s (expected: Cluster)", k8sConfig.Kind)

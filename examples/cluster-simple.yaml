@@ -1,0 +1,109 @@
+# Simple cluster configuration with VPC and WireGuard VPN
+metadata:
+  name: test-multi-cloud-cluster
+
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    vpc:
+      create: true
+      name: sloth-k8s-do-vpc
+      cidr: 10.10.0.0/16
+      description: "DigitalOcean VPC for Sloth Kubernetes"
+
+  linode:
+    enabled: true
+    token: ${LINODE_TOKEN}
+    region: us-ord
+    vpc:
+      create: true
+      name: sloth-k8s-linode-vpc
+      description: "Linode VPC for Sloth Kubernetes"
+      linode:
+        label: sloth-k8s-linode-vpc
+        description: "Linode VPC for Sloth Kubernetes"
+        subnets:
+          - label: k8s-subnet
+            ipv4: 10.11.0.0/24
+
+network:
+  mode: wireguard
+  dns:
+    domain: example.com  # Replace with your domain
+    provider: digitalocean
+  wireguard:
+    enabled: true
+    create: true
+    provider: linode
+    region: us-ord
+    size: g6-nanode-1
+    name: wg-vpn-server
+    port: 51820
+    subnetCidr: 10.8.0.0/24
+    meshNetworking: true
+    allowedIPs:
+      - 10.8.0.0/24
+      - 10.10.0.0/16
+      - 10.11.0.0/16
+
+kubernetes:
+  distribution: rke2
+  version: v1.28.5+rke2r1
+  podCidr: 10.42.0.0/16
+  serviceCidr: 10.43.0.0/16
+  clusterDns: 10.43.0.10
+  networkPlugin: calico
+  rke2:
+    channel: stable
+    clusterToken: "change-this-to-secure-random-token"
+    tlsSan:
+      - kubernetes.sloth.local
+    disableComponents:
+      - rke2-ingress-nginx
+    snapshotScheduleCron: "0 */12 * * *"
+    snapshotRetention: 5
+    secretsEncryption: true
+
+nodePools:
+  do-masters:
+    provider: digitalocean
+    region: nyc3
+    count: 1
+    size: s-2vcpu-4gb
+    image: ubuntu-22-04-x64
+    roles:
+      - master
+
+  linode-masters:
+    provider: linode
+    region: us-ord
+    count: 2
+    size: g6-standard-2
+    image: linode/ubuntu22.04
+    roles:
+      - master
+
+  do-workers:
+    provider: digitalocean
+    region: nyc3
+    count: 2
+    size: s-2vcpu-4gb
+    image: ubuntu-22-04-x64
+    roles:
+      - worker
+
+  linode-workers:
+    provider: linode
+    region: us-ord
+    count: 1
+    size: g6-standard-2
+    image: linode/ubuntu22.04
+    roles:
+      - worker
+
+sshKey:
+  name: sloth-k8s-key
+  publicKeyPath: ~/.ssh/id_rsa.pub
+  privateKeyPath: ~/.ssh/id_rsa

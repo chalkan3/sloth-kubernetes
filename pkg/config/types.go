@@ -187,6 +187,7 @@ type WireGuardPeer struct {
 // SecurityConfig defines security settings
 type SecurityConfig struct {
 	SSHConfig       SSHConfig              `yaml:"ssh" json:"ssh"`
+	Bastion         *BastionConfig         `yaml:"bastion,omitempty" json:"bastion,omitempty"`
 	TLS             TLSConfig              `yaml:"tls" json:"tls"`
 	RBAC            RBACConfig             `yaml:"rbac" json:"rbac"`
 	PodSecurity     PodSecurityConfig      `yaml:"podSecurity" json:"podSecurity"`
@@ -195,6 +196,23 @@ type SecurityConfig struct {
 	Compliance      ComplianceConfig       `yaml:"compliance" json:"compliance"`
 	Audit           AuditConfig            `yaml:"audit" json:"audit"`
 	Custom          map[string]interface{} `yaml:"custom" json:"custom"`
+}
+
+// BastionConfig defines bastion host configuration for secure cluster access
+type BastionConfig struct {
+	Enabled           bool     `yaml:"enabled" json:"enabled"`
+	Provider          string   `yaml:"provider" json:"provider"` // digitalocean, linode, aws, gcp, azure
+	Region            string   `yaml:"region" json:"region"`
+	Size              string   `yaml:"size" json:"size"`
+	Image             string   `yaml:"image" json:"image"`
+	Name              string   `yaml:"name" json:"name"`
+	VPNOnly           bool     `yaml:"vpnOnly" json:"vpnOnly"` // If true, only VPN users can SSH to bastion
+	AllowedCIDRs      []string `yaml:"allowedCIDRs" json:"allowedCIDRs"` // CIDRs allowed to SSH to bastion
+	SSHPort           int      `yaml:"sshPort" json:"sshPort"` // Custom SSH port (default: 22)
+	IdleTimeout       int      `yaml:"idleTimeout" json:"idleTimeout"` // SSH idle timeout in minutes
+	MaxSessions       int      `yaml:"maxSessions" json:"maxSessions"` // Max concurrent SSH sessions
+	EnableAuditLog    bool     `yaml:"enableAuditLog" json:"enableAuditLog"` // Log all SSH sessions
+	EnableMFA         bool     `yaml:"enableMFA" json:"enableMFA"` // Require MFA for bastion access
 }
 
 // NodeConfig represents individual node configuration

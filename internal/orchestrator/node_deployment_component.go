@@ -55,7 +55,7 @@ func NewNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterConfig 
 	nodeIndex := len(nodeComponents)
 	for poolName, poolConfig := range clusterConfig.NodePools {
 		for i := 0; i < poolConfig.Count; i++ {
-			nodeName := fmt.Sprintf("%s-%d", poolConfig.Name, i+1)
+			nodeName := fmt.Sprintf("%s-%d", poolName, i+1)
 
 			// Create a node config from pool config
 			nodeConfig := config.NodeConfig{

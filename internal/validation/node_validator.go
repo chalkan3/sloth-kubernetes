@@ -18,16 +18,17 @@ type NodeDistribution struct {
 func ValidateNodeDistribution(cfg *config.ClusterConfig) error {
 	dist := CalculateDistribution(cfg)
 
-	if dist.Total != 6 {
-		return fmt.Errorf("configuration must define exactly 6 nodes, found %d", dist.Total)
+	if dist.Total == 0 {
+		return fmt.Errorf("configuration must define at least 1 node, found 0")
 	}
 
-	if dist.Masters != 3 {
-		return fmt.Errorf("configuration must define exactly 3 master nodes, found %d", dist.Masters)
+	if dist.Masters == 0 {
+		return fmt.Errorf("configuration must define at least 1 master node, found 0")
 	}
 
-	if dist.Workers != 3 {
-		return fmt.Errorf("configuration must define exactly 3 worker nodes, found %d", dist.Workers)
+	// Validate odd number of masters for HA
+	if dist.Masters > 1 && dist.Masters%2 == 0 {
+		return fmt.Errorf("for HA, master nodes must be an odd number (1, 3, 5, ...), found %d", dist.Masters)
 	}
 
 	return nil

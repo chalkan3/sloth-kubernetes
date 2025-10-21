@@ -1,0 +1,95 @@
+apiVersion: sloth-kubernetes.io/v1
+kind: Cluster
+metadata:
+  name: test-multi-cloud-cluster
+  labels:
+    env: test
+    managed-by: sloth-kubernetes
+
+spec:
+  providers:
+    digitalocean:
+      enabled: true
+      token: ${DIGITALOCEAN_TOKEN}
+      region: nyc3
+      tags:
+        - kubernetes
+        - test
+
+    linode:
+      enabled: true
+      token: ${LINODE_TOKEN}
+      region: us-ord
+      tags:
+        - kubernetes
+        - test
+
+  network:
+    dns:
+      domain: ""
+      provider: ""
+    wireguard:
+      enabled: true
+      serverEndpoint: ""
+      serverPublicKey: ""
+      clientIPBase: "10.8.0.0/24"
+      port: 51820
+      mtu: 1420
+      persistentKeepalive: 25
+
+  kubernetes:
+    distribution: rke2
+    version: v1.28.5+rke2r1
+    networkPlugin: calico
+    podCIDR: 10.42.0.0/16
+    serviceCIDR: 10.43.0.0/16
+    clusterDNS: 10.43.0.10
+    clusterDomain: cluster.local
+    rke2:
+      channel: stable
+      clusterToken: "change-this-to-secure-random-token"
+      tlsSan:
+        - kubernetes.sloth.local
+      disableComponents:
+        - rke2-ingress-nginx
+      snapshotScheduleCron: "0 */12 * * *"
+      snapshotRetention: 5
+      secretsEncryption: true
+      writeKubeconfigMode: "0600"
+
+  nodePools:
+    - name: do-masters
+      provider: digitalocean
+      region: nyc3
+      count: 1
+      roles:
+        - master
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+
+    - name: linode-masters
+      provider: linode
+      region: us-ord
+      count: 2
+      roles:
+        - master
+      size: g6-standard-2
+      image: linode/ubuntu22.04
+
+    - name: do-workers
+      provider: digitalocean
+      region: nyc3
+      count: 2
+      roles:
+        - worker
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+
+    - name: linode-workers
+      provider: linode
+      region: us-ord
+      count: 1
+      roles:
+        - worker
+      size: g6-standard-2
+      image: linode/ubuntu22.04

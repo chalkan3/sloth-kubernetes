@@ -16,13 +16,14 @@ var (
 
 // rootCmd represents the base command
 var rootCmd = &cobra.Command{
-	Use:   "kubernetes-create",
+	Use:   "sloth-kubernetes",
 	Short: "Multi-cloud Kubernetes cluster deployment tool",
-	Long: `Kubernetes-Create is a CLI tool for deploying production-grade
+	Long: `Sloth Kubernetes is a CLI tool for deploying production-grade
 Kubernetes clusters across multiple cloud providers (DigitalOcean and Linode)
 with RKE2, WireGuard VPN mesh, and automated configuration.
 
-This tool uses Pulumi Automation API internally - no Pulumi CLI required!`,
+This tool uses Pulumi Automation API internally - no Pulumi CLI required!
+Stack-based deployment enables managing multiple independent clusters.`,
 	Version: "1.0.0",
 }
 

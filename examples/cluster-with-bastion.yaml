@@ -1,0 +1,114 @@
+# Cluster with Bastion Host (secure private deployment)
+metadata:
+  name: production-secure
+  environment: production
+  version: "1.0.0"
+  description: "Secure Multi-Cloud Kubernetes with Bastion Host"
+  owner: "DevOps Team"
+
+providers:
+  digitalocean:
+    enabled: true
+    token: ${DIGITALOCEAN_TOKEN}
+    region: nyc3
+    vpc:
+      create: true
+      name: sloth-k8s-do-vpc
+      cidr: 10.10.0.0/16
+      description: "DigitalOcean VPC for Sloth Kubernetes"
+
+  linode:
+    enabled: true
+    token: ${LINODE_TOKEN}
+    region: us-ord
+    vpc:
+      create: true
+      name: sloth-k8s-linode-vpc
+      description: "Linode VPC for Sloth Kubernetes"
+      linode:
+        label: sloth-k8s-linode-vpc
+        description: "Linode VPC for Sloth Kubernetes"
+        subnets:
+          - label: k8s-subnet
+            ipv4: 10.11.0.0/24
+
+network:
+  mode: wireguard
+  dns:
+    domain: example.com  # Replace with your domain
+    provider: digitalocean
+  wireguard:
+    enabled: true
+    create: true
+    provider: linode
+    region: us-ord
+    size: g6-nanode-1
+    name: wg-vpn-server
+    port: 51820
+    subnetCidr: 10.8.0.0/24
+    meshNetworking: true
+    allowedIPs:
+      - 10.8.0.0/24
+      - 10.10.0.0/16
+      - 10.11.0.0/16
+
+security:
+  # BASTION HOST CONFIGURATION
+  # Only the bastion has public SSH access
+  # All cluster nodes are private (VPN/bastion access only)
+  bastion:
+    enabled: true
+    provider: "linode"  # Can be digitalocean, linode, aws, gcp, azure
+    region: "us-ord"
+    size: "g6-standard-2"  # Larger instance for handling multiple SSH ProxyJump connections
+    image: "linode/ubuntu22.04"
+    name: "bastion-prod"
+    sshPort: 22
+    vpnOnly: false  # Set to true to require VPN access to bastion
+    allowedCIDRs:
+      - "0.0.0.0/0"  # Allow from anywhere (for testing). Restrict in production!
+    idleTimeout: 30  # Minutes
+    maxSessions: 10
+    enableAuditLog: true
+    enableMFA: false  # Set to true for MFA requirement
+  ssh:
+    enabled: true
+    port: 22
+    keyType: "ed25519"
+
+kubernetes:
+  distribution: rke2
+  version: v1.28.5+rke2r1
+  podCidr: 10.42.0.0/16
+  serviceCidr: 10.43.0.0/16
+  clusterDns: 10.43.0.10
+  networkPlugin: calico
+  rke2:
+    channel: stable
+    clusterToken: "change-this-to-secure-random-token"
+    tlsSan:
+      - kubernetes.sloth.local
+    disableComponents:
+      - rke2-ingress-nginx
+    snapshotScheduleCron: "0 */12 * * *"
+    snapshotRetention: 5
+    secretsEncryption: true
+
+# Node pools - ALL PRIVATE (no public IPs when bastion is enabled)
+nodePools:
+  do-masters:
+    count: 1
+    provider: digitalocean
+    region: nyc3
+    size: s-2vcpu-4gb
+    image: ubuntu-22-04-x64
+    roles:
+      - master
+    labels:
+      node-role: "master"
+      cloud: "digitalocean"
+
+sshKey:
+  name: sloth-k8s-key
+  publicKeyPath: ~/.ssh/id_rsa.pub
+  privateKeyPath: ~/.ssh/id_rsa

@@ -22,7 +22,7 @@ type RKE2RealComponent struct {
 }
 
 // NewRKE2RealComponent deploys a REAL RKE2 cluster
-func NewRKE2RealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, cfg *config.ClusterConfig, opts ...pulumi.ResourceOption) (*RKE2RealComponent, error) {
+func NewRKE2RealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, cfg *config.ClusterConfig, bastionComponent *BastionComponent, opts ...pulumi.ResourceOption) (*RKE2RealComponent, error) {
 	component := &RKE2RealComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:cluster:RKE2Real", name, component, opts...)
 	if err != nil {
@@ -61,13 +61,23 @@ func NewRKE2RealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeCom
 
 	ctx.Log.Info("📦 Installing RKE2 on first master (cluster init)...", nil)
 
+	// Build connection args with ProxyJump if bastion is enabled
+	firstMasterConnArgs := remote.ConnectionArgs{
+		Host:           firstMaster.PublicIP,
+		User:           pulumi.String("root"),
+		PrivateKey:     sshPrivateKey,
+		DialErrorLimit: pulumi.Int(30),
+	}
+	if bastionComponent != nil {
+		firstMasterConnArgs.Proxy = &remote.ProxyConnectionArgs{
+			Host:       bastionComponent.PublicIP,
+			User:       pulumi.String("root"),
+			PrivateKey: sshPrivateKey,
+		}
+	}
+
 	firstMasterInstall, err := remote.NewCommand(ctx, fmt.Sprintf("%s-master-0-install", name), &remote.CommandArgs{
-		Connection: remote.ConnectionArgs{
-			Host:           firstMaster.PublicIP,
-			User:           pulumi.String("root"),
-			PrivateKey:     sshPrivateKey,
-			DialErrorLimit: pulumi.Int(30),
-		},
+		Connection: firstMasterConnArgs,
 		Create: pulumi.All(firstMaster.WireGuardIP, firstMaster.PublicIP).ApplyT(func(args []interface{}) string {
 			wgIP := args[0].(string)
 			publicIP := args[1].(string)
@@ -135,8 +145,11 @@ cat /etc/rancher/rke2/rke2.yaml
 		return nil, fmt.Errorf("failed to install RKE2 on first master: %w", err)
 	}
 
-	// Extract kubeconfig from first master - SIMPLIFIED
-	kubeConfig := firstMasterInstall.Stdout.ApplyT(func(stdout string) string {
+	// Extract kubeconfig from first master and replace localhost with VPN IP
+	kubeConfig := pulumi.All(firstMasterInstall.Stdout, firstMaster.WireGuardIP).ApplyT(func(args []interface{}) string {
+		stdout := args[0].(string)
+		vpnIP := args[1].(string)
+
 		// Find the kubeconfig YAML in the output (starts with "apiVersion:")
 		startIdx := -1
 		for i := 0; i < len(stdout)-11; i++ {
@@ -148,7 +161,26 @@ cat /etc/rancher/rke2/rke2.yaml
 		if startIdx == -1 {
 			return "# Kubeconfig not found in output"
 		}
-		return stdout[startIdx:]
+
+		// Get the kubeconfig
+		kubeconfigRaw := stdout[startIdx:]
+
+		// Replace 127.0.0.1:6443 with the VPN IP of the first master
+		// This allows kubectl access via VPN without needing SSH tunnels
+		kubeconfigWithVPN := fmt.Sprintf("%s", kubeconfigRaw)
+		kubeconfigWithVPN = fmt.Sprintf("%s", []byte(kubeconfigWithVPN))
+		// Simple string replacement
+		kubeconfigWithVPN = ""
+		for i := 0; i < len(kubeconfigRaw); i++ {
+			if i+21 < len(kubeconfigRaw) && kubeconfigRaw[i:i+21] == "https://127.0.0.1:6443" {
+				kubeconfigWithVPN += "https://" + vpnIP + ":6443"
+				i += 20 // Skip the rest of the matched string
+			} else {
+				kubeconfigWithVPN += string(kubeconfigRaw[i])
+			}
+		}
+
+		return kubeconfigWithVPN
 	}).(pulumi.StringOutput)
 
 	// STEP 2: Install RKE2 on additional master nodes (join cluster)
@@ -160,13 +192,23 @@ cat /etc/rancher/rke2/rke2.yaml
 
 		ctx.Log.Info(fmt.Sprintf("📦 Installing RKE2 on master %d (join cluster)...", i+1), nil)
 
+		// Build connection args with ProxyJump if bastion is enabled
+		masterConnArgs := remote.ConnectionArgs{
+			Host:           master.PublicIP,
+			User:           pulumi.String("root"),
+			PrivateKey:     sshPrivateKey,
+			DialErrorLimit: pulumi.Int(30),
+		}
+		if bastionComponent != nil {
+			masterConnArgs.Proxy = &remote.ProxyConnectionArgs{
+				Host:       bastionComponent.PublicIP,
+				User:       pulumi.String("root"),
+				PrivateKey: sshPrivateKey,
+			}
+		}
+
 		masterInstall, err := remote.NewCommand(ctx, fmt.Sprintf("%s-master-%d-install", name, i), &remote.CommandArgs{
-			Connection: remote.ConnectionArgs{
-				Host:           master.PublicIP,
-				User:           pulumi.String("root"),
-				PrivateKey:     sshPrivateKey,
-				DialErrorLimit: pulumi.Int(30),
-			},
+			Connection: masterConnArgs,
 			Create: pulumi.All(clusterToken, firstMaster.WireGuardIP, master.WireGuardIP).ApplyT(func(args []interface{}) string {
 				token := args[0].(string)
 				firstMasterWgIP := args[1].(string)
@@ -231,13 +273,23 @@ echo "✅ RKE2 master %d joined cluster"
 	for i, worker := range workers {
 		ctx.Log.Info(fmt.Sprintf("📦 Installing RKE2 on worker %d...", i+1), nil)
 
+		// Build connection args with ProxyJump if bastion is enabled
+		workerConnArgs := remote.ConnectionArgs{
+			Host:           worker.PublicIP,
+			User:           pulumi.String("root"),
+			PrivateKey:     sshPrivateKey,
+			DialErrorLimit: pulumi.Int(30),
+		}
+		if bastionComponent != nil {
+			workerConnArgs.Proxy = &remote.ProxyConnectionArgs{
+				Host:       bastionComponent.PublicIP,
+				User:       pulumi.String("root"),
+				PrivateKey: sshPrivateKey,
+			}
+		}
+
 		_, err := remote.NewCommand(ctx, fmt.Sprintf("%s-worker-%d-install", name, i), &remote.CommandArgs{
-			Connection: remote.ConnectionArgs{
-				Host:           worker.PublicIP,
-				User:           pulumi.String("root"),
-				PrivateKey:     sshPrivateKey,
-				DialErrorLimit: pulumi.Int(30),
-			},
+			Connection: workerConnArgs,
 			Create: pulumi.All(clusterToken, firstMaster.WireGuardIP, worker.WireGuardIP).ApplyT(func(args []interface{}) string {
 				token := args[0].(string)
 				firstMasterWgIP := args[1].(string)

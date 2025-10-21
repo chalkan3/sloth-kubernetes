@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/pulumi/pulumi-tls/sdk/v4/go/tls"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -42,7 +43,21 @@ func (s *SSHKeyManager) GenerateKeyPair() error {
 
 	s.keyPair = keyPair
 	s.privateKey = keyPair.PrivateKeyPem
-	s.publicKey = keyPair.PublicKeyOpenssh
+
+	// Clean the public key to ensure it's in the correct OpenSSH format
+	// Linode is very strict about the format: "ssh-rsa AAAAB3... [optional-comment]"
+	s.publicKey = keyPair.PublicKeyOpenssh.ApplyT(func(key string) string {
+		// Remove any newlines, carriage returns, and extra whitespace
+		cleaned := strings.TrimSpace(strings.ReplaceAll(strings.ReplaceAll(key, "\n", ""), "\r", ""))
+
+		// Ensure the key has exactly 2 or 3 parts (type, key-data, optional-comment)
+		parts := strings.Fields(cleaned)
+		if len(parts) >= 2 {
+			// Return just type + key-data (no comment) to avoid any issues
+			return parts[0] + " " + parts[1]
+		}
+		return cleaned
+	}).(pulumi.StringOutput)
 
 	// Export keys
 	s.ctx.Export("ssh_private_key", pulumi.ToSecret(s.privateKey))

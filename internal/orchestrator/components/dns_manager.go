@@ -25,6 +25,26 @@ func NewDNSRealComponent(ctx *pulumi.Context, name string, domain string, nodes 
 		return nil, err
 	}
 
+	// Validate domain is not empty
+	if domain == "" {
+		ctx.Log.Warn("⚠️  DNS domain is empty, skipping DNS record creation", nil)
+		component.Status = pulumi.String("skipped: no domain configured").ToStringOutput()
+		component.RecordCount = pulumi.Int(0).ToIntOutput()
+		component.Domain = pulumi.String("").ToStringOutput()
+		component.APIEndpoint = pulumi.String("").ToStringOutput()
+
+		if err := ctx.RegisterResourceOutputs(component, pulumi.Map{
+			"status":      component.Status,
+			"recordCount": component.RecordCount,
+			"domain":      component.Domain,
+			"apiEndpoint": component.APIEndpoint,
+		}); err != nil {
+			return nil, err
+		}
+
+		return component, nil
+	}
+
 	ctx.Log.Info(fmt.Sprintf("🌐 Creating DNS records for domain: %s", domain), nil)
 
 	recordCount := 0

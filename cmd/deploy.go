@@ -18,7 +18,6 @@ import (
 	"sloth-kubernetes/internal/validation"
 	"sloth-kubernetes/pkg/config"
 	"sloth-kubernetes/pkg/vpc"
-	"sloth-kubernetes/pkg/vpn"
 )
 
 var (
@@ -30,26 +29,29 @@ var (
 )
 
 var deployCmd = &cobra.Command{
-	Use:   "deploy",
+	Use:   "deploy [stack-name]",
 	Short: "Deploy a new Kubernetes cluster",
 	Long: `Deploy a multi-cloud Kubernetes cluster with:
   • 6 nodes across DigitalOcean and Linode
   • RKE2 Kubernetes distribution
   • WireGuard VPN mesh for private networking
   • Automated DNS configuration
-  • High availability setup (3 masters + 3 workers)`,
-	Example: `  # Deploy using config file
-  kubernetes-create deploy --config production.yaml
+  • High availability setup (3 masters + 3 workers)
 
-  # Deploy with inline credentials
-  kubernetes-create deploy \
-    --do-token xxx \
-    --linode-token yyy \
-    --wireguard-endpoint 1.2.3.4:51820 \
-    --wireguard-pubkey "xxx="
+Stack-based deployment allows you to manage multiple clusters independently.
+Each stack maintains its own state file, enabling cluster updates and parallel deployments.`,
+	Example: `  # Deploy a cluster with stack name
+  sloth-kubernetes deploy my-cluster --config production.yaml
+
+  # Deploy production and staging clusters
+  sloth-kubernetes deploy production --config prod.yaml
+  sloth-kubernetes deploy staging --config staging.yaml
+
+  # Update an existing cluster
+  sloth-kubernetes deploy production --config prod.yaml
 
   # Preview without applying
-  kubernetes-create deploy --dry-run`,
+  sloth-kubernetes deploy my-cluster --config test.yaml --dry-run`,
 	RunE: runDeploy,
 }
 
@@ -65,6 +67,18 @@ func init() {
 
 func runDeploy(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+
+	// Parse stack name from args (first positional argument)
+	if len(args) > 0 {
+		stackName = args[0]
+		printInfo(fmt.Sprintf("📦 Using stack: %s", stackName))
+	} else {
+		// Use default stack name if not provided
+		if stackName == "" {
+			stackName = "production"
+		}
+		printInfo(fmt.Sprintf("📦 Using default stack: %s", stackName))
+	}
 
 	// Print header
 	printHeader("🚀 Kubernetes Multi-Cloud Deployment")
@@ -117,29 +131,8 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			ctx.Log.Info(fmt.Sprintf("✅ Created %d VPC(s)", len(vpcs)), nil)
 		}
 
-		// Phase 2: Create WireGuard VPN server if configured
-		var wgResult *vpn.WireGuardResult
-		if cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Create {
-			ctx.Log.Info("📊 Phase 2: WireGuard VPN Server Creation", nil)
-
-			// Generate SSH key for VPN server
-			sshKeyOutput := pulumi.String("dummy-key").ToStringOutput() // Will be replaced by actual key
-
-			wgManager := vpn.NewWireGuardManager(ctx)
-			wgResult, err = wgManager.CreateWireGuardServer(cfg.Network.WireGuard, sshKeyOutput)
-			if err != nil {
-				return fmt.Errorf("failed to create WireGuard server: %w", err)
-			}
-
-			if wgResult != nil {
-				ctx.Log.Info("✅ WireGuard VPN server created", nil)
-
-				// Update config with VPN server info (will be resolved by Pulumi)
-				// The actual IP will be available in outputs after deployment
-			}
-		}
-
-		// Phase 3: Create cluster orchestrator
+		// Phase 2: Create cluster orchestrator FIRST (to generate SSH keys)
+		ctx.Log.Info("📊 Phase 2: WireGuard VPN Server Creation", nil)
 		ctx.Log.Info("📊 Phase 3: Kubernetes Cluster Creation", nil)
 		clusterOrch, err := orchestrator.NewSimpleRealOrchestratorComponent(ctx, "kubernetes-cluster", cfg)
 		if err != nil {
@@ -156,14 +149,6 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 		for provider, vpcResult := range vpcs {
 			ctx.Export(fmt.Sprintf("vpc_%s_id", provider), vpcResult.ID)
 			ctx.Export(fmt.Sprintf("vpc_%s_cidr", provider), pulumi.String(vpcResult.CIDR))
-		}
-
-		// Export VPN information
-		if wgResult != nil {
-			ctx.Export("vpn_server_id", wgResult.ServerID)
-			ctx.Export("vpn_server_ip", wgResult.ServerIP)
-			ctx.Export("vpn_port", pulumi.Int(wgResult.Port))
-			ctx.Export("vpn_subnet", pulumi.String(wgResult.SubnetCIDR))
 		}
 
 		ctx.Log.Info("✅ All phases completed successfully!", nil)

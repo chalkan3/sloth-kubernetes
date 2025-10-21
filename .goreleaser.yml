@@ -1,0 +1,123 @@
+# GoReleaser configuration
+# Documentation: https://goreleaser.com
+
+version: 2
+
+before:
+  hooks:
+    - go mod tidy
+    - go mod download
+
+builds:
+  - id: sloth-kubernetes
+    binary: sloth-kubernetes
+    main: ./main.go
+    env:
+      - CGO_ENABLED=0
+    goos:
+      - linux
+      - darwin
+      - windows
+    goarch:
+      - amd64
+      - arm64
+    ldflags:
+      - -s -w
+      - -X main.version={{.Version}}
+      - -X main.commit={{.Commit}}
+      - -X main.date={{.Date}}
+    mod_timestamp: '{{ .CommitTimestamp }}'
+
+archives:
+  - id: sloth-kubernetes
+    format: tar.gz
+    name_template: >-
+      {{ .ProjectName }}_
+      {{- .Version }}_
+      {{- title .Os }}_
+      {{- if eq .Arch "amd64" }}x86_64
+      {{- else if eq .Arch "386" }}i386
+      {{- else }}{{ .Arch }}{{ end }}
+      {{- if .Arm }}v{{ .Arm }}{{ end }}
+    format_overrides:
+      - goos: windows
+        format: zip
+    files:
+      - README.md
+      - LICENSE
+      - examples/*
+
+checksum:
+  name_template: 'checksums.txt'
+
+snapshot:
+  name_template: "{{ incpatch .Version }}-next"
+
+changelog:
+  sort: asc
+  use: github
+  filters:
+    exclude:
+      - '^docs:'
+      - '^test:'
+      - '^ci:'
+      - Merge pull request
+      - Merge branch
+  groups:
+    - title: 'New Features'
+      regexp: '^.*?feat(\([[:word:]]+\))??!?:.+$'
+      order: 0
+    - title: 'Bug Fixes'
+      regexp: '^.*?fix(\([[:word:]]+\))??!?:.+$'
+      order: 1
+    - title: 'Performance Improvements'
+      regexp: '^.*?perf(\([[:word:]]+\))??!?:.+$'
+      order: 2
+    - title: 'Refactors'
+      regexp: '^.*?refactor(\([[:word:]]+\))??!?:.+$'
+      order: 3
+    - title: 'Documentation'
+      regexp: '^.*?docs(\([[:word:]]+\))??!?:.+$'
+      order: 4
+    - title: Other Work
+      order: 999
+
+release:
+  github:
+    owner: chalkan3
+    name: sloth-kubernetes
+  draft: false
+  prerelease: auto
+  mode: replace
+  header: |
+    ## Sloth Kubernetes {{ .Tag }} Release
+
+    Multi-cloud Kubernetes cluster deployment tool with RKE2 and WireGuard VPN support.
+
+    ### Installation
+
+    Download the appropriate binary for your platform from the assets below.
+
+    #### Linux/macOS:
+    ```bash
+    # Extract the archive
+    tar -xzf sloth-kubernetes_*_Linux_x86_64.tar.gz
+
+    # Move to PATH
+    sudo mv sloth-kubernetes /usr/local/bin/
+
+    # Make executable
+    sudo chmod +x /usr/local/bin/sloth-kubernetes
+    ```
+
+    #### Windows:
+    Extract the zip file and add the executable to your PATH.
+
+    ### What's Changed
+  footer: |
+    **Full Changelog**: https://github.com/chalkan3/sloth-kubernetes/compare/{{ .PreviousTag }}...{{ .Tag }}
+
+    ## Support
+
+    - Documentation: [README.md](https://github.com/chalkan3/sloth-kubernetes/blob/main/README.md)
+    - Issues: [GitHub Issues](https://github.com/chalkan3/sloth-kubernetes/issues)
