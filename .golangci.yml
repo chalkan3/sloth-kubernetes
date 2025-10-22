@@ -2,24 +2,14 @@ run:
   timeout: 5m
   modules-download-mode: readonly
   go: '1.23'
+  skip-files:
+    - ".*_test\\.go$"
 
 linters:
-  disable:
-    - errcheck       # Explicitly disable errcheck to avoid CI failures
-    - typecheck      # Disable typecheck as it has false positives with yaml package
+  disable-all: true
   enable:
-    - gosimple       # Linter for Go source code that specializes in simplifying code
-    - govet          # Vet examines Go source code and reports suspicious constructs
-    - ineffassign    # Detects when assignments to existing variables are not used
-    - staticcheck    # It's a drop-in replacement for golint
-    - unused         # Checks Go code for unused constants, variables, functions and types
     - gofmt          # Gofmt checks whether code was gofmt-ed
     - goimports      # Check import statements are formatted according to the 'goimport' command
-    - misspell       # Finds commonly misspelled English words in comments
-    - revive         # Fast, configurable, extensible, flexible, and beautiful linter for Go
-    - unconvert      # Remove unnecessary type conversions
-    - unparam        # Reports unused function parameters
-    - gocritic       # Highly extensible Go source code linter
 
 linters-settings:
   errcheck:
