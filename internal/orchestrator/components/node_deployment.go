@@ -1,11 +1,13 @@
 package components
 
 import (
+	"encoding/base64"
 	"fmt"
 
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
+	"sloth-kubernetes/pkg/cloudinit"
 	"sloth-kubernetes/pkg/config"
 )
 
@@ -46,16 +48,11 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 
 	// Check if bastion is enabled - if so, SSH access will be restricted to bastion only
 	bastionEnabled := clusterConfig.Security.Bastion != nil && clusterConfig.Security.Bastion.Enabled
-	var bastionIP *pulumi.StringOutput
 	if bastionEnabled {
 		ctx.Log.Info("🔒 Bastion enabled - SSH access restricted to bastion only", nil)
 		ctx.Log.Info("   ℹ️  Note: Nodes get public IPs (cloud provider limitation)", nil)
 		ctx.Log.Info("   ℹ️  Public IPs needed for K8s API, ingress traffic, WireGuard VPN", nil)
 		ctx.Log.Info("   ℹ️  UFW firewall will block direct SSH - use bastion as jump host", nil)
-		if bastionComponent != nil {
-			ip := bastionComponent.PublicIP
-			bastionIP = &ip
-		}
 	} else {
 		ctx.Log.Info("🌍 Bastion disabled - nodes have direct SSH access", nil)
 	}
@@ -69,12 +66,24 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 		return nil, nil, fmt.Errorf("failed to create shared DO SSH key: %w", err)
 	}
 
+	// Get RKE2 version from cluster config
+	rke2Version := ""
+	if clusterConfig.Kubernetes.Version != "" {
+		rke2Version = clusterConfig.Kubernetes.Version
+	} else if clusterConfig.Kubernetes.RKE2 != nil && clusterConfig.Kubernetes.RKE2.Version != "" {
+		rke2Version = clusterConfig.Kubernetes.RKE2.Version
+	}
+
+	// NOTE: Stackscript is NO LONGER NEEDED!
+	// Linode supports cloud-init natively via Metadatas.UserData field
+	// This is cleaner and more consistent with DigitalOcean's UserData approach
+
 	realNodeComponents := []*RealNodeComponent{}
 	nodesArray := []pulumi.Output{}
 
 	// Create individual nodes
 	for _, nodeConfig := range clusterConfig.Nodes {
-		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, doToken, linodeToken, vpcComponent, bastionEnabled, component)
+		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, rke2Version, component)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -112,7 +121,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 				WireGuardIP: fmt.Sprintf("10.8.0.%d", 10+nodeIndex),
 			}
 
-			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, doToken, linodeToken, vpcComponent, bastionEnabled, component)
+			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, rke2Version, component)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -124,79 +133,26 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 
 	component.Nodes = pulumi.ToArrayOutput(nodesArray)
 
-	ctx.Log.Info(fmt.Sprintf("✅ All %d VMs created, starting SEQUENTIAL provisioning...", len(realNodeComponents)), nil)
+	ctx.Log.Info(fmt.Sprintf("✅ All %d VMs created, starting PARALLEL provisioning...", len(realNodeComponents)), nil)
 
-	// SEQUENTIAL PROVISIONING PHASE
-	// When bastion is enabled, provision nodes ONE AT A TIME to avoid overwhelming the bastion host
-	// Each node depends on the previous node's provisioning completion
-	provisioningComponents := []*RealNodeProvisioningComponent{}
-	var previousProvisioningComponent pulumi.Resource = component // First node depends on main component
+	// CLOUD-INIT PROVISIONING (OPTIMIZED)
+	// Docker and WireGuard are now installed via cloud-init user-data during VM boot
+	// This eliminates the need for SSH provisioning and saves ~2-3 minutes per node
+	// The cloud-init validator (in cluster_orchestrator.go) waits for installation to complete
+	//
+	// NOTE: SSH provisioning is DISABLED because cloud-init handles everything:
+	// - DigitalOcean: Uses UserData field with cloud-init script
+	// - Linode: TODO - Add Stackscript support for cloud-init
+	//
+	// OLD CODE (COMMENTED OUT - kept for reference):
+	// provisioningComponents := []*RealNodeProvisioningComponent{}
+	// var bastionProvisioningDep pulumi.Resource = component
+	// ... (SSH provisioning logic removed)
 
-	// Track nodes by index to get correct names
-	provNodeIndex := 0
+	ctx.Log.Info("✅ Node provisioning handled by cloud-init (UserData) - SSH provisioning disabled", nil)
 
-	// Provision individual nodes
-	for _, nodeConfig := range clusterConfig.Nodes {
-		if provNodeIndex >= len(realNodeComponents) {
-			break
-		}
-		nodeComp := realNodeComponents[provNodeIndex]
-
-		// Create provisioning component - each depends on the previous one (SEQUENTIAL!)
-		provComp, err := NewRealNodeProvisioningComponent(ctx,
-			fmt.Sprintf("%s-%s-provision", name, nodeConfig.Name),
-			nodeComp.PublicIP,
-			nodeConfig.Name,
-			sshPrivateKey,
-			bastionIP, // Use bastion ProxyJump if enabled
-			pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{previousProvisioningComponent})) // CRITICAL: Depend on previous node!
-
-		if err != nil {
-			ctx.Log.Warn(fmt.Sprintf("Failed to create provisioning for node %s: %v", nodeConfig.Name, err), nil)
-		} else {
-			provisioningComponents = append(provisioningComponents, provComp)
-			previousProvisioningComponent = provComp // Next node will depend on this one
-		}
-		provNodeIndex++
-	}
-
-	// Provision pool nodes in deterministic order
-	for _, poolName := range poolOrder {
-		poolConfig, exists := clusterConfig.NodePools[poolName]
-		if !exists || poolConfig.Count == 0 {
-			continue
-		}
-
-		for i := 0; i < poolConfig.Count; i++ {
-			if provNodeIndex >= len(realNodeComponents) {
-				break
-			}
-			nodeComp := realNodeComponents[provNodeIndex]
-			nodeName := fmt.Sprintf("%s-%d", poolName, i+1)
-
-			// Create provisioning component - each depends on the previous one (SEQUENTIAL!)
-			provComp, err := NewRealNodeProvisioningComponent(ctx,
-				fmt.Sprintf("%s-%s-provision", name, nodeName),
-				nodeComp.PublicIP,
-				nodeName,
-				sshPrivateKey,
-				bastionIP, // Use bastion ProxyJump if enabled
-				pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{previousProvisioningComponent})) // CRITICAL: Depend on previous node!
-
-			if err != nil {
-				ctx.Log.Warn(fmt.Sprintf("Failed to create provisioning for node %s: %v", nodeName, err), nil)
-			} else {
-				provisioningComponents = append(provisioningComponents, provComp)
-				previousProvisioningComponent = provComp // Next node will depend on this one
-			}
-			provNodeIndex++
-		}
-	}
-
-	ctx.Log.Info(fmt.Sprintf("📦 Provisioning %d nodes SEQUENTIALLY (1 at a time to avoid bastion overload)...", len(provisioningComponents)), nil)
-
-	component.Status = pulumi.Sprintf("Deployed %d VMs, provisioning %d nodes SEQUENTIALLY",
-		len(realNodeComponents), len(provisioningComponents))
+	component.Status = pulumi.Sprintf("Deployed %d VMs with cloud-init provisioning",
+		len(realNodeComponents))
 
 	// Store real node components for later use (WireGuard, RKE, etc)
 	ctx.Export("__realNodes", pulumi.ToOutput(realNodeComponents))
@@ -213,7 +169,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 }
 
 // newRealNodeComponent creates a real DigitalOcean Droplet or Linode Instance AND provisions it
-func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, parent pulumi.Resource) (*RealNodeComponent, error) {
+func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, sharedLinodeStackscript *linode.StackScript, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, rke2Version string, parent pulumi.Resource) (*RealNodeComponent, error) {
 	component := &RealNodeComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:compute:RealNode", name, component, pulumi.Parent(parent))
 	if err != nil {
@@ -235,9 +191,9 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 
 	// Create real cloud resource based on provider
 	if nodeConfig.Provider == "digitalocean" {
-		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, component)
+		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, rke2Version, component)
 	} else if nodeConfig.Provider == "linode" {
-		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, linodeToken, bastionEnabled, component)
+		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, sharedLinodeStackscript, linodeToken, bastionEnabled, rke2Version, component)
 	} else {
 		return nil, fmt.Errorf("unknown provider: %s", nodeConfig.Provider)
 	}
@@ -270,7 +226,7 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 }
 
 // createDigitalOceanDroplet creates a real DigitalOcean Droplet
-func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, component *RealNodeComponent) error {
+func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, rke2Version string, component *RealNodeComponent) error {
 	// Use the shared SSH key (already created, no duplication)
 
 	// Build droplet args
@@ -288,6 +244,10 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 		},
 		Ipv6:       pulumi.Bool(true),
 		Monitoring: pulumi.Bool(true),
+		// Cloud-init user-data: Install Docker + WireGuard + RKE2 during VM boot (parallel to VM initialization)
+		// This saves ~2-3 minutes per node by avoiding sequential SSH provisioning
+		// Set unique hostname to avoid etcd "duplicate node name" errors
+		UserData: pulumi.String(cloudinit.GenerateUserDataWithHostname(rke2Version, nodeConfig.Name)),
 	}
 
 	// If bastion is enabled, attach to VPC and configure for bastion-only SSH access
@@ -326,7 +286,7 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 }
 
 // createLinodeInstance creates a real Linode Instance
-func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, linodeToken pulumi.StringInput, bastionEnabled bool, component *RealNodeComponent) error {
+func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sharedStackscript *linode.StackScript, linodeToken pulumi.StringInput, bastionEnabled bool, rke2Version string, component *RealNodeComponent) error {
 	// Use the SSH key directly - it's already normalized in sshkeys.go
 	// The key is in format: "ssh-rsa AAAAB3..." (type + key-data only, no comment)
 
@@ -341,7 +301,12 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 		ctx.Log.Info(fmt.Sprintf("🌍 Creating PUBLIC Linode instance %s (direct SSH access enabled)", nodeConfig.Name), nil)
 	}
 
-	// Create Linode Instance
+	// Create Linode Instance with cloud-init UserData
+	// CRITICAL FIX: Linode supports cloud-init via Metadatas.UserData field
+	// Previously, we were only using StackscriptId, which doesn't support cloud-init
+	// This caused RKE2 to NOT be installed on Linode machines!
+	//
+	// NOTE: UserData must be base64-encoded per Linode API requirements
 	instance, err := linode.NewInstance(ctx, name, &linode.InstanceArgs{
 		Label:  pulumi.String(nodeConfig.Name),
 		Region: pulumi.String(nodeConfig.Region),
@@ -355,6 +320,16 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 			pulumi.String(ctx.Stack()),
 		},
 		PrivateIp: pulumi.Bool(true),
+		// CRITICAL: Linode supports cloud-init via Metadatas.UserData field
+		// This is the SAME cloud-init format as DigitalOcean's UserData field
+		// Linode's cloud-init support is native (not via Stackscripts)
+		// UserData must be base64-encoded
+		// Set unique hostname to avoid etcd "duplicate node name" errors
+		Metadatas: linode.InstanceMetadataArray{
+			&linode.InstanceMetadataArgs{
+				UserData: pulumi.String(base64.StdEncoding.EncodeToString([]byte(cloudinit.GenerateUserDataWithHostname(rke2Version, nodeConfig.Name)))),
+			},
+		},
 	}, pulumi.Parent(component))
 	if err != nil {
 		return fmt.Errorf("failed to create linode instance: %w", err)

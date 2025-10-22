@@ -108,7 +108,7 @@ func applyDefaults(cfg *ClusterConfig) {
 	if cfg.Kubernetes.Distribution == "rke2" && cfg.Kubernetes.RKE2 == nil {
 		cfg.Kubernetes.RKE2 = GetRKE2Defaults()
 	} else if cfg.Kubernetes.RKE2 != nil {
-		cfg.Kubernetes.RKE2 = MergeRKE2Config(cfg.Kubernetes.RKE2)
+		cfg.Kubernetes.RKE2 = MergeRKE2Config(cfg.Kubernetes.RKE2, cfg.Kubernetes.Version)
 	}
 
 	// WireGuard defaults

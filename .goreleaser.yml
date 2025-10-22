@@ -7,6 +7,8 @@ before:
   hooks:
     - go mod tidy
     - go mod download
+    - go test -race -coverprofile=coverage.txt -covermode=atomic ./...
+    - go vet ./...
 
 builds:
   - id: sloth-kubernetes

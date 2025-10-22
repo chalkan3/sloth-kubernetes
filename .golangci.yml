@@ -1,0 +1,96 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  go: '1.23'
+
+linters:
+  enable:
+    - errcheck       # Checking for unchecked errors
+    - gosimple       # Linter for Go source code that specializes in simplifying code
+    - govet          # Vet examines Go source code and reports suspicious constructs
+    - ineffassign    # Detects when assignments to existing variables are not used
+    - staticcheck    # It's a drop-in replacement for golint
+    - unused         # Checks Go code for unused constants, variables, functions and types
+    - gofmt          # Gofmt checks whether code was gofmt-ed
+    - goimports      # Check import statements are formatted according to the 'goimport' command
+    - misspell       # Finds commonly misspelled English words in comments
+    - revive         # Fast, configurable, extensible, flexible, and beautiful linter for Go
+    - gosec          # Inspects source code for security problems
+    - unconvert      # Remove unnecessary type conversions
+    - unparam        # Reports unused function parameters
+    - gocritic       # Highly extensible Go source code linter
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # Too strict for this project
+
+  goimports:
+    local-prefixes: sloth-kubernetes
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+
+  gosec:
+    excludes:
+      - G204  # Subprocess launched with variable
+      - G304  # File path provided as taint input
+
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+      - name: unexported-return
+        disabled: false
+      - name: blank-imports
+        disabled: false
+      - name: context-as-argument
+        disabled: false
+      - name: dot-imports
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: increment-decrement
+        disabled: false
+      - name: var-naming
+        disabled: false
+      - name: package-comments
+        disabled: true  # Not enforcing package comments for now
+
+issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+    - examples
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gosec
+        - unparam
+        - gocritic
+
+  max-issues-per-linter: 0
+  max-same-issues: 0
+
+output:
+  format: colored-line-number
+  print-issued-lines: true
+  print-linter-name: true
+  sort-results: true

@@ -25,9 +25,9 @@ func NewDNSRealComponent(ctx *pulumi.Context, name string, domain string, nodes 
 		return nil, err
 	}
 
-	// Validate domain is not empty
-	if domain == "" {
-		ctx.Log.Warn("⚠️  DNS domain is empty, skipping DNS record creation", nil)
+	// Validate domain is not empty or placeholder
+	if domain == "" || domain == "example.com" {
+		ctx.Log.Warn("⚠️  DNS domain is empty or placeholder (example.com), skipping DNS record creation", nil)
 		component.Status = pulumi.String("skipped: no domain configured").ToStringOutput()
 		component.RecordCount = pulumi.Int(0).ToIntOutput()
 		component.Domain = pulumi.String("").ToStringOutput()
@@ -63,7 +63,7 @@ func NewDNSRealComponent(ctx *pulumi.Context, name string, domain string, nodes 
 		if err != nil {
 			ctx.Log.Warn(fmt.Sprintf("⚠️  Failed to create API DNS record: %v", err), nil)
 		} else {
-			ctx.Log.Info("✅ Created DNS: api.chalkan3.com.br -> first master", nil)
+			ctx.Log.Info(fmt.Sprintf("✅ Created DNS: api.%s -> first master", domain), nil)
 			recordCount++
 		}
 	}
@@ -102,7 +102,7 @@ func NewDNSRealComponent(ctx *pulumi.Context, name string, domain string, nodes 
 		if err != nil {
 			ctx.Log.Warn(fmt.Sprintf("⚠️  Failed to create wildcard ingress DNS: %v", err), nil)
 		} else {
-			ctx.Log.Info("✅ Created DNS: *.kube.chalkan3.com.br -> first worker", nil)
+			ctx.Log.Info(fmt.Sprintf("✅ Created DNS: *.kube.%s -> first worker", domain), nil)
 			recordCount++
 		}
 	}
@@ -121,7 +121,7 @@ func NewDNSRealComponent(ctx *pulumi.Context, name string, domain string, nodes 
 		if err != nil {
 			ctx.Log.Warn(fmt.Sprintf("⚠️  Failed to create ingress DNS: %v", err), nil)
 		} else {
-			ctx.Log.Info("✅ Created DNS: kube-ingress.chalkan3.com.br -> first worker", nil)
+			ctx.Log.Info(fmt.Sprintf("✅ Created DNS: kube-ingress.%s -> first worker", domain), nil)
 			recordCount++
 		}
 	}

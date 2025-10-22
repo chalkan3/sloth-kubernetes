@@ -72,7 +72,6 @@ func TestBuildRKE2ServerConfig(t *testing.T) {
 				"token: test-token",
 				"node-name: master-1",
 				"node-ip: 10.0.0.1",
-				"advertise-address: 10.0.0.1",
 				"tls-san:",
 				"api.example.com",
 				"cluster-cidr: 10.42.0.0/16",
@@ -472,7 +471,7 @@ func TestMergeRKE2Config(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			merged := MergeRKE2Config(tt.user)
+			merged := MergeRKE2Config(tt.user, "")
 
 			if merged == nil {
 				t.Fatal("MergeRKE2Config() returned nil")

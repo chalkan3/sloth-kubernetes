@@ -1,0 +1,144 @@
+/* 🦥 Sloth Kubernetes Custom Styles */
+
+:root {
+  --sloth-brown: #8B4513;
+  --sloth-light-brown: #D2691E;
+  --sloth-orange: #FF8C00;
+  --sloth-green: #228B22;
+}
+
+/* Sloth emoji animations */
+.sloth-emoji {
+  display: inline-block;
+  animation: sloth-swing 3s ease-in-out infinite;
+}
+
+@keyframes sloth-swing {
+  0%, 100% { transform: rotate(-5deg); }
+  50% { transform: rotate(5deg); }
+}
+
+/* Custom card styling */
+.md-typeset .grid.cards > * {
+  border: 2px solid var(--sloth-light-brown);
+  transition: transform 0.3s ease, box-shadow 0.3s ease;
+}
+
+.md-typeset .grid.cards > *:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 8px 16px rgba(139, 69, 19, 0.3);
+}
+
+/* Sloth-themed buttons */
+.md-button {
+  transition: all 0.3s ease;
+}
+
+.md-button:hover {
+  transform: scale(1.05);
+  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.4);
+}
+
+.md-button--primary {
+  background-color: var(--sloth-brown) !important;
+  border-color: var(--sloth-brown) !important;
+}
+
+.md-button--primary:hover {
+  background-color: var(--sloth-light-brown) !important;
+  border-color: var(--sloth-light-brown) !important;
+}
+
+/* Code blocks */
+.md-typeset code {
+  background-color: rgba(139, 69, 19, 0.1);
+  border: 1px solid rgba(139, 69, 19, 0.2);
+}
+
+.md-typeset pre > code {
+  background-color: rgba(0, 0, 0, 0.05);
+}
+
+/* Admonitions */
+.md-typeset .admonition.tip {
+  border-left-color: var(--sloth-green);
+}
+
+.md-typeset .admonition.tip .admonition-title {
+  background-color: rgba(34, 139, 34, 0.1);
+}
+
+/* Tables */
+.md-typeset table:not([class]) {
+  border: 2px solid var(--sloth-light-brown);
+}
+
+.md-typeset table:not([class]) th {
+  background-color: rgba(139, 69, 19, 0.1);
+  border-bottom: 2px solid var(--sloth-brown);
+}
+
+/* Navigation tabs */
+.md-tabs {
+  background-color: var(--sloth-brown);
+}
+
+/* Sloth loading animation */
+.sloth-loading {
+  display: inline-block;
+  font-size: 2em;
+  animation: sloth-climb 2s linear infinite;
+}
+
+@keyframes sloth-climb {
+  0% { transform: translateY(0) rotate(0deg); }
+  50% { transform: translateY(-10px) rotate(5deg); }
+  100% { transform: translateY(0) rotate(0deg); }
+}
+
+/* Scrollbar customization */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--sloth-brown);
+  border-radius: 5px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--sloth-light-brown);
+}
+
+/* Command line styling */
+.md-typeset .language-bash::before {
+  content: "🦥 $";
+  display: block;
+  color: var(--sloth-brown);
+  font-weight: bold;
+  margin-bottom: 0.5em;
+}
+
+/* Success messages */
+.success-box {
+  background-color: rgba(34, 139, 34, 0.1);
+  border-left: 4px solid var(--sloth-green);
+  padding: 1em;
+  margin: 1em 0;
+  border-radius: 4px;
+}
+
+/* Sloth quote styling */
+.md-typeset .admonition.quote {
+  border-left-color: var(--sloth-orange);
+  font-style: italic;
+}
+
+.md-typeset .admonition.quote .admonition-title::before {
+  content: "🦥 ";
+}

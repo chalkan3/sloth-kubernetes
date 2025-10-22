@@ -1,0 +1,200 @@
+site_name: 🦥 Sloth Kubernetes
+site_description: Multi-Cloud Kubernetes Deployment Made Simple
+site_author: Sloth Kubernetes Team
+site_url: https://sloth-kubernetes.io
+
+repo_name: sloth-kubernetes/sloth-kubernetes
+repo_url: https://github.com/yourusername/sloth-kubernetes
+edit_uri: edit/main/docs/
+
+theme:
+  name: material
+  custom_dir: docs/overrides
+  language: en
+
+  palette:
+    # Light mode
+    - media: "(prefers-color-scheme: light)"
+      scheme: default
+      primary: brown
+      accent: orange
+      toggle:
+        icon: material/brightness-7
+        name: Switch to dark mode
+
+    # Dark mode
+    - media: "(prefers-color-scheme: dark)"
+      scheme: slate
+      primary: brown
+      accent: orange
+      toggle:
+        icon: material/brightness-4
+        name: Switch to light mode
+
+  font:
+    text: Roboto
+    code: Roboto Mono
+
+  icon:
+    repo: fontawesome/brands/github
+    logo: material/tree
+
+  features:
+    - navigation.instant
+    - navigation.tracking
+    - navigation.tabs
+    - navigation.tabs.sticky
+    - navigation.sections
+    - navigation.expand
+    - navigation.path
+    - navigation.indexes
+    - navigation.top
+    - navigation.footer
+    - toc.follow
+    - toc.integrate
+    - search.suggest
+    - search.highlight
+    - search.share
+    - content.code.copy
+    - content.code.annotate
+    - content.tabs.link
+    - content.tooltips
+    - content.action.edit
+    - content.action.view
+
+markdown_extensions:
+  - abbr
+  - admonition
+  - attr_list
+  - def_list
+  - footnotes
+  - md_in_html
+  - tables
+  - toc:
+      permalink: true
+      toc_depth: 3
+  - pymdownx.arithmatex:
+      generic: true
+  - pymdownx.betterem:
+      smart_enable: all
+  - pymdownx.caret
+  - pymdownx.details
+  - pymdownx.emoji:
+      emoji_index: !!python/name:material.extensions.emoji.twemoji
+      emoji_generator: !!python/name:material.extensions.emoji.to_svg
+      options:
+        custom_icons:
+          - docs/overrides/.icons
+  - pymdownx.highlight:
+      anchor_linenums: true
+      line_spans: __span
+      pygments_lang_class: true
+  - pymdownx.inlinehilite
+  - pymdownx.keys
+  - pymdownx.mark
+  - pymdownx.smartsymbols
+  - pymdownx.snippets
+  - pymdownx.superfences:
+      custom_fences:
+        - name: mermaid
+          class: mermaid
+          format: !!python/name:pymdownx.superfences.fence_code_format
+  - pymdownx.tabbed:
+      alternate_style: true
+  - pymdownx.tasklist:
+      custom_checkbox: true
+  - pymdownx.tilde
+
+plugins:
+  - search:
+      separator: '[\s\-,:!=\[\]()"/]+|(?!\b)(?=[A-Z][a-z])|\.(?!\d)|&[lg]t;'
+  - minify:
+      minify_html: true
+  - git-revision-date-localized:
+      enable_creation_date: true
+      type: timeago
+
+extra:
+  social:
+    - icon: fontawesome/brands/github
+      link: https://github.com/yourusername/sloth-kubernetes
+    - icon: fontawesome/brands/docker
+      link: https://hub.docker.com/r/slothkubernetes
+    - icon: fontawesome/brands/twitter
+      link: https://twitter.com/slothkubernetes
+    - icon: fontawesome/brands/slack
+      link: https://sloth-kubernetes.slack.com
+
+  analytics:
+    provider: google
+    property: G-XXXXXXXXXX
+
+  version:
+    provider: mike
+
+  generator: false
+
+extra_css:
+  - stylesheets/extra.css
+
+extra_javascript:
+  - javascripts/extra.js
+
+copyright: |
+  Copyright &copy; 2025 Sloth Kubernetes Team. Made with 🦥 and ❤️
+
+nav:
+  - Home: index.md
+
+  - Getting Started:
+    - getting-started/index.md
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quickstart.md
+    - First Cluster: getting-started/first-cluster.md
+    - What's Next: getting-started/whats-next.md
+
+  - User Guide:
+    - user-guide/index.md
+    - CLI Reference: user-guide/cli-reference.md
+    - Deploy: user-guide/deploy.md
+    - Manage Nodes: user-guide/nodes.md
+    - VPN Management: user-guide/vpn.md
+    - Addons: user-guide/addons.md
+    - Stacks: user-guide/stacks.md
+
+  - Configuration:
+    - configuration/index.md
+    - File Structure: configuration/file-structure.md
+    - Providers: configuration/providers.md
+    - Network: configuration/network.md
+    - Kubernetes: configuration/kubernetes.md
+    - Node Pools: configuration/node-pools.md
+    - Security: configuration/security.md
+    - Examples: configuration/examples.md
+
+  - Advanced:
+    - advanced/index.md
+    - Architecture: advanced/architecture.md
+    - Multi-Cloud: advanced/multi-cloud.md
+    - State Management: advanced/state-management.md
+    - GitOps: advanced/gitops.md
+    - Monitoring: advanced/monitoring.md
+    - Backup & Recovery: advanced/backup-recovery.md
+    - Troubleshooting: advanced/troubleshooting.md
+
+  - API Reference:
+    - api/index.md
+    - Go Packages: api/packages.md
+    - Configuration Schema: api/schema.md
+
+  - Contributing:
+    - contributing/index.md
+    - Development: contributing/development.md
+    - Testing: contributing/testing.md
+    - Documentation: contributing/documentation.md
+    - Release Process: contributing/release.md
+
+  - About:
+    - Changelog: CHANGELOG.md
+    - License: LICENSE.md
+    - FAQ: faq.md

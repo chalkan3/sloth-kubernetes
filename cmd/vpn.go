@@ -604,7 +604,7 @@ func runVPNClientConfig(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	color.Cyan("Example output format:")
-	fmt.Println(`
+	fmt.Print(`
 [Interface]
 PrivateKey = <generated-private-key>
 Address = 10.8.0.100/24

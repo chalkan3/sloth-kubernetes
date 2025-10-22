@@ -418,7 +418,7 @@ func printDeploymentSummary(cfg *config.ClusterConfig) {
 		fmt.Printf("  • Providers: %s\n", joinStrings(providers, " + "))
 	}
 
-	fmt.Printf("  • Kubernetes: RKE2 %s\n", cfg.Kubernetes.Version)
+	fmt.Printf("  • Kubernetes: K3s %s\n", cfg.Kubernetes.Version)
 	fmt.Println()
 
 	// Deployment phases
