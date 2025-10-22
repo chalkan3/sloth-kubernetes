@@ -7,8 +7,10 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
@@ -167,12 +169,16 @@ func runVPNStatus(cmd *cobra.Command, args []string) error {
 }
 
 func runVPNPeers(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes vpn peers <stack-name>")
+	}
+
 	ctx := context.Background()
-	stack := getStackFromArgs(args, 0)
+	stack := args[0]
 
 	printHeader(fmt.Sprintf("👥 VPN Peers - Stack: %s", stack))
 
-	// Get stack using SelectStackInlineSource (same as status command)
+	// Get stack using SelectStackInlineSource
 	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
 		return nil
 	})
@@ -186,8 +192,203 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get stack outputs: %w", err)
 	}
 
+	// Parse nodes
+	nodes, err := ParseNodeOutputs(outputs)
+	if err != nil {
+		return fmt.Errorf("failed to parse nodes: %w", err)
+	}
+
+	// Get SSH key and bastion info
+	sshKeyPath := GetSSHKeyPath(stack)
+	bastionEnabled := false
+	bastionIP := ""
+
+	if bastionEnabledOutput, ok := outputs["bastion_enabled"]; ok {
+		if bastionEnabledOutput.Value != nil {
+			bastionEnabled = bastionEnabledOutput.Value == true
+		}
+	}
+
+	if bastionEnabled {
+		if bastionOutput, ok := outputs["bastion"]; ok {
+			if bastionMap, ok := bastionOutput.Value.(map[string]interface{}); ok {
+				if pubIP, ok := bastionMap["public_ip"].(string); ok {
+					bastionIP = pubIP
+				}
+			}
+		}
+	}
+
 	fmt.Println()
-	printVPNPeersTable(outputs)
+	color.Cyan("ℹ  Fetching peer information from cluster nodes...")
+	fmt.Println()
+
+	// Collect peer information from all nodes
+	type PeerInfo struct {
+		NodeName      string
+		VPNIp         string
+		PublicKey     string
+		Endpoint      string
+		LastHandshake string
+		Transfer      string
+	}
+
+	var allPeers []PeerInfo
+
+	// For each node, SSH and get WireGuard peer information
+	for _, node := range nodes {
+		// Determine target IP for SSH
+		targetIP := node.PublicIP
+		if bastionEnabled && bastionIP != "" {
+			// When using bastion, connect to private IP
+			if node.PrivateIP != "" {
+				targetIP = node.PrivateIP
+			}
+		}
+
+		// Get WireGuard peers from this node
+		// wg show wg0 dump format: public_key preshared_key endpoint allowed_ips latest_handshake rx tx persistent_keepalive
+		fetchCmd := "wg show wg0 dump | tail -n +2"  // Skip header line
+
+		var sshCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("root@%s", targetIP),
+				fetchCmd,
+			)
+		} else {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				fmt.Sprintf("root@%s", targetIP),
+				fetchCmd,
+			)
+		}
+
+		output, err := sshCmd.CombinedOutput()
+		if err != nil {
+			color.Yellow(fmt.Sprintf("⚠  Failed to get peers from %s: %v", node.Name, err))
+			continue
+		}
+
+		// Parse wg dump output
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, line := range lines {
+			if line == "" {
+				continue
+			}
+
+			fields := strings.Fields(line)
+			if len(fields) < 8 {
+				continue
+			}
+
+			publicKey := fields[0]
+			endpoint := fields[2]
+			allowedIPs := fields[3]
+			lastHandshake := fields[4]
+			rxBytes := fields[5]
+			txBytes := fields[6]
+
+			// Extract VPN IP from allowed IPs (format: 10.8.0.X/32)
+			vpnIP := strings.TrimSuffix(allowedIPs, "/32")
+
+			// Format handshake time
+			handshakeStr := "Never"
+			if lastHandshake != "0" {
+				handshakeTime, err := strconv.ParseInt(lastHandshake, 10, 64)
+				if err == nil {
+					elapsed := time.Now().Unix() - handshakeTime
+					if elapsed < 60 {
+						handshakeStr = fmt.Sprintf("%ds ago", elapsed)
+					} else if elapsed < 3600 {
+						handshakeStr = fmt.Sprintf("%dm ago", elapsed/60)
+					} else if elapsed < 86400 {
+						handshakeStr = fmt.Sprintf("%dh ago", elapsed/3600)
+					} else {
+						handshakeStr = fmt.Sprintf("%dd ago", elapsed/86400)
+					}
+				}
+			}
+
+			// Format transfer
+			rx, _ := strconv.ParseInt(rxBytes, 10, 64)
+			tx, _ := strconv.ParseInt(txBytes, 10, 64)
+			transferStr := fmt.Sprintf("↑ %s / ↓ %s", formatBytes(tx), formatBytes(rx))
+
+			// Format endpoint
+			if endpoint == "(none)" {
+				endpoint = "N/A"
+			}
+
+			// Find peer node name by VPN IP
+			peerNodeName := "Unknown"
+			for _, n := range nodes {
+				if n.WireGuardIP == vpnIP {
+					peerNodeName = n.Name
+					break
+				}
+			}
+
+			allPeers = append(allPeers, PeerInfo{
+				NodeName:      peerNodeName,
+				VPNIp:         vpnIP,
+				PublicKey:     publicKey[:16] + "...",  // Truncate for display
+				Endpoint:      endpoint,
+				LastHandshake: handshakeStr,
+				Transfer:      transferStr,
+			})
+		}
+
+		// Only need to get from one node since all should have the same peers
+		if len(allPeers) > 0 {
+			break
+		}
+	}
+
+	// Remove duplicates and display
+	seen := make(map[string]bool)
+	uniquePeers := []PeerInfo{}
+	for _, peer := range allPeers {
+		if !seen[peer.VPNIp] {
+			seen[peer.VPNIp] = true
+			uniquePeers = append(uniquePeers, peer)
+		}
+	}
+
+	// Display table
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	defer w.Flush()
+
+	color.New(color.Bold).Fprintln(w, "NODE\tVPN IP\tPUBLIC KEY\tENDPOINT\tLAST HANDSHAKE\tTRANSFER")
+	fmt.Fprintln(w, "----\t------\t----------\t--------\t--------------\t--------")
+
+	if len(uniquePeers) == 0 {
+		fmt.Fprintln(w, "No peers found")
+	} else {
+		for _, peer := range uniquePeers {
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				peer.NodeName,
+				peer.VPNIp,
+				peer.PublicKey,
+				peer.Endpoint,
+				peer.LastHandshake,
+				peer.Transfer,
+			)
+		}
+	}
+
+	fmt.Println()
+	color.Green(fmt.Sprintf("✓ Found %d peers in VPN mesh", len(uniquePeers)))
 
 	return nil
 }
@@ -866,7 +1067,7 @@ fi
 	// STEP 6: Generate client configuration
 	fmt.Println()
 	printInfo("Step 5/5: Generating client configuration...")
-	clientConfig := generateClientConfig(privateKey, vpnJoinIP, nodes, sshKeyPath, bastionEnabled, bastionIP)
+	clientConfig := generateClientConfig(privateKey, vpnJoinIP, nodes, existingPeers, sshKeyPath, bastionEnabled, bastionIP)
 
 	configPath := "./wg0-client.conf"
 	if err := os.WriteFile(configPath, []byte(clientConfig), 0600); err != nil {
@@ -1483,7 +1684,7 @@ func fetchNodePublicKey(node NodeInfo, sshKeyPath string, bastionEnabled bool, b
 }
 
 // generateClientConfig generates a complete WireGuard client configuration
-func generateClientConfig(privateKey string, clientIP string, nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) string {
+func generateClientConfig(privateKey string, clientIP string, nodes []NodeInfo, existingPeers []VPNPeerInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) string {
 	config := fmt.Sprintf(`[Interface]
 # WireGuard Client Configuration
 # Generated by sloth-kubernetes CLI
@@ -1521,6 +1722,17 @@ PersistentKeepalive = 25
 `, node.Name, node.Provider, publicKey, node.PublicIP, node.WireGuardIP)
 	}
 
+	// Add existing VPN clients as peers for full mesh
+	for _, peer := range existingPeers {
+		config += fmt.Sprintf(`
+[Peer]
+# External VPN Client
+PublicKey = %s
+AllowedIPs = %s/32
+PersistentKeepalive = 25
+`, peer.PublicKey, peer.VPNAddress)
+	}
+
 	return config
 }
 
@@ -1546,4 +1758,21 @@ func detectOS() string {
 	default:
 		return "unknown"
 	}
+}
+
+// formatBytes formats bytes into human-readable format
+func formatBytes(bytes int64) string {
+	const unit = 1024
+	if bytes < unit {
+		return fmt.Sprintf("%dB", bytes)
+	}
+
+	div, exp := int64(unit), 0
+	for n := bytes / unit; n >= unit; n /= unit {
+		div *= unit
+		exp++
+	}
+
+	return fmt.Sprintf("%.1f%cB",
+		float64(bytes)/float64(div), "KMGTPE"[exp])
 }
