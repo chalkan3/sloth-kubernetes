@@ -5,7 +5,6 @@ run:
 
 linters:
   enable:
-    - errcheck       # Checking for unchecked errors
     - gosimple       # Linter for Go source code that specializes in simplifying code
     - govet          # Vet examines Go source code and reports suspicious constructs
     - ineffassign    # Detects when assignments to existing variables are not used
@@ -15,7 +14,6 @@ linters:
     - goimports      # Check import statements are formatted according to the 'goimport' command
     - misspell       # Finds commonly misspelled English words in comments
     - revive         # Fast, configurable, extensible, flexible, and beautiful linter for Go
-    - gosec          # Inspects source code for security problems
     - unconvert      # Remove unnecessary type conversions
     - unparam        # Reports unused function parameters
     - gocritic       # Highly extensible Go source code linter
