@@ -223,6 +223,15 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 	color.Cyan("ℹ  Fetching peer information from cluster nodes...")
 	fmt.Println()
 
+	// Debug: Show loaded nodes if verbose
+	if verbose {
+		fmt.Println("\nDebug: Loaded nodes from Pulumi state:")
+		for _, n := range nodes {
+			fmt.Printf("  - %s: VPN IP = '%s'\n", n.Name, n.WireGuardIP)
+		}
+		fmt.Println()
+	}
+
 	// Collect peer information from all nodes
 	type PeerInfo struct {
 		NodeName      string
@@ -333,10 +342,17 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 			// Find peer node name by VPN IP
 			peerNodeName := "Unknown"
 			for _, n := range nodes {
-				if n.WireGuardIP == vpnIP {
+				// Compare VPN IPs, handling potential /32 suffix
+				nodeVPNIP := strings.TrimSuffix(n.WireGuardIP, "/32")
+				if nodeVPNIP == vpnIP {
 					peerNodeName = n.Name
 					break
 				}
+			}
+
+			// Debug: Show when we can't match a peer
+			if verbose && peerNodeName == "Unknown" {
+				fmt.Printf("  Debug: Could not match VPN IP '%s' to any node\n", vpnIP)
 			}
 
 			allPeers = append(allPeers, PeerInfo{
