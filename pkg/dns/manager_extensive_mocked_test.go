@@ -1,6 +1,7 @@
 package dns
 
 import (
+	"sync"
 	"testing"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/common/resource"
@@ -13,6 +14,7 @@ import (
 // DNSMocks implements pulumi.MockResourceMonitor for DNS testing
 type DNSMocks struct {
 	pulumi.MockResourceMonitor
+	mu             sync.Mutex
 	recordsCreated int
 }
 
@@ -27,7 +29,9 @@ func (m *DNSMocks) NewResource(args pulumi.MockResourceArgs) (string, resource.P
 	switch args.TypeToken {
 	case "digitalocean:index/dnsRecord:DnsRecord":
 		// Mock DigitalOcean DNS Record
+		m.mu.Lock()
 		m.recordsCreated++
+		m.mu.Unlock()
 		outputs["id"] = resource.NewStringProperty("dns-record-" + args.Name)
 		outputs["fqdn"] = resource.NewStringProperty(args.Name + ".example.com")
 
