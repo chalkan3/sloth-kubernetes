@@ -22,6 +22,12 @@ type NodeInfo struct {
 	Status      string   `json:"status" yaml:"status"`
 }
 
+// VPNPeerInfo represents a VPN peer (external client)
+type VPNPeerInfo struct {
+	PublicKey  string `json:"publicKey"`
+	VPNAddress string `json:"vpnAddress"`
+}
+
 // ClusterInfo represents overall cluster information
 type ClusterInfo struct {
 	Name        string     `json:"name" yaml:"name"`
