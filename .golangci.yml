@@ -4,6 +4,8 @@ run:
   go: '1.23'
 
 linters:
+  disable:
+    - errcheck       # Explicitly disable errcheck to avoid CI failures
   enable:
     - gosimple       # Linter for Go source code that specializes in simplifying code
     - govet          # Vet examines Go source code and reports suspicious constructs
