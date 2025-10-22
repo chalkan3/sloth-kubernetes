@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"text/tabwriter"
@@ -48,7 +49,107 @@ var deleteStackCmd = &cobra.Command{
 	RunE: runDeleteStack,
 }
 
-var destroyStack bool
+var outputCmd = &cobra.Command{
+	Use:   "output [stack-name]",
+	Short: "Show stack outputs",
+	Long:  `Display all outputs from a stack, including cluster endpoints, IPs, and credentials`,
+	Example: `  # Show all outputs
+  sloth-kubernetes stacks output production
+
+  # Show specific output
+  sloth-kubernetes stacks output production --key kubeconfig
+
+  # Export outputs as JSON
+  sloth-kubernetes stacks output production --json`,
+	RunE: runStackOutput,
+}
+
+var selectStackCmd = &cobra.Command{
+	Use:   "select [stack-name]",
+	Short: "Select current stack",
+	Long:  `Set the current active stack for subsequent operations`,
+	Example: `  # Select production stack
+  sloth-kubernetes stacks select production`,
+	RunE: runSelectStack,
+}
+
+var exportStackCmd = &cobra.Command{
+	Use:   "export [stack-name]",
+	Short: "Export stack state",
+	Long:  `Export the complete stack state to a JSON file for backup or migration`,
+	Example: `  # Export stack to file
+  sloth-kubernetes stacks export production --output production-backup.json`,
+	RunE: runExportStack,
+}
+
+var importStackCmd = &cobra.Command{
+	Use:   "import [stack-name] [file]",
+	Short: "Import stack state",
+	Long:  `Import stack state from a previously exported JSON file`,
+	Example: `  # Import stack from file
+  sloth-kubernetes stacks import production production-backup.json`,
+	RunE: runImportStack,
+}
+
+var currentStackCmd = &cobra.Command{
+	Use:   "current",
+	Short: "Show current selected stack",
+	Long:  `Display the currently selected stack name`,
+	Example: `  # Show current stack
+  sloth-kubernetes stacks current`,
+	RunE: runCurrentStack,
+}
+
+var renameStackCmd = &cobra.Command{
+	Use:   "rename [old-name] [new-name]",
+	Short: "Rename a stack",
+	Long:  `Rename an existing stack to a new name`,
+	Example: `  # Rename stack
+  sloth-kubernetes stacks rename old-name new-name`,
+	RunE: runRenameStack,
+}
+
+var stateCmd = &cobra.Command{
+	Use:   "state",
+	Short: "Manage stack state",
+	Long:  `View and manipulate Pulumi stack state including resources`,
+}
+
+var stateDeleteCmd = &cobra.Command{
+	Use:   "delete [stack-name] [urn]",
+	Short: "Delete a resource from stack state",
+	Long: `Remove a specific resource from the stack state by its URN.
+This does NOT destroy the actual cloud resource, only removes it from Pulumi's state.
+
+WARNING: This is a dangerous operation. Use with caution!`,
+	Example: `  # Delete a resource by URN
+  sloth-kubernetes stacks state delete production urn:pulumi:production::sloth-kubernetes::digitalocean:Droplet::master-1
+
+  # Force delete without confirmation
+  sloth-kubernetes stacks state delete production <urn> --force`,
+	RunE: runStateDelete,
+}
+
+var stateListCmd = &cobra.Command{
+	Use:   "list [stack-name]",
+	Short: "List all resources in stack state",
+	Long:  `Display all resources currently tracked in the stack state with their URNs and types`,
+	Example: `  # List all resources in stack
+  sloth-kubernetes stacks state list production
+
+  # List with filtering
+  sloth-kubernetes stacks state list production --type digitalocean:Droplet`,
+	RunE: runStateList,
+}
+
+var (
+	destroyStack bool
+	outputKey    string
+	outputJSON   bool
+	exportOutput string
+	forceDelete  bool
+	resourceType string
+)
 
 func init() {
 	rootCmd.AddCommand(stacksCmd)
@@ -57,9 +158,33 @@ func init() {
 	stacksCmd.AddCommand(listStacksCmd)
 	stacksCmd.AddCommand(stackInfoCmd)
 	stacksCmd.AddCommand(deleteStackCmd)
+	stacksCmd.AddCommand(outputCmd)
+	stacksCmd.AddCommand(selectStackCmd)
+	stacksCmd.AddCommand(currentStackCmd)
+	stacksCmd.AddCommand(exportStackCmd)
+	stacksCmd.AddCommand(importStackCmd)
+	stacksCmd.AddCommand(renameStackCmd)
+	stacksCmd.AddCommand(stateCmd)
+
+	// State subcommands
+	stateCmd.AddCommand(stateDeleteCmd)
+	stateCmd.AddCommand(stateListCmd)
 
 	// Delete flags
 	deleteStackCmd.Flags().BoolVar(&destroyStack, "destroy", false, "Destroy all resources before deleting stack")
+
+	// Output flags
+	outputCmd.Flags().StringVar(&outputKey, "key", "", "Show specific output key")
+	outputCmd.Flags().BoolVar(&outputJSON, "json", false, "Output in JSON format")
+
+	// Export flags
+	exportStackCmd.Flags().StringVarP(&exportOutput, "output", "o", "", "Output file path (default: <stack-name>-state.json)")
+
+	// State delete flags
+	stateDeleteCmd.Flags().BoolVarP(&forceDelete, "force", "f", false, "Force delete without confirmation")
+
+	// State list flags
+	stateListCmd.Flags().StringVar(&resourceType, "type", "", "Filter by resource type (e.g., digitalocean:Droplet)")
 }
 
 func runListStacks(cmd *cobra.Command, args []string) error {
@@ -226,4 +351,425 @@ func formatTime(t time.Time) string {
 		days := int(duration.Hours() / 24)
 		return fmt.Sprintf("%dd ago", days)
 	}
+}
+
+func runStackOutput(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks output <stack-name>")
+	}
+
+	ctx := context.Background()
+	stackName := args[0]
+
+	printHeader(fmt.Sprintf("📤 Stack Outputs: %s", stackName))
+
+	// Get stack
+	workspace, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	s, err := auto.SelectStack(ctx, stackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
+	}
+
+	// Get outputs
+	outputs, err := s.Outputs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get outputs: %w", err)
+	}
+
+	if len(outputs) == 0 {
+		color.Yellow("\n⚠️  No outputs available for this stack")
+		return nil
+	}
+
+	fmt.Println()
+
+	// Show specific key
+	if outputKey != "" {
+		output, exists := outputs[outputKey]
+		if !exists {
+			return fmt.Errorf("output key '%s' not found", outputKey)
+		}
+
+		if outputJSON {
+			fmt.Printf("{\n  \"%s\": %v\n}\n", outputKey, output.Value)
+		} else {
+			value := fmt.Sprintf("%v", output.Value)
+			if output.Secret {
+				value = "***REDACTED***"
+			}
+			fmt.Printf("%s: %s\n", outputKey, value)
+		}
+		return nil
+	}
+
+	// Show all outputs
+	if outputJSON {
+		fmt.Println("{")
+		i := 0
+		for key, output := range outputs {
+			value := output.Value
+			if output.Secret {
+				value = "***REDACTED***"
+			}
+			if i > 0 {
+				fmt.Println(",")
+			}
+			fmt.Printf("  \"%s\": %v", key, value)
+			i++
+		}
+		fmt.Println("\n}")
+	} else {
+		printStackOutputs(outputs)
+	}
+
+	return nil
+}
+
+func runSelectStack(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks select <stack-name>")
+	}
+
+	ctx := context.Background()
+	stackName := args[0]
+
+	printHeader(fmt.Sprintf("🎯 Selecting Stack: %s", stackName))
+
+	// Verify stack exists
+	workspace, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	_, err = auto.SelectStack(ctx, stackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w\n\nAvailable stacks:\n  Use 'sloth-kubernetes stacks list' to see all stacks", stackName, err)
+	}
+
+	// Save to config file
+	configPath := ".sloth-stack"
+	if err := os.WriteFile(configPath, []byte(stackName), 0644); err != nil {
+		return fmt.Errorf("failed to save stack selection: %w", err)
+	}
+
+	fmt.Println()
+	color.Green("✅ Stack '%s' is now selected", stackName)
+	fmt.Println()
+	color.Cyan("All subsequent commands will use this stack by default")
+	fmt.Println("  (You can override with --stack flag)")
+
+	return nil
+}
+
+func runExportStack(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks export <stack-name>")
+	}
+
+	stackName := args[0]
+
+	printHeader(fmt.Sprintf("💾 Exporting Stack: %s", stackName))
+
+	fmt.Println()
+	color.Yellow("⚠️  Stack export/import functionality requires Pulumi CLI")
+	fmt.Println()
+	color.Cyan("Alternative: Use 'pulumi stack export' command:")
+	fmt.Printf("  pulumi stack export --stack %s > %s-state.json\n", stackName, stackName)
+	fmt.Println()
+	color.Cyan("To import later:")
+	fmt.Printf("  pulumi stack import --stack %s < %s-state.json\n", stackName, stackName)
+
+	return nil
+}
+
+func runImportStack(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks import <stack-name> <file>")
+	}
+
+	stackName := args[0]
+	filePath := args[1]
+
+	printHeader(fmt.Sprintf("📥 Importing Stack: %s", stackName))
+
+	fmt.Println()
+	color.Yellow("⚠️  Stack export/import functionality requires Pulumi CLI")
+	fmt.Println()
+	color.Cyan("Use 'pulumi stack import' command:")
+	fmt.Printf("  pulumi stack import --stack %s < %s\n", stackName, filePath)
+	fmt.Println()
+	color.Cyan("Or create the stack and import:")
+	fmt.Printf("  pulumi stack init %s\n", stackName)
+	fmt.Printf("  pulumi stack import < %s\n", filePath)
+
+	return nil
+}
+
+func runCurrentStack(cmd *cobra.Command, args []string) error {
+	printHeader("🎯 Current Stack")
+
+	// Try to read from config file
+	configPath := ".sloth-stack"
+	data, err := os.ReadFile(configPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			color.Yellow("\n⚠️  No stack currently selected")
+			fmt.Println()
+			color.Cyan("Select a stack with:")
+			fmt.Println("  sloth-kubernetes stacks select <stack-name>")
+			fmt.Println()
+			color.Cyan("Or use --stack flag in commands:")
+			fmt.Println("  sloth-kubernetes deploy --stack production")
+			return nil
+		}
+		return fmt.Errorf("failed to read stack selection: %w", err)
+	}
+
+	currentStack := string(data)
+
+	fmt.Println()
+	color.Green("✅ Current stack: %s", currentStack)
+	fmt.Println()
+	color.Cyan("💡 Commands will use this stack by default")
+	fmt.Println("  (Override with --stack flag)")
+
+	return nil
+}
+
+func runRenameStack(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks rename <old-name> <new-name>")
+	}
+
+	ctx := context.Background()
+	oldName := args[0]
+	newName := args[1]
+
+	printHeader(fmt.Sprintf("✏️  Renaming Stack: %s → %s", oldName, newName))
+
+	// Get workspace
+	workspace, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Verify old stack exists
+	oldStack, err := auto.SelectStack(ctx, oldName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to find stack '%s': %w", oldName, err)
+	}
+
+	// Export old stack
+	deployment, err := oldStack.Export(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to export old stack: %w", err)
+	}
+
+	// Create new stack
+	newStack, err := auto.NewStack(ctx, newName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to create new stack: %w", err)
+	}
+
+	// Import into new stack
+	if err := newStack.Import(ctx, deployment); err != nil {
+		return fmt.Errorf("failed to import into new stack: %w", err)
+	}
+
+	fmt.Println()
+	color.Green("✅ Stack renamed successfully")
+	fmt.Printf("\n  Old name: %s\n", oldName)
+	fmt.Printf("  New name: %s\n", newName)
+	fmt.Println()
+	color.Yellow("⚠️  The old stack still exists. To remove it:")
+	fmt.Printf("  sloth-kubernetes stacks delete %s\n", oldName)
+
+	return nil
+}
+
+func runStateList(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks state list <stack-name>")
+	}
+
+	ctx := context.Background()
+	stackName := args[0]
+
+	printHeader(fmt.Sprintf("📋 Stack State: %s", stackName))
+
+	// Get workspace and stack
+	workspace, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	stack, err := auto.SelectStack(ctx, stackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
+	}
+
+	// Export stack to get state
+	deployment, err := stack.Export(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to export stack: %w", err)
+	}
+
+	// The deployment is stored as JSON, we need to parse it
+	var deploymentData struct {
+		Resources []struct {
+			URN  string      `json:"urn"`
+			Type string      `json:"type"`
+			ID   interface{} `json:"id"`
+		} `json:"resources"`
+	}
+
+	if err := json.Unmarshal(deployment.Deployment, &deploymentData); err != nil {
+		return fmt.Errorf("failed to parse deployment: %w", err)
+	}
+
+	resources := deploymentData.Resources
+
+	if len(resources) == 0 {
+		color.Yellow("\n⚠️  No resources found in stack")
+		return nil
+	}
+
+	fmt.Println()
+	color.New(color.Bold).Printf("Total resources: %d\n\n", len(resources))
+
+	// Print resources table
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	defer w.Flush()
+
+	color.New(color.Bold).Fprintln(w, "URN\tTYPE\tID")
+	fmt.Fprintln(w, "---\t----\t--")
+
+	for _, resource := range resources {
+		// Filter by type if specified
+		if resourceType != "" && resource.Type != resourceType {
+			continue
+		}
+
+		idStr := fmt.Sprintf("%v", resource.ID)
+		if len(idStr) > 60 {
+			idStr = idStr[:57] + "..."
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\n", resource.URN, resource.Type, idStr)
+	}
+
+	return nil
+}
+
+func runStateDelete(cmd *cobra.Command, args []string) error {
+	if len(args) < 2 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks state delete <stack-name> <urn>")
+	}
+
+	ctx := context.Background()
+	stackName := args[0]
+	urn := args[1]
+
+	printHeader(fmt.Sprintf("🗑️  Delete Resource from State: %s", stackName))
+
+	fmt.Println()
+	color.Red("⚠️  WARNING: This will remove the resource from Pulumi state!")
+	fmt.Println()
+	color.Yellow("This operation:")
+	fmt.Println("  ✓ Removes the resource from Pulumi's tracking")
+	fmt.Println("  ✗ Does NOT destroy the actual cloud resource")
+	fmt.Println("  ⚠️  The resource will become unmanaged by Pulumi")
+	fmt.Println()
+	fmt.Printf("Stack: %s\n", stackName)
+	fmt.Printf("URN:   %s\n", urn)
+	fmt.Println()
+
+	// Confirm unless --force
+	if !forceDelete {
+		fmt.Print("Are you sure you want to continue? (yes/no): ")
+		var response string
+		fmt.Scanln(&response)
+		if response != "yes" {
+			color.Yellow("\n❌ Operation cancelled")
+			return nil
+		}
+	}
+
+	// Get workspace and stack
+	workspace, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	stack, err := auto.SelectStack(ctx, stackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
+	}
+
+	// Use pulumi CLI to delete state
+	fmt.Println()
+	color.Cyan("Deleting resource from state...")
+
+	// The Automation API doesn't have direct state delete, so we use the CLI
+	// Export, modify, and import back
+	deployment, err := stack.Export(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to export stack: %w", err)
+	}
+
+	// Parse deployment JSON
+	var deploymentData struct {
+		Resources []map[string]interface{} `json:"resources"`
+	}
+
+	if err := json.Unmarshal(deployment.Deployment, &deploymentData); err != nil {
+		return fmt.Errorf("failed to parse deployment: %w", err)
+	}
+
+	// Find and remove the resource
+	found := false
+	newResources := []map[string]interface{}{}
+	for _, resource := range deploymentData.Resources {
+		resourceURN, _ := resource["urn"].(string)
+		if resourceURN != urn {
+			newResources = append(newResources, resource)
+		} else {
+			found = true
+			resourceType, _ := resource["type"].(string)
+			color.Yellow("  Found resource: %s (Type: %s)", resourceURN, resourceType)
+		}
+	}
+
+	if !found {
+		return fmt.Errorf("resource with URN '%s' not found in stack", urn)
+	}
+
+	// Update deployment
+	deploymentData.Resources = newResources
+
+	// Marshal back to JSON
+	modifiedDeployment, err := json.Marshal(deploymentData)
+	if err != nil {
+		return fmt.Errorf("failed to marshal deployment: %w", err)
+	}
+
+	deployment.Deployment = modifiedDeployment
+
+	// Import modified state back
+	if err := stack.Import(ctx, deployment); err != nil {
+		return fmt.Errorf("failed to import modified state: %w", err)
+	}
+
+	fmt.Println()
+	color.Green("✅ Resource removed from state successfully")
+	fmt.Println()
+	color.Cyan("Next steps:")
+	fmt.Println("  1. The cloud resource still exists and is now unmanaged")
+	fmt.Println("  2. You can manually delete it from the cloud provider console")
+	fmt.Println("  3. Or import it back with: pulumi import <type> <name> <id>")
+
+	return nil
 }

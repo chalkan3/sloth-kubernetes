@@ -108,7 +108,7 @@ func applyDefaults(cfg *ClusterConfig) {
 	if cfg.Kubernetes.Distribution == "rke2" && cfg.Kubernetes.RKE2 == nil {
 		cfg.Kubernetes.RKE2 = GetRKE2Defaults()
 	} else if cfg.Kubernetes.RKE2 != nil {
-		cfg.Kubernetes.RKE2 = MergeRKE2Config(cfg.Kubernetes.RKE2)
+		cfg.Kubernetes.RKE2 = MergeRKE2Config(cfg.Kubernetes.RKE2, cfg.Kubernetes.Version)
 	}
 
 	// WireGuard defaults
@@ -262,14 +262,14 @@ func GenerateExampleConfig() *ClusterConfig {
 			ClusterDNS:    "10.43.0.10",
 			ClusterDomain: "cluster.local",
 			RKE2: &RKE2Config{
-				Channel:             "stable",
-				ClusterToken:        "your-secure-cluster-token",
-				TLSSan:              []string{"api.example.com"},
-				DisableComponents:   []string{"rke2-ingress-nginx"},
+				Channel:              "stable",
+				ClusterToken:         "your-secure-cluster-token",
+				TLSSan:               []string{"api.example.com"},
+				DisableComponents:    []string{"rke2-ingress-nginx"},
 				SnapshotScheduleCron: "0 */12 * * *",
-				SnapshotRetention:   5,
-				SecretsEncryption:   true,
-				WriteKubeconfigMode: "0600",
+				SnapshotRetention:    5,
+				SecretsEncryption:    true,
+				WriteKubeconfigMode:  "0600",
 			},
 		},
 		NodePools: map[string]NodePool{

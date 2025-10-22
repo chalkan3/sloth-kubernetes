@@ -8,22 +8,22 @@ import (
 // GetRKE2Defaults returns default RKE2 configuration
 func GetRKE2Defaults() *RKE2Config {
 	return &RKE2Config{
-		Version:             "", // Empty means latest stable
-		Channel:             "stable",
-		ClusterToken:        "my-super-secret-cluster-token-rke2-production-2025",
-		TLSSan:              []string{},
-		DisableComponents:   []string{"rke2-ingress-nginx"},
-		DataDir:             "/var/lib/rancher/rke2",
-		NodeTaint:           []string{},
-		NodeLabel:           []string{},
-		SnapshotScheduleCron: "0 */12 * * *", // Every 12 hours
-		SnapshotRetention:   5,
-		WriteKubeconfigMode: "0600",
+		Version:               "", // Empty means latest stable
+		Channel:               "stable",
+		ClusterToken:          "my-super-secret-cluster-token-rke2-production-2025",
+		TLSSan:                []string{},
+		DisableComponents:     []string{"rke2-ingress-nginx"},
+		DataDir:               "/var/lib/rancher/rke2",
+		NodeTaint:             []string{},
+		NodeLabel:             []string{},
+		SnapshotScheduleCron:  "0 */12 * * *", // Every 12 hours
+		SnapshotRetention:     5,
+		WriteKubeconfigMode:   "0600",
 		ProtectKernelDefaults: false,
-		SeLinux:             false,
-		SecretsEncryption:   false,
-		ExtraServerArgs:     make(map[string]string),
-		ExtraAgentArgs:      make(map[string]string),
+		SeLinux:               false,
+		SecretsEncryption:     false,
+		ExtraServerArgs:       make(map[string]string),
+		ExtraAgentArgs:        make(map[string]string),
 	}
 }
 
@@ -75,9 +75,11 @@ func BuildRKE2ServerConfig(cfg *RKE2Config, nodeIP, nodeName string, isFirstMast
 	// Node configuration
 	builder.WriteString(fmt.Sprintf("node-name: %s\n", nodeName))
 	builder.WriteString(fmt.Sprintf("node-ip: %s\n", nodeIP))
-	if isFirstMaster {
-		builder.WriteString(fmt.Sprintf("advertise-address: %s\n", nodeIP))
-	}
+
+	// CRITICAL FIX: Add bind-address for API server to listen on the correct IP
+	// Without this, API server only listens on 127.0.0.1 and kubectl cannot connect
+	// This is essential when using WireGuard VPN IPs for node-to-node communication
+	builder.WriteString(fmt.Sprintf("bind-address: %s\n", nodeIP))
 
 	// Node taints
 	if len(cfg.NodeTaint) > 0 {
@@ -226,16 +228,23 @@ func GetRKE2InstallCommand(cfg *RKE2Config, isServer bool) string {
 }
 
 // MergeRKE2Config merges user config with defaults
-func MergeRKE2Config(user *RKE2Config) *RKE2Config {
+func MergeRKE2Config(user *RKE2Config, k8sVersion string) *RKE2Config {
 	defaults := GetRKE2Defaults()
 
 	if user == nil {
+		// If user config is nil, use k8s version if provided
+		if k8sVersion != "" {
+			defaults.Version = k8sVersion
+		}
 		return defaults
 	}
 
 	// Merge fields (user values override defaults)
 	if user.Version != "" {
 		defaults.Version = user.Version
+	} else if k8sVersion != "" {
+		// Fall back to kubernetes.version if rke2.version is not set
+		defaults.Version = k8sVersion
 	}
 	if user.Channel != "" {
 		defaults.Channel = user.Channel

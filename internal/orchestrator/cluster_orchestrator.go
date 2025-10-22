@@ -28,7 +28,7 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 		return nil, err
 	}
 
-	ctx.Log.Info("🚀 Starting REAL Kubernetes deployment (WireGuard + RKE2 + DNS)", nil)
+	ctx.Log.Info("🚀 Starting REAL Kubernetes deployment (WireGuard + K3s + DNS)", nil)
 
 	// Phase 1: SSH Keys
 	ctx.Log.Info("🔑 Phase 1: Generating SSH keys...", nil)
@@ -82,25 +82,25 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 		// is more flexible for multi-cloud deployments
 		// This component-based VPC creation is commented out to avoid conflicts
 		/*
-		// Phase 1.6: Create VPC for private networking
-		ctx.Log.Info("🌐 Phase 1.6: Creating VPC for private cluster networking...", nil)
-		// Use first node's region for VPC (or bastion region if no nodes)
-		vpcRegion := cfg.Security.Bastion.Region
-		if len(cfg.Nodes) > 0 {
-			vpcRegion = cfg.Nodes[0].Region
-		}
-		vpcComponent, err = components.NewVPCComponent(
-			ctx,
-			fmt.Sprintf("%s-vpc", name),
-			vpcRegion,
-			"10.0.0.0/16", // Private network range
-			pulumi.Parent(component),
-			pulumi.DependsOn([]pulumi.Resource{sshKeyComponent}),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create VPC: %w", err)
-		}
-		ctx.Log.Info("✅ VPC created for private networking", nil)
+			// Phase 1.6: Create VPC for private networking
+			ctx.Log.Info("🌐 Phase 1.6: Creating VPC for private cluster networking...", nil)
+			// Use first node's region for VPC (or bastion region if no nodes)
+			vpcRegion := cfg.Security.Bastion.Region
+			if len(cfg.Nodes) > 0 {
+				vpcRegion = cfg.Nodes[0].Region
+			}
+			vpcComponent, err = components.NewVPCComponent(
+				ctx,
+				fmt.Sprintf("%s-vpc", name),
+				vpcRegion,
+				"10.0.0.0/16", // Private network range
+				pulumi.Parent(component),
+				pulumi.DependsOn([]pulumi.Resource{sshKeyComponent}),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create VPC: %w", err)
+			}
+			ctx.Log.Info("✅ VPC created for private networking", nil)
 		*/
 	} else {
 		// No bastion - nodes can start immediately after SSH keys
@@ -133,14 +133,40 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 
 	ctx.Log.Info(fmt.Sprintf("✅ Created %d real nodes", len(realNodes)), nil)
 
-	// Phase 3: WireGuard Mesh VPN (REAL) - includes bastion if enabled
-	ctx.Log.Info("🔐 Phase 3: Setting up WireGuard mesh VPN...", nil)
+	// Phase 2.5: Cloud-init Validation (wait for Docker + WireGuard to be installed)
+	ctx.Log.Info("", nil)
+	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+	ctx.Log.Info("🔍 Phase 2.5: CLOUD-INIT VALIDATION", nil)
+	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+	ctx.Log.Info("⏳ Waiting for cloud-init to complete (Docker + WireGuard installation)...", nil)
+	ctx.Log.Info("", nil)
 
-	// Build dependency list - must wait for bastion provisioning if enabled
-	// CRITICAL: WireGuard mesh setup generates keys on bastion, so bastion must have
-	// WireGuard installed BEFORE we attempt keygen. Wait for bastion provisioning to complete.
+	cloudInitValidator, err := components.NewCloudInitValidatorComponent(
+		ctx,
+		fmt.Sprintf("%s-cloudinit-validator", name),
+		realNodes,
+		sshKeyComponent.PrivateKey,
+		bastionComponent,
+		pulumi.Parent(component),
+		pulumi.DependsOn([]pulumi.Resource{nodeComponent}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate cloud-init: %w", err)
+	}
+
+	ctx.Log.Info("✅ Cloud-init validation passed - Docker and WireGuard installed on all nodes", nil)
+
+	// Phase 3: WireGuard Mesh VPN (REAL) - includes bastion if enabled
+	ctx.Log.Info("", nil)
+	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+	ctx.Log.Info("🔐 Phase 3: WIREGUARD MESH VPN CONFIGURATION", nil)
+	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+	ctx.Log.Info("", nil)
+
+	// Build dependency list - must wait for cloud-init validation
+	// CRITICAL: WireGuard must be installed (via cloud-init) before we configure the mesh
 	var wgDependencies []pulumi.Resource
-	wgDependencies = append(wgDependencies, nodeComponent)
+	wgDependencies = append(wgDependencies, cloudInitValidator)
 	if bastionComponent != nil {
 		ctx.Log.Info("🏰 WireGuard mesh will wait for bastion provisioning to complete...", nil)
 		wgDependencies = append(wgDependencies, bastionComponent)
@@ -161,23 +187,40 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 
 	ctx.Log.Info("✅ WireGuard mesh VPN configured", nil)
 
-	// Phase 4: RKE2 Kubernetes Cluster (REAL)
-	ctx.Log.Info("☸️  Phase 4: Installing RKE2 Kubernetes cluster...", nil)
-	rkeComponent, err := components.NewRKE2RealComponent(
+	// Phase 3.5: Validate VPN connectivity before RKE2
+	ctx.Log.Info("🔍 Phase 3.5: Validating VPN connectivity...", nil)
+	vpnValidator, err := components.NewVPNValidatorComponent(
 		ctx,
-		fmt.Sprintf("%s-rke2", name),
+		fmt.Sprintf("%s-vpn-validator", name),
+		realNodes,
+		sshKeyComponent.PrivateKey,
+		bastionComponent,
+		pulumi.Parent(component),
+		pulumi.DependsOn([]pulumi.Resource{wgComponent}),
+	)
+	if err != nil {
+		return nil, fmt.Errorf("failed to validate VPN: %w", err)
+	}
+
+	ctx.Log.Info("✅ VPN validation passed - all nodes reachable", nil)
+
+	// Phase 4: K3s Kubernetes Cluster (REAL)
+	ctx.Log.Info("☸️  Phase 4: Installing K3s Kubernetes cluster...", nil)
+	rkeComponent, err := components.NewK3sRealComponent(
+		ctx,
+		fmt.Sprintf("%s-k3s", name),
 		realNodes,
 		sshKeyComponent.PrivateKey,
 		cfg,
 		bastionComponent, // Pass bastion for ProxyJump SSH connections
 		pulumi.Parent(component),
-		pulumi.DependsOn([]pulumi.Resource{wgComponent}),
+		pulumi.DependsOn([]pulumi.Resource{vpnValidator}), // Wait for VPN validation
 	)
 	if err != nil {
-		return nil, fmt.Errorf("failed to install RKE2: %w", err)
+		return nil, fmt.Errorf("failed to install K3s: %w", err)
 	}
 
-	ctx.Log.Info("✅ RKE2 cluster installed", nil)
+	ctx.Log.Info("✅ K3s cluster installed", nil)
 
 	// Phase 5: DNS Records (REAL)
 	ctx.Log.Info("🌐 Phase 5: Creating DNS records...", nil)
@@ -208,15 +251,15 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 	for i, node := range realNodes {
 		nodeKey := fmt.Sprintf("node_%d", i)
 		nodesMap[nodeKey] = pulumi.Map{
-			"name":        node.NodeName,
-			"public_ip":   node.PublicIP,
-			"private_ip":  node.PrivateIP,
-			"vpn_ip":      node.WireGuardIP,
-			"provider":    node.Provider,
-			"region":      node.Region,
-			"size":        node.Size,
-			"roles":       node.Roles,
-			"status":      node.Status,
+			"name":       node.NodeName,
+			"public_ip":  node.PublicIP,
+			"private_ip": node.PrivateIP,
+			"vpn_ip":     node.WireGuardIP,
+			"provider":   node.Provider,
+			"region":     node.Region,
+			"size":       node.Size,
+			"roles":      node.Roles,
+			"status":     node.Status,
 		}
 	}
 	ctx.Export("nodes", nodesMap)

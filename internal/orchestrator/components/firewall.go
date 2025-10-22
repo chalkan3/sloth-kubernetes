@@ -39,7 +39,7 @@ func NewFirewallComponent(
 
 	// Allow SSH ONLY from bastion host
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("22"),
 		SourceAddresses: pulumi.StringArray{
 			bastionIP, // Only bastion can SSH to nodes
@@ -48,14 +48,14 @@ func NewFirewallComponent(
 
 	// Allow all traffic from VPN network (WireGuard mesh)
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("1-65535"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("10.8.0.0/24"), // VPN network
 		},
 	})
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("udp"),
+		Protocol:  pulumi.String("udp"),
 		PortRange: pulumi.String("1-65535"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("10.8.0.0/24"), // VPN network
@@ -64,7 +64,7 @@ func NewFirewallComponent(
 
 	// Allow WireGuard VPN traffic from anywhere (UDP 51820)
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("udp"),
+		Protocol:  pulumi.String("udp"),
 		PortRange: pulumi.String("51820"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"),
@@ -74,7 +74,7 @@ func NewFirewallComponent(
 
 	// Allow Kubernetes API traffic (for kubectl access)
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("6443"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"), // API should be publicly accessible
@@ -84,7 +84,7 @@ func NewFirewallComponent(
 
 	// Allow HTTP/HTTPS for ingress traffic
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("80"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"),
@@ -92,7 +92,7 @@ func NewFirewallComponent(
 		},
 	})
 	inboundRules = append(inboundRules, &digitalocean.FirewallInboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("443"),
 		SourceAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"),
@@ -112,7 +112,7 @@ func NewFirewallComponent(
 	// Outbound rules - allow all outbound traffic
 	var outboundRules digitalocean.FirewallOutboundRuleArray
 	outboundRules = append(outboundRules, &digitalocean.FirewallOutboundRuleArgs{
-		Protocol: pulumi.String("tcp"),
+		Protocol:  pulumi.String("tcp"),
 		PortRange: pulumi.String("1-65535"),
 		DestinationAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"),
@@ -120,7 +120,7 @@ func NewFirewallComponent(
 		},
 	})
 	outboundRules = append(outboundRules, &digitalocean.FirewallOutboundRuleArgs{
-		Protocol: pulumi.String("udp"),
+		Protocol:  pulumi.String("udp"),
 		PortRange: pulumi.String("1-65535"),
 		DestinationAddresses: pulumi.StringArray{
 			pulumi.String("0.0.0.0/0"),
@@ -139,7 +139,7 @@ func NewFirewallComponent(
 	dropletIDsInt := make([]pulumi.IntInput, len(nodeDropletIDs))
 	for i, id := range nodeDropletIDs {
 		dropletIDsInt[i] = pulumi.Int(0) // Will be set dynamically
-		_ = id // TODO: Convert string ID to int
+		_ = id                           // TODO: Convert string ID to int
 	}
 
 	// Create firewall

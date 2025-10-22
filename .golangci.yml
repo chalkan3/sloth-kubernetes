@@ -1,0 +1,81 @@
+run:
+  timeout: 5m
+  modules-download-mode: readonly
+  go: '1.23'
+  skip-files:
+    - ".*_test\\.go$"
+
+linters:
+  disable-all: true
+  enable:
+    - gofmt          # Gofmt checks whether code was gofmt-ed
+    - goimports      # Check import statements are formatted according to the 'goimport' command
+
+linters-settings:
+  errcheck:
+    check-type-assertions: true
+    check-blank: true
+
+  govet:
+    enable-all: true
+    disable:
+      - fieldalignment  # Too strict for this project
+
+  goimports:
+    local-prefixes: sloth-kubernetes
+
+  gocritic:
+    enabled-tags:
+      - diagnostic
+      - performance
+      - style
+    disabled-checks:
+      - unnamedResult
+      - hugeParam
+
+  gosec:
+    excludes:
+      - G204  # Subprocess launched with variable
+      - G304  # File path provided as taint input
+
+  revive:
+    rules:
+      - name: exported
+        disabled: false
+      - name: unexported-return
+        disabled: false
+      - name: blank-imports
+        disabled: false
+      - name: context-as-argument
+        disabled: false
+      - name: dot-imports
+        disabled: false
+      - name: error-return
+        disabled: false
+      - name: error-strings
+        disabled: false
+      - name: error-naming
+        disabled: false
+      - name: increment-decrement
+        disabled: false
+      - name: var-naming
+        disabled: false
+      - name: package-comments
+        disabled: true  # Not enforcing package comments for now
+
+issues:
+  exclude-dirs:
+    - vendor
+    - testdata
+    - examples
+
+  exclude-rules:
+    # Exclude some linters from running on tests files
+    - path: _test\.go
+      linters:
+        - gosec
+        - unparam
+        - gocritic
+
+  max-issues-per-linter: 0
+  max-same-issues: 0

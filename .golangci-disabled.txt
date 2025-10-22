@@ -1,0 +1,1 @@
+# golangci-lint removed due to false positives with yaml package

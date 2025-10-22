@@ -174,6 +174,10 @@ func (w *WireGuardManager) generateMeshPeers(currentNode *providers.NodeOutput) 
 			continue
 		}
 
+		// Note: In production, this would need to properly handle pulumi.StringOutput
+		// For now, using a placeholder for the endpoint IP
+		endpointIP := "PLACEHOLDER_IP" // TODO: Handle pulumi.StringOutput properly
+
 		peers += fmt.Sprintf(`
 [Peer]
 # Node: %s
@@ -185,7 +189,7 @@ PersistentKeepalive = %d
 			node.Name,
 			w.getNodePublicKey(node),
 			node.WireGuardIP,
-			node.PublicIP.ToStringOutput().ApplyT(func(ip string) string { return ip }).(pulumi.StringOutput),
+			endpointIP,
 			w.config.Port,
 			w.config.PersistentKeepalive,
 		)

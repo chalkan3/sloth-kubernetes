@@ -42,24 +42,24 @@ type ProvidersSpec struct {
 
 // DigitalOceanSpec provider configuration
 type DigitalOceanSpec struct {
-	Enabled bool   `yaml:"enabled" json:"enabled"`
-	Token   string `yaml:"token,omitempty" json:"token,omitempty"`
-	Region  string `yaml:"region" json:"region"`
+	Enabled bool     `yaml:"enabled" json:"enabled"`
+	Token   string   `yaml:"token,omitempty" json:"token,omitempty"`
+	Region  string   `yaml:"region" json:"region"`
 	Tags    []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 }
 
 // LinodeSpec provider configuration
 type LinodeSpec struct {
-	Enabled      bool   `yaml:"enabled" json:"enabled"`
-	Token        string `yaml:"token,omitempty" json:"token,omitempty"`
-	Region       string `yaml:"region" json:"region"`
-	RootPassword string `yaml:"rootPassword,omitempty" json:"rootPassword,omitempty"`
+	Enabled      bool     `yaml:"enabled" json:"enabled"`
+	Token        string   `yaml:"token,omitempty" json:"token,omitempty"`
+	Region       string   `yaml:"region" json:"region"`
+	RootPassword string   `yaml:"rootPassword,omitempty" json:"rootPassword,omitempty"`
 	Tags         []string `yaml:"tags,omitempty" json:"tags,omitempty"`
 }
 
 // NetworkSpec defines network configuration
 type NetworkSpec struct {
-	DNS       DNSSpec       `yaml:"dns" json:"dns"`
+	DNS       DNSSpec        `yaml:"dns" json:"dns"`
 	WireGuard *WireGuardSpec `yaml:"wireguard,omitempty" json:"wireguard,omitempty"`
 }
 
@@ -71,25 +71,25 @@ type DNSSpec struct {
 
 // WireGuardSpec VPN configuration
 type WireGuardSpec struct {
-	Enabled            bool   `yaml:"enabled" json:"enabled"`
-	ServerEndpoint     string `yaml:"serverEndpoint" json:"serverEndpoint"`
-	ServerPublicKey    string `yaml:"serverPublicKey" json:"serverPublicKey"`
-	ClientIPBase       string `yaml:"clientIPBase,omitempty" json:"clientIPBase,omitempty"`
-	Port               int    `yaml:"port,omitempty" json:"port,omitempty"`
-	MTU                int    `yaml:"mtu,omitempty" json:"mtu,omitempty"`
-	PersistentKeepalive int   `yaml:"persistentKeepalive,omitempty" json:"persistentKeepalive,omitempty"`
+	Enabled             bool   `yaml:"enabled" json:"enabled"`
+	ServerEndpoint      string `yaml:"serverEndpoint" json:"serverEndpoint"`
+	ServerPublicKey     string `yaml:"serverPublicKey" json:"serverPublicKey"`
+	ClientIPBase        string `yaml:"clientIPBase,omitempty" json:"clientIPBase,omitempty"`
+	Port                int    `yaml:"port,omitempty" json:"port,omitempty"`
+	MTU                 int    `yaml:"mtu,omitempty" json:"mtu,omitempty"`
+	PersistentKeepalive int    `yaml:"persistentKeepalive,omitempty" json:"persistentKeepalive,omitempty"`
 }
 
 // KubernetesSpec defines Kubernetes configuration
 type KubernetesSpec struct {
-	Distribution  string     `yaml:"distribution" json:"distribution"`
-	Version       string     `yaml:"version" json:"version"`
-	NetworkPlugin string     `yaml:"networkPlugin" json:"networkPlugin"`
-	PodCIDR       string     `yaml:"podCIDR" json:"podCIDR"`
-	ServiceCIDR   string     `yaml:"serviceCIDR" json:"serviceCIDR"`
-	ClusterDNS    string     `yaml:"clusterDNS" json:"clusterDNS"`
-	ClusterDomain string     `yaml:"clusterDomain,omitempty" json:"clusterDomain,omitempty"`
-	RKE2          *RKE2Spec  `yaml:"rke2,omitempty" json:"rke2,omitempty"`
+	Distribution  string    `yaml:"distribution" json:"distribution"`
+	Version       string    `yaml:"version" json:"version"`
+	NetworkPlugin string    `yaml:"networkPlugin" json:"networkPlugin"`
+	PodCIDR       string    `yaml:"podCIDR" json:"podCIDR"`
+	ServiceCIDR   string    `yaml:"serviceCIDR" json:"serviceCIDR"`
+	ClusterDNS    string    `yaml:"clusterDNS" json:"clusterDNS"`
+	ClusterDomain string    `yaml:"clusterDomain,omitempty" json:"clusterDomain,omitempty"`
+	RKE2          *RKE2Spec `yaml:"rke2,omitempty" json:"rke2,omitempty"`
 }
 
 // RKE2Spec RKE2-specific configuration
@@ -108,15 +108,15 @@ type RKE2Spec struct {
 
 // NodePoolSpec defines a node pool
 type NodePoolSpec struct {
-	Name     string   `yaml:"name" json:"name"`
-	Provider string   `yaml:"provider" json:"provider"`
-	Count    int      `yaml:"count" json:"count"`
-	Roles    []string `yaml:"roles" json:"roles"`
-	Size     string   `yaml:"size" json:"size"`
-	Image    string   `yaml:"image" json:"image"`
-	Region   string   `yaml:"region" json:"region"`
+	Name     string            `yaml:"name" json:"name"`
+	Provider string            `yaml:"provider" json:"provider"`
+	Count    int               `yaml:"count" json:"count"`
+	Roles    []string          `yaml:"roles" json:"roles"`
+	Size     string            `yaml:"size" json:"size"`
+	Image    string            `yaml:"image" json:"image"`
+	Region   string            `yaml:"region" json:"region"`
 	Labels   map[string]string `yaml:"labels,omitempty" json:"labels,omitempty"`
-	Taints   []TaintSpec `yaml:"taints,omitempty" json:"taints,omitempty"`
+	Taints   []TaintSpec       `yaml:"taints,omitempty" json:"taints,omitempty"`
 }
 
 // TaintSpec defines node taints
@@ -168,10 +168,10 @@ func convertFromK8sStyle(k8s *KubernetesStyleConfig) *ClusterConfig {
 			Labels:      k8s.Metadata.Labels,
 			Annotations: k8s.Metadata.Annotations,
 		},
-		Providers: ProvidersConfig{},
-		Network:   NetworkConfig{},
+		Providers:  ProvidersConfig{},
+		Network:    NetworkConfig{},
 		Kubernetes: KubernetesConfig{},
-		NodePools: make(map[string]NodePool),
+		NodePools:  make(map[string]NodePool),
 	}
 
 	// Providers

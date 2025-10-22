@@ -341,8 +341,8 @@ func loadConfiguration() (*config.ClusterConfig, error) {
 func setStackConfig(ctx context.Context, stack auto.Stack, cfg *config.ClusterConfig) error {
 	// Set configuration values for Pulumi
 	configs := map[string]auto.ConfigValue{
-		"digitaloceanToken": {Value: cfg.Providers.DigitalOcean.Token, Secret: true},
-		"linodeToken":       {Value: cfg.Providers.Linode.Token, Secret: true},
+		"digitaloceanToken":        {Value: cfg.Providers.DigitalOcean.Token, Secret: true},
+		"linodeToken":              {Value: cfg.Providers.Linode.Token, Secret: true},
 		"wireguardServerEndpoint":  {Value: cfg.Network.WireGuard.ServerEndpoint},
 		"wireguardServerPublicKey": {Value: cfg.Network.WireGuard.ServerPublicKey},
 	}
@@ -418,7 +418,7 @@ func printDeploymentSummary(cfg *config.ClusterConfig) {
 		fmt.Printf("  • Providers: %s\n", joinStrings(providers, " + "))
 	}
 
-	fmt.Printf("  • Kubernetes: RKE2 %s\n", cfg.Kubernetes.Version)
+	fmt.Printf("  • Kubernetes: K3s %s\n", cfg.Kubernetes.Version)
 	fmt.Println()
 
 	// Deployment phases

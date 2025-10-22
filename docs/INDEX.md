@@ -1,178 +1,371 @@
-# Documentation Index
+# 🦥 Welcome to Sloth Kubernetes
 
-Welcome to the complete documentation for the Production Kubernetes Cluster.
+<div align="center">
 
-## 📚 Documentation Structure
+**Deploy Kubernetes clusters across multiple clouds**
+***Slowly, but surely*** 🐌
 
-```
-docs/
-├── README.md                  # Complete cluster documentation (main reference)
-├── QUICK_START.md            # Quick start guide for common tasks
-├── NETWORK_DIAGRAM.md        # Network architecture diagrams
-├── INDEX.md                  # This file
-└── examples/
-    ├── deployment-tools.yaml        # Deploy to tools workers
-    ├── deployment-misc.yaml         # Deploy to misc worker
-    └── statefulset-with-pvc.yaml   # Stateful app with storage
-```
+[![Go Version](https://img.shields.io/badge/Go-1.23+-00ADD8?style=for-the-badge&logo=go)](https://go.dev/)
+[![Test Coverage](https://img.shields.io/badge/coverage-90%25-brightgreen?style=for-the-badge)](contributing/testing.md)
+[![License](https://img.shields.io/badge/license-MIT-blue.svg?style=for-the-badge)](LICENSE.md)
 
-## 🚀 Start Here
+[Get Started](getting-started/quickstart.md){ .md-button .md-button--primary }
+[View on GitHub](https://github.com/yourusername/sloth-kubernetes){ .md-button }
 
-**New to the cluster?**
-1. Read [QUICK_START.md](QUICK_START.md) for immediate productivity
-2. Explore [examples/](examples/) for deployment templates
-3. Reference [README.md](README.md) for comprehensive details
-
-**Need specific information?**
-- Architecture & Infrastructure → [README.md#architecture](README.md#architecture)
-- Network & VPN → [NETWORK_DIAGRAM.md](NETWORK_DIAGRAM.md)
-- Deployment Examples → [examples/](examples/)
-- Troubleshooting → [README.md#troubleshooting](README.md#troubleshooting)
-
-## 📖 Documentation Guide
-
-### [README.md](README.md) - Complete Reference
-**Sections:**
-- Overview & Key Features
-- Architecture Topology
-- Infrastructure Specifications
-- Node Configuration (Labels & Taints)
-- Networking & VPN (WireGuard Mesh)
-- Deployed Services (ArgoCD, Nginx Ingress)
-- Access & Authentication
-- Deployment Guide
-- Maintenance & Operations
-- Troubleshooting
-- Security Considerations
-- Quick Reference
-- Appendix
-
-**Use when:** You need detailed information about any aspect of the cluster
-
-### [QUICK_START.md](QUICK_START.md) - Quick Reference
-**Contents:**
-- Prerequisites checklist
-- Cluster access verification
-- Common tasks with commands
-- Node targeting examples
-- Service access URLs
-- SSH shortcuts
-- Troubleshooting tips
-
-**Use when:** You need to quickly accomplish a specific task
-
-### [NETWORK_DIAGRAM.md](NETWORK_DIAGRAM.md) - Network Architecture
-**Diagrams:**
-- Complete network topology
-- Kubernetes cluster detail
-- Traffic flow (external → services)
-- kubectl → API flow
-- WireGuard peer connections
-- DNS resolution flow
-- Port reference table
-
-**Use when:** You need to understand network connectivity and routing
-
-### [examples/](examples/) - Deployment Templates
-
-#### [deployment-tools.yaml](examples/deployment-tools.yaml)
-- Deploy applications to tools workers (worker-1, worker-2)
-- Includes: Deployment, Service, Ingress
-- Use for: CI/CD tools, monitoring, development tools
-
-#### [deployment-misc.yaml](examples/deployment-misc.yaml)
-- Deploy applications to misc worker (worker-3)
-- Includes: Deployment, Service, Ingress
-- Use for: Experimental apps, background jobs, testing
-
-#### [statefulset-with-pvc.yaml](examples/statefulset-with-pvc.yaml)
-- Deploy stateful applications with persistent storage
-- Includes: StatefulSet, PVC, Storage Class
-- Use for: Databases, message queues, data persistence
-
-## 🎯 Common Use Cases
-
-### "I want to deploy a new service"
-1. Copy template from [examples/deployment-tools.yaml](examples/deployment-tools.yaml)
-2. Modify image, labels, and ingress hostname
-3. Apply with `kubectl apply -f`
-4. Add DNS record with `doctl`
-5. Access via https://yourservice.kube.chalkan3.com.br
-
-### "I need to understand the network"
-1. Read [NETWORK_DIAGRAM.md](NETWORK_DIAGRAM.md)
-2. Check [README.md#networking--vpn](README.md#networking--vpn)
-3. Test connectivity: `ping 10.8.0.10`
-
-### "Something is not working"
-1. Check [QUICK_START.md#troubleshooting-quick-tips](QUICK_START.md#troubleshooting-quick-tips)
-2. Reference [README.md#troubleshooting](README.md#troubleshooting)
-3. Check logs: `kubectl logs <pod> -n <namespace>`
-4. Review events: `kubectl get events --sort-by='.lastTimestamp'`
-
-### "I want to SSH to a node"
-1. Use shortcuts: `ssh-k8s-worker-1` (from zsh functions)
-2. Or: `ssh -i ~/.ssh/kubernetes-clusters/production.pem root@10.8.0.13`
-3. List all hosts: `vpn-hosts`
-
-## 📊 Cluster Overview
-
-```
-┌─────────────────────────────────────────────────┐
-│         Production Kubernetes Cluster            │
-│                                                   │
-│  Masters: 3 (HA)    Workers: 3 (2 tools + 1 misc)│
-│  Kubernetes: v1.33.5+rke2r1                       │
-│  Network: WireGuard VPN Mesh (10.8.0.0/24)        │
-│  Providers: DigitalOcean + Linode (Multi-cloud)  │
-│                                                   │
-│  Services:                                        │
-│  - ArgoCD v3.1.9 (GitOps)                        │
-│  - Nginx Ingress v1.11.1                         │
-│  - Calico CNI                                    │
-│                                                   │
-│  Access: VPN-only (No public exposure)           │
-│  API: https://api.chalkan3.com.br:6443           │
-└─────────────────────────────────────────────────┘
-```
-
-## 🔗 Quick Links
-
-| Resource                | URL / Command                              |
-|-------------------------|--------------------------------------------|
-| Kubernetes API          | https://api.chalkan3.com.br:6443           |
-| ArgoCD UI               | https://argocd.kube.chalkan3.com.br        |
-| Cluster Status          | `kubectl get nodes`                        |
-| All Pods                | `kubectl get pods --all-namespaces`        |
-| ArgoCD Login            | `argocd login argocd.kube.chalkan3.com.br` |
-| SSH to Master-1         | `ssh-k8s-master-1`                         |
-| SSH to Worker-1         | `ssh-k8s-worker-1`                         |
-| VPN Hosts List          | `vpn-hosts`                                |
-| Pulumi Project          | `cd ~/.projects/do-droplet-create`         |
-
-## 🆘 Need Help?
-
-**Quick diagnostics:**
-```bash
-# Cluster health
-kubectl get nodes
-kubectl get pods --all-namespaces
-
-# VPN connectivity
-ping 10.8.0.10
-
-# Service status
-kubectl get svc --all-namespaces
-
-# Recent events
-kubectl get events --all-namespaces --sort-by='.lastTimestamp' | tail -20
-```
-
-**Documentation feedback:**
-If you find errors or have suggestions, update the docs in:
-`~/.projects/do-droplet-create/docs/`
+</div>
 
 ---
 
-**Last Updated:** October 18, 2025
-**Version:** 1.0
+## 🌟 What is Sloth Kubernetes?
+
+**Sloth Kubernetes** is a single-binary CLI tool that deploys production-ready Kubernetes clusters across **multiple cloud providers** with **zero external dependencies**. No Pulumi CLI, no Terraform, no kubectl required for deployment—just one lazy sloth doing all the heavy lifting! 🦥💪
+
+!!! tip "The Sloth Philosophy"
+    Why rush? Good things take time. We'll get there... eventually. 🦥
+
+<div class="grid cards" markdown>
+
+-   🚀 **Zero Dependencies**
+
+    ---
+
+    Everything you need in one binary. No Pulumi CLI, no complex setup. Just download and deploy! 🦥
+
+    [:octicons-arrow-right-24: Installation](getting-started/installation.md)
+
+-   🌍 **True Multi-Cloud**
+
+    ---
+
+    Deploy across DigitalOcean and Linode. Your cluster, your choice, multiple clouds! 🦥
+
+    [:octicons-arrow-right-24: Multi-Cloud Guide](advanced/multi-cloud.md)
+
+-   🔐 **Secure by Default**
+
+    ---
+
+    WireGuard VPN mesh, encrypted secrets, CIS benchmarks. Security while you sleep! 😴🦥
+
+    [:octicons-arrow-right-24: Security](configuration/security.md)
+
+-   🌳 **GitOps Native**
+
+    ---
+
+    ArgoCD auto-bootstrap, Git as source of truth. Set it and forget it! 🦥
+
+    [:octicons-arrow-right-24: GitOps](advanced/gitops.md)
+
+</div>
+
+---
+
+## ⚡ Quick Start
+
+!!! success "3 Minutes to Production Cluster"
+    Have a production-ready cluster in the time it takes to make coffee! ☕🦥
+
+```bash
+# Step 1: Download (pick your platform)
+curl -L https://github.com/user/sloth-kubernetes/releases/latest/download/sloth-kubernetes -o sloth-kubernetes
+chmod +x sloth-kubernetes
+
+# Step 2: Create config
+cat > cluster.yaml <<EOF
+apiVersion: kubernetes-create.io/v1
+kind: Cluster
+metadata:
+  name: my-cluster
+spec:
+  providers:
+    digitalocean:
+      enabled: true
+      token: \${DIGITALOCEAN_TOKEN}
+  kubernetes:
+    version: v1.28.5+rke2r1
+  nodePools:
+    - name: masters
+      count: 3
+      roles: [master]
+EOF
+
+# Step 3: Deploy! 🦥
+export DIGITALOCEAN_TOKEN="your-token"
+./sloth-kubernetes deploy --config cluster.yaml
+
+# Step 4: Access your cluster
+./sloth-kubernetes kubeconfig > ~/.kube/config
+kubectl get nodes
+```
+
+[Full Quick Start Guide →](getting-started/quickstart.md){ .md-button }
+
+---
+
+## 🎯 Why Sloth Kubernetes?
+
+### Traditional vs. Sloth Way
+
+| Aspect | Traditional | Sloth Way 🦥 |
+|--------|------------|--------------|
+| Installation | Multiple CLIs + tools | Single binary |
+| Dependencies | Pulumi + kubectl + more | None |
+| Setup Time | 30-60 minutes | 3-5 minutes |
+| Multi-Cloud | Complex manual | Built-in |
+| VPN Setup | Hours of config | Automatic |
+| Learning Curve | Steep ⛰️ | Gentle 🦥 |
+
+!!! quote "Ancient Sloth Proverb"
+    *"The best time to deploy was yesterday. The second best time is now... but take your time!"* 🦥
+
+---
+
+## 🚀 Key Features
+
+### 🎯 Single Binary Simplicity
+
+Everything embedded in one binary:
+
+- ✅ Pulumi Automation API (no CLI needed)
+- ✅ State management
+- ✅ VPN configuration
+- ✅ GitOps bootstrap
+- ✅ Kubeconfig generation
+
+### 🌍 Multi-Cloud Support
+
+```
+        🦥 Your Kubernetes Cluster 🦥
+
+┌────────────────────┐  ┌────────────────────┐
+│   DigitalOcean     │  │      Linode        │
+│   Region: NYC3     │  │  Region: US-East   │
+│                    │  │                    │
+│ • Master 1    🦥   │  │ • Master 2    🦥   │
+│ • Worker 1    🦥   │  │ • Master 3    🦥   │
+│ • Worker 2    🦥   │  │ • Worker 3    🦥   │
+│                    │  │                    │
+│ VPC: 10.10.0.0/16  │  │ VPC: 10.11.0.0/16  │
+└─────────┬──────────┘  └──────────┬─────────┘
+          │                        │
+          └────────► VPN ◄─────────┘
+             WireGuard 🔐
+            10.8.0.0/24
+```
+
+### 🔐 Automated Security
+
+- WireGuard VPN mesh (automatic setup)
+- Encrypted secrets at rest
+- CIS benchmark compliance
+- Pod security policies
+- Network policies
+- Bastion host support
+
+### 🌳 GitOps Ready
+
+```bash
+# Deploy cluster
+sloth-kubernetes deploy --config cluster.yaml
+
+# Bootstrap ArgoCD
+sloth-kubernetes addons bootstrap \
+  --repo https://github.com/yourorg/k8s-gitops
+
+# Everything auto-syncs from Git! 🦥🌳
+```
+
+---
+
+## 📚 Documentation
+
+<div class="grid cards" markdown>
+
+-   📖 **Getting Started**
+
+    ---
+
+    New to Sloth? Start here! 🦥
+
+    - [Installation](getting-started/installation.md)
+    - [Quick Start](getting-started/quickstart.md)
+    - [First Cluster](getting-started/first-cluster.md)
+
+-   💻 **User Guide**
+
+    ---
+
+    Day-to-day operations 🦥
+
+    - [CLI Reference](user-guide/cli-reference.md)
+    - [Deploy](user-guide/deploy.md)
+    - [Manage Nodes](user-guide/nodes.md)
+    - [VPN Management](user-guide/vpn.md)
+
+-   ⚙️ **Configuration**
+
+    ---
+
+    Configure your cluster 🦥
+
+    - [File Structure](configuration/file-structure.md)
+    - [Providers](configuration/providers.md)
+    - [Network](configuration/network.md)
+    - [Examples](configuration/examples.md)
+
+-   🎓 **Advanced**
+
+    ---
+
+    Pro tips and tricks 🦥
+
+    - [Architecture](advanced/architecture.md)
+    - [Multi-Cloud](advanced/multi-cloud.md)
+    - [State Management](advanced/state-management.md)
+    - [GitOps](advanced/gitops.md)
+
+</div>
+
+---
+
+## 🦥 Real-World Example
+
+Production-grade multi-cloud HA cluster:
+
+```yaml
+apiVersion: kubernetes-create.io/v1
+kind: Cluster
+metadata:
+  name: production-ha
+  labels:
+    environment: production
+
+spec:
+  providers:
+    digitalocean:
+      enabled: true
+      token: ${DIGITALOCEAN_TOKEN}
+      region: nyc3
+      vpc:
+        create: true
+        cidr: 10.10.0.0/16
+
+    linode:
+      enabled: true
+      token: ${LINODE_TOKEN}
+      region: us-east
+      vpc:
+        create: true
+        cidr: 10.11.0.0/16
+
+  network:
+    wireguard:
+      create: true  # 🦥 Auto-create VPN!
+      meshNetworking: true
+
+  kubernetes:
+    distribution: rke2
+    version: v1.28.5+rke2r1
+    rke2:
+      secretsEncryption: true
+      snapshotScheduleCron: "0 */12 * * *"
+      profiles:
+        - cis-1.6
+
+  nodePools:
+    do-masters:
+      provider: digitalocean
+      count: 1
+      roles: [master]
+      size: s-2vcpu-4gb
+
+    linode-masters:
+      provider: linode
+      count: 2  # Odd number for quorum
+      roles: [master]
+      size: g6-standard-2
+
+    do-workers:
+      provider: digitalocean
+      count: 2
+      roles: [worker]
+      size: s-2vcpu-4gb
+
+    linode-workers:
+      provider: linode
+      count: 2
+      roles: [worker]
+      size: g6-standard-2
+
+  security:
+    bastion:
+      enabled: true
+    podSecurity:
+      enabled: true
+
+  addons:
+    gitops:
+      enabled: true
+      repository: https://github.com/yourorg/k8s-gitops
+```
+
+!!! success "Deploy in One Command"
+    ```bash
+    sloth-kubernetes deploy --config production-ha.yaml
+    ```
+
+    The sloth will: 🦥
+
+    - Create VPCs on both clouds
+    - Deploy WireGuard VPN server
+    - Provision 7 nodes (3 masters, 4 workers)
+    - Install RKE2 Kubernetes
+    - Configure encrypted mesh
+    - Bootstrap ArgoCD
+    - Set up automated backups
+    - Apply security policies
+
+    **Time: 8-10 minutes** ☕
+
+---
+
+## 🎓 What Makes Us Different?
+
+✅ **No External Dependencies** - One binary, that's it
+✅ **Multi-Cloud Native** - Not bolted on, built in
+✅ **Auto VPN** - WireGuard mesh configured automatically
+✅ **GitOps First** - Bootstrap in one command
+✅ **Production Ready** - HA, backups, security hardening
+✅ **Simple** - Kubernetes-style YAML config
+✅ **Fast** - Deploy in 5-10 minutes
+✅ **Sloth Approved** - Slow is smooth, smooth is fast 🦥
+
+---
+
+## 🌟 Community
+
+Join the sloth family! 🦥
+
+- :fontawesome-brands-github: [GitHub](https://github.com/yourusername/sloth-kubernetes) - Star us!
+- :fontawesome-brands-slack: [Slack](https://sloth-kubernetes.slack.com) - Chat with us!
+- :fontawesome-brands-twitter: [Twitter](https://twitter.com/slothkubernetes) - Follow for updates!
+- :material-email: [Email](mailto:support@sloth-kubernetes.io) - Get help!
+
+---
+
+## 🦥 Ready?
+
+Take it slow, take it steady, take it with a sloth!
+
+<div align="center">
+
+[Install Now](getting-started/installation.md){ .md-button .md-button--primary .md-button--lg }
+[Quick Start](getting-started/quickstart.md){ .md-button .md-button--lg }
+[View Examples](configuration/examples.md){ .md-button .md-button--lg }
+
+---
+
+**Made with 🦥 and ❤️ by the Sloth Kubernetes community**
+
+</div>

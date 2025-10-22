@@ -200,19 +200,19 @@ type SecurityConfig struct {
 
 // BastionConfig defines bastion host configuration for secure cluster access
 type BastionConfig struct {
-	Enabled           bool     `yaml:"enabled" json:"enabled"`
-	Provider          string   `yaml:"provider" json:"provider"` // digitalocean, linode, aws, gcp, azure
-	Region            string   `yaml:"region" json:"region"`
-	Size              string   `yaml:"size" json:"size"`
-	Image             string   `yaml:"image" json:"image"`
-	Name              string   `yaml:"name" json:"name"`
-	VPNOnly           bool     `yaml:"vpnOnly" json:"vpnOnly"` // If true, only VPN users can SSH to bastion
-	AllowedCIDRs      []string `yaml:"allowedCIDRs" json:"allowedCIDRs"` // CIDRs allowed to SSH to bastion
-	SSHPort           int      `yaml:"sshPort" json:"sshPort"` // Custom SSH port (default: 22)
-	IdleTimeout       int      `yaml:"idleTimeout" json:"idleTimeout"` // SSH idle timeout in minutes
-	MaxSessions       int      `yaml:"maxSessions" json:"maxSessions"` // Max concurrent SSH sessions
-	EnableAuditLog    bool     `yaml:"enableAuditLog" json:"enableAuditLog"` // Log all SSH sessions
-	EnableMFA         bool     `yaml:"enableMFA" json:"enableMFA"` // Require MFA for bastion access
+	Enabled        bool     `yaml:"enabled" json:"enabled"`
+	Provider       string   `yaml:"provider" json:"provider"` // digitalocean, linode, aws, gcp, azure
+	Region         string   `yaml:"region" json:"region"`
+	Size           string   `yaml:"size" json:"size"`
+	Image          string   `yaml:"image" json:"image"`
+	Name           string   `yaml:"name" json:"name"`
+	VPNOnly        bool     `yaml:"vpnOnly" json:"vpnOnly"`               // If true, only VPN users can SSH to bastion
+	AllowedCIDRs   []string `yaml:"allowedCIDRs" json:"allowedCIDRs"`     // CIDRs allowed to SSH to bastion
+	SSHPort        int      `yaml:"sshPort" json:"sshPort"`               // Custom SSH port (default: 22)
+	IdleTimeout    int      `yaml:"idleTimeout" json:"idleTimeout"`       // SSH idle timeout in minutes
+	MaxSessions    int      `yaml:"maxSessions" json:"maxSessions"`       // Max concurrent SSH sessions
+	EnableAuditLog bool     `yaml:"enableAuditLog" json:"enableAuditLog"` // Log all SSH sessions
+	EnableMFA      bool     `yaml:"enableMFA" json:"enableMFA"`           // Require MFA for bastion access
 }
 
 // NodeConfig represents individual node configuration
@@ -283,25 +283,25 @@ type KubernetesConfig struct {
 
 // RKE2Config specific configuration for RKE2 distribution
 type RKE2Config struct {
-	Version             string            `yaml:"version" json:"version"`                         // e.g., "v1.28.5+rke2r1"
-	Channel             string            `yaml:"channel" json:"channel"`                         // stable, latest, testing
-	ClusterToken        string            `yaml:"clusterToken" json:"clusterToken"`               // Shared secret for cluster
-	TLSSan              []string          `yaml:"tlsSan" json:"tlsSan"`                           // Additional SANs for API server
-	DisableComponents   []string          `yaml:"disableComponents" json:"disableComponents"`     // Components to disable (e.g., rke2-ingress-nginx)
-	DataDir             string            `yaml:"dataDir" json:"dataDir"`                         // Data directory (default: /var/lib/rancher/rke2)
-	NodeTaint           []string          `yaml:"nodeTaint" json:"nodeTaint"`                     // Taints to apply to nodes
-	NodeLabel           []string          `yaml:"nodeLabel" json:"nodeLabel"`                     // Labels to apply to nodes
-	ContainerRuntimeEndpoint string       `yaml:"containerRuntimeEndpoint" json:"containerRuntimeEndpoint"` // Container runtime endpoint
-	SnapshotScheduleCron string            `yaml:"snapshotScheduleCron" json:"snapshotScheduleCron"` // Etcd snapshot schedule
-	SnapshotRetention   int               `yaml:"snapshotRetention" json:"snapshotRetention"`     // Number of snapshots to retain
-	SystemDefaultRegistry string          `yaml:"systemDefaultRegistry" json:"systemDefaultRegistry"` // Private registry for system images
-	Profiles            []string          `yaml:"profiles" json:"profiles"`                       // CIS profiles to enable
-	SeLinux             bool              `yaml:"selinux" json:"selinux"`                         // Enable SELinux
-	SecretsEncryption   bool              `yaml:"secretsEncryption" json:"secretsEncryption"`     // Enable secrets encryption
-	WriteKubeconfigMode string            `yaml:"writeKubeconfigMode" json:"writeKubeconfigMode"` // Kubeconfig file permissions
-	ProtectKernelDefaults bool            `yaml:"protectKernelDefaults" json:"protectKernelDefaults"` // Protect kernel defaults
-	ExtraServerArgs     map[string]string `yaml:"extraServerArgs" json:"extraServerArgs"`         // Extra arguments for server
-	ExtraAgentArgs      map[string]string `yaml:"extraAgentArgs" json:"extraAgentArgs"`           // Extra arguments for agent
+	Version                  string            `yaml:"version" json:"version"`                                   // e.g., "v1.28.5+rke2r1"
+	Channel                  string            `yaml:"channel" json:"channel"`                                   // stable, latest, testing
+	ClusterToken             string            `yaml:"clusterToken" json:"clusterToken"`                         // Shared secret for cluster
+	TLSSan                   []string          `yaml:"tlsSan" json:"tlsSan"`                                     // Additional SANs for API server
+	DisableComponents        []string          `yaml:"disableComponents" json:"disableComponents"`               // Components to disable (e.g., rke2-ingress-nginx)
+	DataDir                  string            `yaml:"dataDir" json:"dataDir"`                                   // Data directory (default: /var/lib/rancher/rke2)
+	NodeTaint                []string          `yaml:"nodeTaint" json:"nodeTaint"`                               // Taints to apply to nodes
+	NodeLabel                []string          `yaml:"nodeLabel" json:"nodeLabel"`                               // Labels to apply to nodes
+	ContainerRuntimeEndpoint string            `yaml:"containerRuntimeEndpoint" json:"containerRuntimeEndpoint"` // Container runtime endpoint
+	SnapshotScheduleCron     string            `yaml:"snapshotScheduleCron" json:"snapshotScheduleCron"`         // Etcd snapshot schedule
+	SnapshotRetention        int               `yaml:"snapshotRetention" json:"snapshotRetention"`               // Number of snapshots to retain
+	SystemDefaultRegistry    string            `yaml:"systemDefaultRegistry" json:"systemDefaultRegistry"`       // Private registry for system images
+	Profiles                 []string          `yaml:"profiles" json:"profiles"`                                 // CIS profiles to enable
+	SeLinux                  bool              `yaml:"selinux" json:"selinux"`                                   // Enable SELinux
+	SecretsEncryption        bool              `yaml:"secretsEncryption" json:"secretsEncryption"`               // Enable secrets encryption
+	WriteKubeconfigMode      string            `yaml:"writeKubeconfigMode" json:"writeKubeconfigMode"`           // Kubeconfig file permissions
+	ProtectKernelDefaults    bool              `yaml:"protectKernelDefaults" json:"protectKernelDefaults"`       // Protect kernel defaults
+	ExtraServerArgs          map[string]string `yaml:"extraServerArgs" json:"extraServerArgs"`                   // Extra arguments for server
+	ExtraAgentArgs           map[string]string `yaml:"extraAgentArgs" json:"extraAgentArgs"`                     // Extra arguments for agent
 }
 
 // Helper types for various configurations

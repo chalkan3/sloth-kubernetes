@@ -22,14 +22,14 @@ func NewWireGuardManager(ctx *pulumi.Context) *WireGuardManager {
 
 // WireGuardResult contains created WireGuard server information
 type WireGuardResult struct {
-	Provider     string
-	ServerID     pulumi.IDOutput
-	ServerIP     pulumi.StringOutput
-	ServerName   string
-	PublicKey    string
-	PrivateKey   string
-	Port         int
-	SubnetCIDR   string
+	Provider   string
+	ServerID   pulumi.IDOutput
+	ServerIP   pulumi.StringOutput
+	ServerName string
+	PublicKey  string
+	PrivateKey string
+	Port       int
+	SubnetCIDR string
 }
 
 // CreateWireGuardServer creates a WireGuard VPN server
@@ -113,13 +113,13 @@ func (m *WireGuardManager) createDigitalOceanWireGuard(cfg *config.WireGuardConf
 
 	// Create WireGuard server droplet
 	droplet, err := digitalocean.NewDroplet(m.ctx, cfg.Name, &digitalocean.DropletArgs{
-		Name:     pulumi.String(cfg.Name),
-		Region:   pulumi.String(cfg.Region),
-		Size:     pulumi.String(cfg.Size),
-		Image:    pulumi.String(cfg.Image),
-		SshKeys:  pulumi.StringArray{sshKeyID},
-		UserData: installScript,
-		Tags:     pulumi.StringArray{pulumi.String("wireguard"), pulumi.String("vpn")},
+		Name:       pulumi.String(cfg.Name),
+		Region:     pulumi.String(cfg.Region),
+		Size:       pulumi.String(cfg.Size),
+		Image:      pulumi.String(cfg.Image),
+		SshKeys:    pulumi.StringArray{sshKeyID},
+		UserData:   installScript,
+		Tags:       pulumi.StringArray{pulumi.String("wireguard"), pulumi.String("vpn")},
 		Monitoring: pulumi.Bool(true),
 	})
 	if err != nil {

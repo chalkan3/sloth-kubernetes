@@ -411,11 +411,13 @@ echo "[$(date +%H:%M:%S)] STEP 2: Updating system packages"
 echo "[$(date +%H:%M:%S)] =========================================="
 export DEBIAN_FRONTEND=noninteractive
 apt_get_with_retry apt-get update
-apt_get_with_retry apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+# OPTIMIZATION: Skip apt-get upgrade to speed up provisioning (Ubuntu 24.04 is already recent)
+# apt_get_with_retry apt-get upgrade -y -o Dpkg::Options::="--force-confdef" -o Dpkg::Options::="--force-confold"
+echo "[$(date +%H:%M:%S)] ⏭️  Skipping apt-get upgrade for faster provisioning"
 
-# CRITICAL: Wait 30 seconds after apt-get upgrade to ensure all locks are released
-echo "[$(date +%H:%M:%S)] ⏳ Waiting 30s for all apt locks to be fully released..."
-sleep 30
+# CRITICAL: Wait 5 seconds after apt-get update to ensure all locks are released
+echo "[$(date +%H:%M:%S)] ⏳ Waiting 5s for all apt locks to be fully released..."
+sleep 5
 
 # Install required packages
 echo ""
@@ -536,7 +538,7 @@ cat >> /etc/audit/rules.d/bastion.rules <<'EOF'
 -w /var/log/auth.log -p wa -k bastion_auth
 EOF
 
-augenrules --load
+augenrules --load || true
 systemctl enable auditd
 systemctl restart auditd
 echo "[$(date +%H:%M:%S)] ✅ Audit logging configured"

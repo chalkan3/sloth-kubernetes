@@ -36,9 +36,9 @@ func NewVPCComponent(
 
 	// Create VPC for private networking
 	vpc, err := digitalocean.NewVpc(ctx, name, &digitalocean.VpcArgs{
-		Name:   pulumi.String(fmt.Sprintf("kubernetes-vpc-%s", ctx.Stack())),
-		Region: pulumi.String(region),
-		IpRange: pulumi.String(ipRange),
+		Name:        pulumi.String(fmt.Sprintf("kubernetes-vpc-%s", ctx.Stack())),
+		Region:      pulumi.String(region),
+		IpRange:     pulumi.String(ipRange),
 		Description: pulumi.String("Private VPC for Kubernetes cluster nodes"),
 	}, pulumi.Parent(component))
 	if err != nil {
