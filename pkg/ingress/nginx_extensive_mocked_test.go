@@ -15,7 +15,7 @@ func TestNginxConfig_Structure(t *testing.T) {
 		{
 			name: "Valid basic config",
 			config: map[string]string{
-				"use-forwarded-headers": "true",
+				"use-forwarded-headers":      "true",
 				"compute-full-forwarded-for": "true",
 			},
 			valid: true,
@@ -23,7 +23,7 @@ func TestNginxConfig_Structure(t *testing.T) {
 		{
 			name: "Valid with proxy settings",
 			config: map[string]string{
-				"proxy-body-size": "100m",
+				"proxy-body-size":       "100m",
 				"proxy-connect-timeout": "60",
 			},
 			valid: true,
@@ -246,11 +246,11 @@ func TestProxyTimeout_Validation(t *testing.T) {
 // TestRateLimiting_Config tests rate limiting configuration
 func TestRateLimiting_Config(t *testing.T) {
 	tests := []struct {
-		name         string
-		limitRPS     int
-		limitRPM     int
-		limitBurst   int
-		valid        bool
+		name       string
+		limitRPS   int
+		limitRPM   int
+		limitBurst int
+		valid      bool
 	}{
 		{"Valid RPS limit", 10, 0, 20, true},
 		{"Valid RPM limit", 0, 100, 50, true},
@@ -330,12 +330,12 @@ func TestRewriteTarget_Validation(t *testing.T) {
 // TestCORS_Config tests CORS configuration
 func TestCORS_Config(t *testing.T) {
 	tests := []struct {
-		name           string
-		enabled        bool
-		allowOrigin    string
-		allowMethods   string
-		allowHeaders   string
-		valid          bool
+		name         string
+		enabled      bool
+		allowOrigin  string
+		allowMethods string
+		allowHeaders string
+		valid        bool
 	}{
 		{
 			name:         "Valid CORS config",
@@ -413,10 +413,10 @@ func TestSSLCertificate_Validation(t *testing.T) {
 // TestLoadBalancer_Config tests load balancer configuration
 func TestLoadBalancer_Config(t *testing.T) {
 	tests := []struct {
-		name     string
-		lbType   string
-		lbIP     string
-		valid    bool
+		name   string
+		lbType string
+		lbIP   string
+		valid  bool
 	}{
 		{"LoadBalancer type", "LoadBalancer", "192.168.1.100", true},
 		{"NodePort type", "NodePort", "", true},

@@ -34,9 +34,9 @@ func TestDNSRecordNames_Master(t *testing.T) {
 			}
 
 			// Basic naming pattern validation
-			basicNames := 3  // master{n}, master{n}-{provider}, k8s-master{n}
+			basicNames := 3 // master{n}, master{n}-{provider}, k8s-master{n}
 			if hasAPIRecord {
-				basicNames += 2  // api, k8s-api
+				basicNames += 2 // api, k8s-api
 			}
 
 			if len(tt.expected) != basicNames {
@@ -89,10 +89,10 @@ func TestDNSRecordType_Validation(t *testing.T) {
 		{"MX record", "MX", true},
 		{"TXT record", "TXT", true},
 		{"NS record", "NS", true},
-		{"SOA record", "SOA", false},      // Not typically user-created
+		{"SOA record", "SOA", false}, // Not typically user-created
 		{"Invalid type", "INVALID", false},
 		{"Empty type", "", false},
-		{"Lowercase a", "a", false},       // Should be uppercase
+		{"Lowercase a", "a", false}, // Should be uppercase
 	}
 
 	for _, tt := range tests {
@@ -131,7 +131,7 @@ func TestDNSTTL_Validation(t *testing.T) {
 		{"86400 seconds (1 day)", 86400, true},
 		{"0 seconds", 0, false},
 		{"Negative TTL", -1, false},
-		{"Very low (30s)", 30, false},       // Too low for production
+		{"Very low (30s)", 30, false},         // Too low for production
 		{"Very high (1 week)", 604800, false}, // Too high for dynamic IPs
 	}
 
@@ -150,9 +150,9 @@ func TestDNSTTL_Validation(t *testing.T) {
 // TestDNSName_Validation tests DNS name format validation
 func TestDNSName_Validation(t *testing.T) {
 	tests := []struct {
-		name     string
-		dnsName  string
-		valid    bool
+		name    string
+		dnsName string
+		valid   bool
 	}{
 		{"Simple name", "master1", true},
 		{"Hyphenated name", "master-1", true},
@@ -165,7 +165,7 @@ func TestDNSName_Validation(t *testing.T) {
 		{"Ends with hyphen", "master-", false},
 		{"Contains underscore", "master_1", false},
 		{"Contains space", "master 1", false},
-		{"Uppercase", "MASTER", false},     // DNS names should be lowercase
+		{"Uppercase", "MASTER", false}, // DNS names should be lowercase
 		{"Too long (>63 chars)", "this-is-a-very-long-dns-name-that-exceeds-the-maximum-length-of-sixty-three-characters", false},
 	}
 
@@ -235,7 +235,7 @@ func TestWildcardDNS_Validation(t *testing.T) {
 		{"Valid wildcard", "*.k8s", true},
 		{"Valid wildcard subdomain", "*.apps.k8s", true},
 		{"Single star only", "*", true},
-		{"Multiple wildcards", "*.*.k8s", false},  // Not allowed
+		{"Multiple wildcards", "*.*.k8s", false}, // Not allowed
 		{"Wildcard in middle", "k8s.*.example", false},
 		{"No star", "k8s", false},
 		{"Empty", "", false},
@@ -293,7 +293,7 @@ func TestCNAME_TargetValidation(t *testing.T) {
 		valid  bool
 	}{
 		{"FQDN with trailing dot", "api.example.com.", true},
-		{"Relative name", "api", false},        // Should be FQDN
+		{"Relative name", "api", false}, // Should be FQDN
 		{"Without trailing dot", "api.example.com", false},
 		{"Empty target", "", false},
 		{"Just dot", ".", false},
@@ -393,15 +393,15 @@ func TestDNSProvider_Support(t *testing.T) {
 // TestDNSUpdateFrequency tests DNS update frequency based on TTL
 func TestDNSUpdateFrequency(t *testing.T) {
 	tests := []struct {
-		name       string
-		ttl        int
-		updateFreq string
+		name        string
+		ttl         int
+		updateFreq  string
 		appropriate bool
 	}{
 		{"60s TTL for frequent updates", 60, "frequent", true},
 		{"300s TTL for moderate updates", 300, "moderate", true},
 		{"3600s TTL for rare updates", 3600, "rare", true},
-		{"60s TTL for rare updates", 60, "rare", false},    // TTL too low
+		{"60s TTL for rare updates", 60, "rare", false},             // TTL too low
 		{"3600s TTL for frequent updates", 3600, "frequent", false}, // TTL too high
 	}
 
@@ -547,7 +547,7 @@ func Test100DNSScenarios(t *testing.T) {
 		{"test.io", 600, "A", 5, true},
 		{"cluster.dev", 300, "CNAME", 3, true},
 		{"k8s.cloud", 1800, "A", 20, true},
-		{"invalid", 0, "A", 1, false},  // Invalid: no TLD, zero TTL
+		{"invalid", 0, "A", 1, false},            // Invalid: no TLD, zero TTL
 		{"example.com", -1, "INVALID", 0, false}, // Invalid: negative TTL, invalid type
 	}
 

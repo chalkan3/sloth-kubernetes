@@ -280,11 +280,11 @@ func TestDigitalOceanProvider_UserDataSystemConfig(t *testing.T) {
 
 	// Check critical system configurations
 	configs := []string{
-		"swapoff -a",                           // Disable swap
+		"swapoff -a", // Disable swap
 		"sed -i '/ swap / s/^\\(.*\\)$/#\\1/g' /etc/fstab", // Comment swap in fstab
-		"net.ipv4.ip_forward=1",                // IPv4 forwarding
-		"net.ipv6.conf.all.forwarding=1",       // IPv6 forwarding
-		"sysctl -p",                            // Apply sysctl changes
+		"net.ipv4.ip_forward=1",                            // IPv4 forwarding
+		"net.ipv6.conf.all.forwarding=1",                   // IPv6 forwarding
+		"sysctl -p",                                        // Apply sysctl changes
 	}
 
 	for _, cfg := range configs {
@@ -485,7 +485,7 @@ func TestDigitalOceanProvider_UserDataEnvVars(t *testing.T) {
 		// Should append to /etc/environment (can be with single or double quotes)
 		assert.True(t,
 			strings.Contains(userData, "echo \""+envVar+"\" >> /etc/environment") ||
-			strings.Contains(userData, "echo '"+envVar+"' >> /etc/environment"),
+				strings.Contains(userData, "echo '"+envVar+"' >> /etc/environment"),
 			"UserData should contain env var: %s", envVar)
 	}
 }
@@ -509,7 +509,7 @@ func TestDigitalOceanProvider_UserDataSecurity(t *testing.T) {
 
 	// Check security-related configurations
 	securitySettings := []string{
-		"chmod 700 /etc/wireguard",       // Secure WireGuard directory
+		"chmod 700 /etc/wireguard",            // Secure WireGuard directory
 		"chmod 600 /etc/wireguard/privatekey", // Secure private key
 	}
 
@@ -527,10 +527,10 @@ func TestDigitalOceanProvider_UserDataSpecialCharacters(t *testing.T) {
 	}
 
 	node := &config.NodeConfig{
-		Name:   "node1",
-		Region: "nyc3",
-		Size:   "s-2vcpu-4gb",
-		Roles:  []string{},
+		Name:     "node1",
+		Region:   "nyc3",
+		Size:     "s-2vcpu-4gb",
+		Roles:    []string{},
 		UserData: "echo 'Test with \"quotes\" and $variables'",
 	}
 

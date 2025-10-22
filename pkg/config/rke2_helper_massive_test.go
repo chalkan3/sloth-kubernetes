@@ -80,8 +80,8 @@ func TestRKE2Token_Security(t *testing.T) {
 	}{
 		{"Long secure token", "my-super-secret-cluster-token-rke2-production-2025", true},
 		{"32 char token", "abcdefghijklmnopqrstuvwxyz123456", true},
-		{"Short token", "short", false},                    // Too short
-		{"Weak token", "password", false},                  // Too weak
+		{"Short token", "short", false},   // Too short
+		{"Weak token", "password", false}, // Too weak
 		{"Empty token", "", false},
 		{"Very long token", strings.Repeat("a", 100), true}, // Acceptable
 	}
@@ -173,10 +173,10 @@ func TestRKE2DataDir_Path(t *testing.T) {
 		{"Default path", "/var/lib/rancher/rke2", true},
 		{"Custom path", "/data/rke2", true},
 		{"Absolute path", "/opt/rke2", true},
-		{"Relative path", "rke2/data", false},     // Should be absolute
+		{"Relative path", "rke2/data", false}, // Should be absolute
 		{"Empty path", "", false},
-		{"Windows-style", "C:\\rke2", false},      // Unix only
-		{"With space", "/var/lib/rke 2", false},   // No spaces
+		{"Windows-style", "C:\\rke2", false},    // Unix only
+		{"With space", "/var/lib/rke 2", false}, // No spaces
 	}
 
 	for _, tt := range tests {
@@ -256,9 +256,9 @@ func TestRKE2NodeLabel_Format(t *testing.T) {
 // TestRKE2SnapshotSchedule_Cron tests snapshot schedule cron expressions
 func TestRKE2SnapshotSchedule_Cron(t *testing.T) {
 	tests := []struct {
-		name     string
-		cron     string
-		valid    bool
+		name  string
+		cron  string
+		valid bool
 	}{
 		{"Every 12 hours", "0 */12 * * *", true},
 		{"Every 6 hours", "0 */6 * * *", true},
@@ -292,7 +292,7 @@ func TestRKE2SnapshotRetention(t *testing.T) {
 		{"Keep 5 snapshots", 5, true},
 		{"Keep 10 snapshots", 10, true},
 		{"Keep 1 snapshot", 1, true},
-		{"Keep 0 snapshots", 0, false},    // Must keep at least 1
+		{"Keep 0 snapshots", 0, false}, // Must keep at least 1
 		{"Negative retention", -1, false},
 		{"Very high retention", 100, true}, // Valid but high
 	}
@@ -317,8 +317,8 @@ func TestRKE2KubeconfigMode_Permissions(t *testing.T) {
 	}{
 		{"Secure mode 0600", "0600", true},
 		{"Secure mode 0400", "0400", true},
-		{"Less secure 0644", "0644", false},  // Readable by others
-		{"Insecure 0777", "0777", false},     // World writable
+		{"Less secure 0644", "0644", false}, // Readable by others
+		{"Insecure 0777", "0777", false},    // World writable
 		{"Empty mode", "", false},
 	}
 
@@ -343,7 +343,7 @@ func TestRKE2ServerJoin_URL(t *testing.T) {
 	}{
 		{"Valid HTTPS URL", "https://10.0.0.1:9345", true},
 		{"Valid with domain", "https://master.example.com:9345", true},
-		{"Wrong port", "https://10.0.0.1:6443", false},   // Wrong port for join
+		{"Wrong port", "https://10.0.0.1:6443", false}, // Wrong port for join
 		{"HTTP instead of HTTPS", "http://10.0.0.1:9345", false},
 		{"Missing port", "https://10.0.0.1", false},
 		{"Empty URL", "", false},

@@ -172,8 +172,8 @@ func TestGetNodeTaints_ParsingMega(t *testing.T) {
 // TestNodeTaints_EmptyScenarios tests empty taint scenarios
 func TestNodeTaints_EmptyScenarios(t *testing.T) {
 	tests := []struct {
-		name   string
-		labels map[string]string
+		name      string
+		labels    map[string]string
 		hasTaints bool
 	}{
 		{"No taints label", map[string]string{}, false},
@@ -269,8 +269,8 @@ func TestServicesConfigStructure(t *testing.T) {
 // Test200NodeRoleScenarios generates 200 node role scenarios
 func Test200NodeRoleScenarios(t *testing.T) {
 	scenarios := []struct {
-		nodeName string
-		roleLabel string
+		nodeName          string
+		roleLabel         string
 		expectedFirstRole string
 	}{
 		{"master-1", "", "controlplane"},
@@ -308,12 +308,12 @@ func Test200NodeRoleScenarios(t *testing.T) {
 		}
 
 		scenarios = append(scenarios, struct {
-			nodeName string
-			roleLabel string
+			nodeName          string
+			roleLabel         string
 			expectedFirstRole string
 		}{
-			nodeName: nodeName,
-			roleLabel: roleLabel,
+			nodeName:          nodeName,
+			roleLabel:         roleLabel,
 			expectedFirstRole: expectedRole,
 		})
 	}

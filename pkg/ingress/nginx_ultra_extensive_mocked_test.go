@@ -248,13 +248,13 @@ func TestCreateSampleIngress_DifferentDomains(t *testing.T) {
 // Test100IngressScenariosMocked tests 100 comprehensive ingress scenarios with mocks
 func Test100IngressScenariosMocked(t *testing.T) {
 	scenarios := []struct {
-		name         string
-		domain       string
-		masterNode   *providers.NodeOutput
-		sshKeyPath   string
-		testInstall  bool
-		testCertMgr  bool
-		expectOK     bool
+		name        string
+		domain      string
+		masterNode  *providers.NodeOutput
+		sshKeyPath  string
+		testInstall bool
+		testCertMgr bool
+		expectOK    bool
 	}{
 		// Basic installation scenarios (1-20)
 		{

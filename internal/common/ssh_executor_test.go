@@ -7,9 +7,9 @@ import (
 
 func TestBuildRetryCommand(t *testing.T) {
 	tests := []struct {
-		name        string
-		command     string
-		retries     int
+		name         string
+		command      string
+		retries      int
 		wantContains []string
 	}{
 		{

@@ -89,10 +89,10 @@ func TestValidateClusterConfig(t *testing.T) {
 				},
 				Network: config.NetworkConfig{
 					WireGuard: &config.WireGuardConfig{
-						Enabled: true,
-						Create:  true,
+						Enabled:  true,
+						Create:   true,
 						Provider: "digitalocean",
-						Region:  "nyc3",
+						Region:   "nyc3",
 					},
 				},
 				Nodes: []config.NodeConfig{

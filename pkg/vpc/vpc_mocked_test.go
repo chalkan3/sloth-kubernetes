@@ -145,9 +145,9 @@ func TestVPCConfig_ValidationMocked(t *testing.T) {
 			valid: false, // Won't be created
 		},
 		{
-			name: "Nil VPC config",
+			name:   "Nil VPC config",
 			config: nil,
-			valid: false,
+			valid:  false,
 		},
 	}
 

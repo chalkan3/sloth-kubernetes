@@ -106,12 +106,12 @@ var vpnClientConfigCmd = &cobra.Command{
 }
 
 var (
-	vpnJoinRemote    string
-	vpnJoinIP        string
-	vpnJoinInstall   bool
-	vpnLeaveIP       string
-	vpnConfigOutput  string
-	vpnConfigQR      bool
+	vpnJoinRemote   string
+	vpnJoinIP       string
+	vpnJoinInstall  bool
+	vpnLeaveIP      string
+	vpnConfigOutput string
+	vpnConfigQR     bool
 )
 
 func init() {

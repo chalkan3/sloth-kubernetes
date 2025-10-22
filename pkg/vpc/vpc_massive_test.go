@@ -10,9 +10,9 @@ import (
 // TestVPCResult_Structure tests VPCResult structure validation
 func TestVPCResult_Structure(t *testing.T) {
 	tests := []struct {
-		name     string
-		result   *VPCResult
-		valid    bool
+		name   string
+		result *VPCResult
+		valid  bool
 	}{
 		{
 			"Valid DigitalOcean VPC",
@@ -86,9 +86,9 @@ func TestVPCConfig_Create(t *testing.T) {
 // TestVPCNaming_Conventions tests VPC naming conventions
 func TestVPCNaming_Conventions(t *testing.T) {
 	tests := []struct {
-		name  string
+		name    string
 		vpcName string
-		valid bool
+		valid   bool
 	}{
 		{"Valid name with hyphen", "vpc-production", true},
 		{"Valid name with number", "vpc-cluster-1", true},
@@ -179,8 +179,8 @@ func TestVPCCIDR_Size(t *testing.T) {
 		{"/16 - 65K hosts", "10.0.0.0/16", 50000, true},
 		{"/20 - 4K hosts", "10.0.0.0/20", 3000, true},
 		{"/24 - 256 hosts", "10.0.0.0/24", 200, true},
-		{"/28 - 16 hosts", "10.0.0.0/28", 100, false},  // Too small
-		{"/32 - 1 host", "10.0.0.0/32", 1, false},      // Single host
+		{"/28 - 16 hosts", "10.0.0.0/28", 100, false}, // Too small
+		{"/32 - 1 host", "10.0.0.0/32", 1, false},     // Single host
 	}
 
 	for _, tt := range tests {
@@ -296,9 +296,9 @@ func TestVPCRegion_Linode(t *testing.T) {
 // TestVPCDescription_Generation tests VPC description format
 func TestVPCDescription_Generation(t *testing.T) {
 	tests := []struct {
-		name        string
-		vpcName     string
-		expected    string
+		name     string
+		vpcName  string
+		expected string
 	}{
 		{"Production VPC", "vpc-production", "VPC for Kubernetes cluster - vpc-production"},
 		{"Dev VPC", "vpc-dev", "VPC for Kubernetes cluster - vpc-dev"},
@@ -418,10 +418,10 @@ func TestVPCExport_Keys(t *testing.T) {
 // TestVPCMultiRegion_Deployment tests multi-region VPC scenarios
 func TestVPCMultiRegion_Deployment(t *testing.T) {
 	tests := []struct {
-		name        string
-		regions     []string
-		cidrs       []string
-		validSetup  bool
+		name       string
+		regions    []string
+		cidrs      []string
+		validSetup bool
 	}{
 		{
 			"Two regions, non-overlapping",

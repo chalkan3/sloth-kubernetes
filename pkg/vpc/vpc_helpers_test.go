@@ -275,10 +275,10 @@ func TestVPCManager_NilContext(t *testing.T) {
 // TestProvidersConfig_EnabledProviders tests enabled providers count
 func TestProvidersConfig_EnabledProviders(t *testing.T) {
 	tests := []struct {
-		name          string
-		providers     *config.ProvidersConfig
-		enabledCount  int
-		vpcCount      int
+		name         string
+		providers    *config.ProvidersConfig
+		enabledCount int
+		vpcCount     int
 	}{
 		{
 			name: "Both providers enabled with VPCs",
@@ -454,9 +454,9 @@ func TestVPCConfig_Tags(t *testing.T) {
 // TestLinodeSubnetConfig tests Linode subnet configuration
 func TestLinodeSubnetConfig(t *testing.T) {
 	tests := []struct {
-		name       string
-		subnet     config.LinodeSubnetConfig
-		wantValid  bool
+		name      string
+		subnet    config.LinodeSubnetConfig
+		wantValid bool
 	}{
 		{
 			name: "Valid subnet",

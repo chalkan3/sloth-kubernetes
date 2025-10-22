@@ -185,9 +185,9 @@ func TestCIDROverlap(t *testing.T) {
 // TestValidateCIDRs tests CIDR validation
 func TestValidateCIDRs(t *testing.T) {
 	tests := []struct {
-		name        string
-		config      *config.NetworkConfig
-		wantError   bool
+		name          string
+		config        *config.NetworkConfig
+		wantError     bool
 		errorContains string
 	}{
 		{
@@ -392,9 +392,9 @@ func TestAllocateNodeIPs(t *testing.T) {
 // TestGetDNSServers tests DNS server retrieval
 func TestGetDNSServers(t *testing.T) {
 	tests := []struct {
-		name           string
-		configServers  []string
-		wantServers    []string
+		name          string
+		configServers []string
+		wantServers   []string
 	}{
 		{
 			name:          "Custom DNS servers",
@@ -540,11 +540,11 @@ func TestGetKubernetesFirewallRules(t *testing.T) {
 // TestCreateFirewallConfig tests firewall configuration creation
 func TestCreateFirewallConfig(t *testing.T) {
 	tests := []struct {
-		name              string
-		wireGuardEnabled  bool
-		wireGuardPort     int
-		customRules       *config.FirewallConfig
-		minInboundRules   int
+		name             string
+		wireGuardEnabled bool
+		wireGuardPort    int
+		customRules      *config.FirewallConfig
+		minInboundRules  int
 	}{
 		{
 			name:             "Without WireGuard",
@@ -693,11 +693,11 @@ func TestFirewallRuleValidation(t *testing.T) {
 // TestManagerStructure tests Manager structure initialization
 func TestManagerStructure(t *testing.T) {
 	cfg := &config.NetworkConfig{
-		CIDR:                   "10.0.0.0/16",
-		PodCIDR:                "10.42.0.0/16",
-		ServiceCIDR:            "10.43.0.0/16",
+		CIDR:                    "10.0.0.0/16",
+		PodCIDR:                 "10.42.0.0/16",
+		ServiceCIDR:             "10.43.0.0/16",
 		CrossProviderNetworking: true,
-		EnableNodePorts:        true,
+		EnableNodePorts:         true,
 	}
 
 	manager := &Manager{

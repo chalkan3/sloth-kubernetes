@@ -46,11 +46,11 @@ func TestRKEManager_GetNodeTaints_DifferentEffects(t *testing.T) {
 	manager := &RKEManager{}
 
 	tests := []struct {
-		name         string
-		taintStr     string
-		expectedKey  string
-		expectedVal  string
-		expectedEff  string
+		name        string
+		taintStr    string
+		expectedKey string
+		expectedVal string
+		expectedEff string
 	}{
 		{
 			"NoSchedule effect",
@@ -212,8 +212,8 @@ func TestRKEManager_GetNodeTaints_BooleanValues(t *testing.T) {
 	manager := &RKEManager{}
 
 	tests := []struct {
-		name     string
-		value    string
+		name  string
+		value string
 	}{
 		{"true value", "true"},
 		{"false value", "false"},
@@ -419,13 +419,13 @@ func TestRKEManager_TaintFormatValidation(t *testing.T) {
 	manager := &RKEManager{}
 
 	invalidFormats := []string{
-		"key:effect",           // missing =value
-		"keyvalue:effect",      // missing =
-		"key=value",            // missing :effect
+		"key:effect",             // missing =value
+		"keyvalue:effect",        // missing =
+		"key=value",              // missing :effect
 		"key=value:effect:extra", // extra colon
-		"=value:effect",        // missing key
-		"key=",                 // missing value and effect
-		"",                     // empty
+		"=value:effect",          // missing key
+		"key=",                   // missing value and effect
+		"",                       // empty
 	}
 
 	for _, format := range invalidFormats {

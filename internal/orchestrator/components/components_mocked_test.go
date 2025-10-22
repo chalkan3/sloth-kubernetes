@@ -9,10 +9,10 @@ import (
 // TestSSHKeyPath_Format tests SSH key path format
 func TestSSHKeyPath_Format(t *testing.T) {
 	tests := []struct {
-		name      string
-		stack     string
-		expected  string
-		valid     bool
+		name     string
+		stack    string
+		expected string
+		valid    bool
 	}{
 		{"Production stack", "production", "~/.ssh/kubernetes-clusters/production.pem", true},
 		{"Development stack", "development", "~/.ssh/kubernetes-clusters/development.pem", true},
@@ -110,8 +110,8 @@ func TestDNSDomain_Validation(t *testing.T) {
 			}
 
 			isValid := domain != "" &&
-				       !strings.Contains(domain, " ") &&
-				       strings.Contains(domain, ".")
+				!strings.Contains(domain, " ") &&
+				strings.Contains(domain, ".")
 
 			if isValid != tt.valid {
 				t.Errorf("Expected valid=%v for domain %q, got %v", tt.valid, tt.domain, isValid)
@@ -123,9 +123,9 @@ func TestDNSDomain_Validation(t *testing.T) {
 // TestWireGuardAddressAllocation tests WireGuard address allocation
 func TestWireGuardAddressAllocation(t *testing.T) {
 	tests := []struct {
-		name     string
+		name      string
 		nodeIndex int
-		expected string
+		expected  string
 	}{
 		{"First node", 0, "10.8.0.10/24"},
 		{"Second node", 1, "10.8.0.11/24"},
@@ -173,10 +173,10 @@ func TestWireGuardMesh_ConnectionCount(t *testing.T) {
 // TestKubeConfig_Format tests kubeconfig file format
 func TestKubeConfig_Format(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		clusterName string
-		domain     string
-		valid      bool
+		domain      string
+		valid       bool
 	}{
 		{"Production cluster", "production", "chalkan3.com.br", true},
 		{"Development cluster", "development", "example.com", true},
@@ -265,7 +265,7 @@ func TestComponentResourceType_Naming(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			isValid := strings.HasPrefix(tt.resourceType, "kubernetes-create:") &&
-				       strings.Count(tt.resourceType, ":") == 2
+				strings.Count(tt.resourceType, ":") == 2
 
 			if isValid != tt.valid {
 				t.Errorf("Expected valid=%v for type %q, got %v", tt.valid, tt.resourceType, isValid)
@@ -361,12 +361,12 @@ func TestAddons_Installation(t *testing.T) {
 // TestWireGuardClientConfig_Keys tests WireGuard client config key generation
 func TestWireGuardClientConfig_Keys(t *testing.T) {
 	tests := []struct {
-		name       string
-		hasPrivate bool
-		hasPublic  bool
-		hasAddress bool
+		name        string
+		hasPrivate  bool
+		hasPublic   bool
+		hasAddress  bool
 		hasEndpoint bool
-		valid      bool
+		valid       bool
 	}{
 		{"Complete config", true, true, true, true, true},
 		{"Missing private key", false, true, true, true, false},

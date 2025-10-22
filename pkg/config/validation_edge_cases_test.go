@@ -190,7 +190,7 @@ func TestClusterConfigBoundaries(t *testing.T) {
 // TestNetworkConfigIPRanges tests IP range validations
 func TestNetworkConfigIPRanges(t *testing.T) {
 	tests := []struct {
-		name  string
+		name    string
 		podCIDR string
 		svcCIDR string
 		vpnCIDR string
@@ -255,8 +255,8 @@ func TestProviderConfigEdgeCases(t *testing.T) {
 // TestNodeConfigRoleAssignments tests role assignment logic
 func TestNodeConfigRoleAssignments(t *testing.T) {
 	tests := []struct {
-		name   string
-		labels map[string]string
+		name    string
+		labels  map[string]string
 		hasRole string
 	}{
 		{
@@ -441,9 +441,9 @@ func TestConfigDefaultValues(t *testing.T) {
 // TestTaintFormats tests various taint format inputs
 func TestTaintFormats(t *testing.T) {
 	tests := []struct {
-		name   string
-		taint  string
-		valid  bool
+		name  string
+		taint string
+		valid bool
 	}{
 		{"Standard NoSchedule", "key=value:NoSchedule", true},
 		{"NoExecute", "key=value:NoExecute", true},

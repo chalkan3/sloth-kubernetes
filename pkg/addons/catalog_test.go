@@ -141,57 +141,57 @@ func TestAddonStructure(t *testing.T) {
 // TestGetAddonsByCategory tests filtering by category
 func TestGetAddonsByCategory(t *testing.T) {
 	tests := []struct {
-		name          string
-		category      Category
-		minExpected   int
+		name           string
+		category       Category
+		minExpected    int
 		expectedAddons []string
 	}{
 		{
-			name:          "Ingress category",
-			category:      CategoryIngress,
-			minExpected:   1,
+			name:           "Ingress category",
+			category:       CategoryIngress,
+			minExpected:    1,
 			expectedAddons: []string{"ingress-nginx"},
 		},
 		{
-			name:          "Security category",
-			category:      CategorySecurity,
-			minExpected:   2,
+			name:           "Security category",
+			category:       CategorySecurity,
+			minExpected:    2,
 			expectedAddons: []string{"cert-manager", "sealed-secrets"},
 		},
 		{
-			name:          "Monitoring category",
-			category:      CategoryMonitoring,
-			minExpected:   1,
+			name:           "Monitoring category",
+			category:       CategoryMonitoring,
+			minExpected:    1,
 			expectedAddons: []string{"prometheus"},
 		},
 		{
-			name:          "Storage category",
-			category:      CategoryStorage,
-			minExpected:   2,
+			name:           "Storage category",
+			category:       CategoryStorage,
+			minExpected:    2,
 			expectedAddons: []string{"longhorn", "velero"},
 		},
 		{
-			name:          "CD category",
-			category:      CategoryCD,
-			minExpected:   1,
+			name:           "CD category",
+			category:       CategoryCD,
+			minExpected:    1,
 			expectedAddons: []string{"argocd"},
 		},
 		{
-			name:          "Logging category",
-			category:      CategoryLogging,
-			minExpected:   1,
+			name:           "Logging category",
+			category:       CategoryLogging,
+			minExpected:    1,
 			expectedAddons: []string{"loki"},
 		},
 		{
-			name:          "Networking category",
-			category:      CategoryNetworking,
-			minExpected:   3,
+			name:           "Networking category",
+			category:       CategoryNetworking,
+			minExpected:    3,
 			expectedAddons: []string{"metallb", "istio", "external-dns"},
 		},
 		{
-			name:          "Database category",
-			category:      CategoryDatabase,
-			minExpected:   1,
+			name:           "Database category",
+			category:       CategoryDatabase,
+			minExpected:    1,
 			expectedAddons: []string{"postgres-operator"},
 		},
 	}
@@ -330,11 +330,11 @@ func TestAddonNamespaces(t *testing.T) {
 // TestSpecificAddons tests specific addon configurations
 func TestSpecificAddons(t *testing.T) {
 	tests := []struct {
-		name       string
-		addonName  string
-		category   Category
-		chart      string
-		namespace  string
+		name      string
+		addonName string
+		category  Category
+		chart     string
+		namespace string
 	}{
 		{
 			name:      "ingress-nginx",

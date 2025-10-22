@@ -476,7 +476,7 @@ func TestDNS_FQDNGeneration(t *testing.T) {
 	domain := "example.com"
 
 	tests := []struct {
-		name     string
+		name      string
 		subdomain string
 		expected  string
 	}{
@@ -604,14 +604,14 @@ func TestDNS_NodeRoleDetection(t *testing.T) {
 // Test DNS record count expectations
 func TestDNS_RecordCountEstimation(t *testing.T) {
 	tests := []struct {
-		name           string
-		masterCount    int
-		workerCount    int
+		name               string
+		masterCount        int
+		workerCount        int
 		expectedMinRecords int
 	}{
-		{"Single master", 1, 0, 5},  // 3 base + api + k8s-api + private + wg
-		{"Single worker", 0, 1, 4},  // 3 base + private + wg
-		{"Standard HA", 3, 3, 30},   // (3*7 + 3*5) + wildcard + ingress + CNAMEs
+		{"Single master", 1, 0, 5}, // 3 base + api + k8s-api + private + wg
+		{"Single worker", 0, 1, 4}, // 3 base + private + wg
+		{"Standard HA", 3, 3, 30},  // (3*7 + 3*5) + wildcard + ingress + CNAMEs
 	}
 
 	for _, tt := range tests {

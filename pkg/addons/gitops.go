@@ -16,11 +16,11 @@ type GitOpsConfig struct {
 
 // AddonBootstrap represents an addon bootstrap configuration
 type AddonBootstrap struct {
-	Name        string
-	Description string
-	RepoPath    string // Path within GitOps repo (e.g., "addons/argocd/")
+	Name         string
+	Description  string
+	RepoPath     string // Path within GitOps repo (e.g., "addons/argocd/")
 	Dependencies []string
-	PostInstall []string // Commands to run after install
+	PostInstall  []string // Commands to run after install
 }
 
 // BootstrapArgoCD bootstraps ArgoCD and configures it to watch the GitOps repo

@@ -479,8 +479,8 @@ func TestFirewallRuleSources(t *testing.T) {
 // TestFirewallRulePortRanges tests port range formats
 func TestFirewallRulePortRanges(t *testing.T) {
 	tests := []struct {
-		name string
-		port string
+		name  string
+		port  string
 		valid bool
 	}{
 		{"Single port", "80", true},
@@ -1010,11 +1010,11 @@ func Test100MoreRules(t *testing.T) {
 					name := fmt.Sprintf("Rule%d_%s_%s_%s", testNum, proto, dir, action)
 					t.Run(name, func(t *testing.T) {
 						rule := FirewallRule{
-							Port:      fmt.Sprintf("%d", 8000+testNum),
-							Protocol:  proto,
-							Source:    source,
-							Direction: dir,
-							Action:    action,
+							Port:        fmt.Sprintf("%d", 8000+testNum),
+							Protocol:    proto,
+							Source:      source,
+							Direction:   dir,
+							Action:      action,
 							Description: fmt.Sprintf("Test rule %d", testNum),
 						}
 

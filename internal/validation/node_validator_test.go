@@ -177,11 +177,11 @@ func TestValidateNodeDistribution(t *testing.T) {
 
 func TestCalculateDistribution(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *config.ClusterConfig
-		expectedTotal  int
-		expectedMasters int
-		expectedWorkers int
+		name               string
+		config             *config.ClusterConfig
+		expectedTotal      int
+		expectedMasters    int
+		expectedWorkers    int
 		expectedByProvider map[string]int
 	}{
 		{
@@ -202,7 +202,7 @@ func TestCalculateDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedTotal:  8,
+			expectedTotal:   8,
 			expectedMasters: 3,
 			expectedWorkers: 5,
 			expectedByProvider: map[string]int{
@@ -239,7 +239,7 @@ func TestCalculateDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedTotal:  8,
+			expectedTotal:   8,
 			expectedMasters: 3,
 			expectedWorkers: 5,
 			expectedByProvider: map[string]int{
@@ -268,7 +268,7 @@ func TestCalculateDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedTotal:  3,
+			expectedTotal:   3,
 			expectedMasters: 1,
 			expectedWorkers: 2,
 			expectedByProvider: map[string]int{
@@ -295,7 +295,7 @@ func TestCalculateDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedTotal:  5,
+			expectedTotal:   5,
 			expectedMasters: 1,
 			expectedWorkers: 4,
 			expectedByProvider: map[string]int{
@@ -309,9 +309,9 @@ func TestCalculateDistribution(t *testing.T) {
 				NodePools: map[string]config.NodePool{},
 				Nodes:     []config.NodeConfig{},
 			},
-			expectedTotal:  0,
-			expectedMasters: 0,
-			expectedWorkers: 0,
+			expectedTotal:      0,
+			expectedMasters:    0,
+			expectedWorkers:    0,
 			expectedByProvider: map[string]int{},
 		},
 		{
@@ -326,7 +326,7 @@ func TestCalculateDistribution(t *testing.T) {
 					},
 				},
 			},
-			expectedTotal:  3,
+			expectedTotal:   3,
 			expectedMasters: 3,
 			expectedWorkers: 0,
 			expectedByProvider: map[string]int{

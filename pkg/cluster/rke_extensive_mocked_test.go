@@ -465,11 +465,11 @@ func TestAuthorizationMode_Validation(t *testing.T) {
 // TestETCDSnapshot_Config tests ETCD snapshot configuration
 func TestETCDSnapshot_Config(t *testing.T) {
 	tests := []struct {
-		name             string
-		enabled          bool
-		intervalHours    int
-		retention        int
-		valid            bool
+		name          string
+		enabled       bool
+		intervalHours int
+		retention     int
+		valid         bool
 	}{
 		{"Valid 12h interval", true, 12, 6, true},
 		{"Valid 6h interval", true, 6, 12, true},
@@ -525,11 +525,11 @@ func TestNodeConfig_Structure(t *testing.T) {
 // Test100RKEClusterScenarios generates 100 RKE cluster test scenarios
 func Test100RKEClusterScenarios(t *testing.T) {
 	scenarios := []struct {
-		version       string
-		networkPlugin string
+		version         string
+		networkPlugin   string
 		ingressProvider string
-		nodeCount     int
-		valid         bool
+		nodeCount       int
+		valid           bool
 	}{
 		{"v1.28.0", "calico", "nginx", 3, true},
 		{"v1.27.5", "canal", "traefik", 5, true},
@@ -544,17 +544,17 @@ func Test100RKEClusterScenarios(t *testing.T) {
 
 	for i := 0; i < 97; i++ {
 		scenarios = append(scenarios, struct {
-			version       string
-			networkPlugin string
+			version         string
+			networkPlugin   string
 			ingressProvider string
-			nodeCount     int
-			valid         bool
+			nodeCount       int
+			valid           bool
 		}{
-			version:       versions[i%len(versions)],
-			networkPlugin: plugins[i%len(plugins)],
+			version:         versions[i%len(versions)],
+			networkPlugin:   plugins[i%len(plugins)],
 			ingressProvider: ingresses[i%len(ingresses)],
-			nodeCount:     nodeCounts[i%len(nodeCounts)],
-			valid:         true,
+			nodeCount:       nodeCounts[i%len(nodeCounts)],
+			valid:           true,
 		})
 	}
 

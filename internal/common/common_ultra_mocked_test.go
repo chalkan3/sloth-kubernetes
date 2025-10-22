@@ -333,9 +333,9 @@ func TestStorageQuantity_Validation(t *testing.T) {
 // TestServiceAccount_Validation tests service account name validation
 func TestServiceAccount_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
-		sa      string
-		valid   bool
+		name  string
+		sa    string
+		valid bool
 	}{
 		{"Default", "default", true},
 		{"Custom SA", "my-service-account", true},
@@ -391,8 +391,8 @@ func TestSecretName_Validation(t *testing.T) {
 // TestConfigMapName_Validation tests configmap name validation
 func TestConfigMapName_Validation(t *testing.T) {
 	tests := []struct {
-		name string
-		cm   string
+		name  string
+		cm    string
 		valid bool
 	}{
 		{"Simple configmap", "app-config", true},

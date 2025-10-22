@@ -143,12 +143,12 @@ var stateListCmd = &cobra.Command{
 }
 
 var (
-	destroyStack  bool
-	outputKey     string
-	outputJSON    bool
-	exportOutput  string
-	forceDelete   bool
-	resourceType  string
+	destroyStack bool
+	outputKey    string
+	outputJSON   bool
+	exportOutput string
+	forceDelete  bool
+	resourceType string
 )
 
 func init() {

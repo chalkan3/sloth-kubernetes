@@ -728,7 +728,7 @@ func TestNodeRolePriority(t *testing.T) {
 		{
 			name: "Label takes precedence - worker label on master-named node",
 			node: &providers.NodeOutput{
-				Name:   "master-1", // Name suggests master
+				Name:   "master-1",                          // Name suggests master
 				Labels: map[string]string{"role": "worker"}, // But label says worker
 			},
 			wantRoles: []string{"worker"}, // Label wins
@@ -736,7 +736,7 @@ func TestNodeRolePriority(t *testing.T) {
 		{
 			name: "Label takes precedence - master label on worker-named node",
 			node: &providers.NodeOutput{
-				Name:   "worker-1", // Name suggests worker
+				Name:   "worker-1",                          // Name suggests worker
 				Labels: map[string]string{"role": "master"}, // But label says master
 			},
 			wantRoles: []string{"controlplane", "etcd"}, // Label wins

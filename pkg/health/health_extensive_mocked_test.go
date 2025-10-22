@@ -10,9 +10,9 @@ func TestHealthCheck_Types(t *testing.T) {
 	validTypes := []string{"http", "https", "tcp", "exec"}
 
 	tests := []struct {
-		name  string
+		name   string
 		hcType string
-		valid bool
+		valid  bool
 	}{
 		{"HTTP check", "http", true},
 		{"HTTPS check", "https", true},
@@ -70,15 +70,15 @@ func TestHealthEndpoint_Validation(t *testing.T) {
 // TestHTTPStatusCode_Validation tests HTTP status code validation
 func TestHTTPStatusCode_Validation(t *testing.T) {
 	tests := []struct {
-		name   string
-		code   int
-		valid  bool
+		name  string
+		code  int
+		valid bool
 	}{
 		{"200 OK", 200, true},
 		{"201 Created", 201, true},
 		{"204 No Content", 204, true},
 		{"301 Redirect", 301, true},
-		{"400 Bad Request", 400, false}, // Client errors not valid for health
+		{"400 Bad Request", 400, false},  // Client errors not valid for health
 		{"500 Server Error", 500, false}, // Server errors not valid for health
 		{"Invalid code", 0, false},
 		{"Negative code", -1, false},
@@ -167,13 +167,13 @@ func TestLivenessProbe_Config(t *testing.T) {
 // TestReadinessProbe_Config tests readiness probe configuration
 func TestReadinessProbe_Config(t *testing.T) {
 	tests := []struct {
-		name             string
-		probeType        string
-		path             string
-		port             int
-		initialDelay     int
-		periodSeconds    int
-		valid            bool
+		name          string
+		probeType     string
+		path          string
+		port          int
+		initialDelay  int
+		periodSeconds int
+		valid         bool
 	}{
 		{"Valid HTTP readiness", "http", "/ready", 8080, 5, 10, true},
 		{"Valid TCP readiness", "tcp", "", 8080, 5, 10, true},

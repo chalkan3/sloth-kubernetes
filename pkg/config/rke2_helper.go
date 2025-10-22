@@ -8,22 +8,22 @@ import (
 // GetRKE2Defaults returns default RKE2 configuration
 func GetRKE2Defaults() *RKE2Config {
 	return &RKE2Config{
-		Version:             "", // Empty means latest stable
-		Channel:             "stable",
-		ClusterToken:        "my-super-secret-cluster-token-rke2-production-2025",
-		TLSSan:              []string{},
-		DisableComponents:   []string{"rke2-ingress-nginx"},
-		DataDir:             "/var/lib/rancher/rke2",
-		NodeTaint:           []string{},
-		NodeLabel:           []string{},
-		SnapshotScheduleCron: "0 */12 * * *", // Every 12 hours
-		SnapshotRetention:   5,
-		WriteKubeconfigMode: "0600",
+		Version:               "", // Empty means latest stable
+		Channel:               "stable",
+		ClusterToken:          "my-super-secret-cluster-token-rke2-production-2025",
+		TLSSan:                []string{},
+		DisableComponents:     []string{"rke2-ingress-nginx"},
+		DataDir:               "/var/lib/rancher/rke2",
+		NodeTaint:             []string{},
+		NodeLabel:             []string{},
+		SnapshotScheduleCron:  "0 */12 * * *", // Every 12 hours
+		SnapshotRetention:     5,
+		WriteKubeconfigMode:   "0600",
 		ProtectKernelDefaults: false,
-		SeLinux:             false,
-		SecretsEncryption:   false,
-		ExtraServerArgs:     make(map[string]string),
-		ExtraAgentArgs:      make(map[string]string),
+		SeLinux:               false,
+		SecretsEncryption:     false,
+		ExtraServerArgs:       make(map[string]string),
+		ExtraAgentArgs:        make(map[string]string),
 	}
 }
 

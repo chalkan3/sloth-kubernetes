@@ -371,38 +371,38 @@ func TestNodeCountCalculation(t *testing.T) {
 // TestProviderCounting tests provider counting logic
 func TestProviderCounting(t *testing.T) {
 	tests := []struct {
-		name             string
-		doEnabled        bool
-		linodeEnabled    bool
-		expectedCount    int
+		name              string
+		doEnabled         bool
+		linodeEnabled     bool
+		expectedCount     int
 		expectedProviders []string
 	}{
 		{
-			name:             "Both providers",
-			doEnabled:        true,
-			linodeEnabled:    true,
-			expectedCount:    2,
+			name:              "Both providers",
+			doEnabled:         true,
+			linodeEnabled:     true,
+			expectedCount:     2,
 			expectedProviders: []string{"DigitalOcean", "Linode"},
 		},
 		{
-			name:             "Only DigitalOcean",
-			doEnabled:        true,
-			linodeEnabled:    false,
-			expectedCount:    1,
+			name:              "Only DigitalOcean",
+			doEnabled:         true,
+			linodeEnabled:     false,
+			expectedCount:     1,
 			expectedProviders: []string{"DigitalOcean"},
 		},
 		{
-			name:             "Only Linode",
-			doEnabled:        false,
-			linodeEnabled:    true,
-			expectedCount:    1,
+			name:              "Only Linode",
+			doEnabled:         false,
+			linodeEnabled:     true,
+			expectedCount:     1,
 			expectedProviders: []string{"Linode"},
 		},
 		{
-			name:             "No providers",
-			doEnabled:        false,
-			linodeEnabled:    false,
-			expectedCount:    0,
+			name:              "No providers",
+			doEnabled:         false,
+			linodeEnabled:     false,
+			expectedCount:     0,
 			expectedProviders: []string{},
 		},
 	}
@@ -523,9 +523,9 @@ func TestVPCCounting(t *testing.T) {
 // TestWireGuardConfiguration tests WireGuard config validation
 func TestWireGuardConfiguration(t *testing.T) {
 	tests := []struct {
-		name          string
-		wgConfig      *config.WireGuardConfig
-		shouldCreate  bool
+		name              string
+		wgConfig          *config.WireGuardConfig
+		shouldCreate      bool
 		shouldUseExisting bool
 	}{
 		{
@@ -535,7 +535,7 @@ func TestWireGuardConfiguration(t *testing.T) {
 				Enabled: true,
 				Port:    51820,
 			},
-			shouldCreate:  true,
+			shouldCreate:      true,
 			shouldUseExisting: false,
 		},
 		{
@@ -546,7 +546,7 @@ func TestWireGuardConfiguration(t *testing.T) {
 				ServerEndpoint:  "1.2.3.4:51820",
 				ServerPublicKey: "pubkey123",
 			},
-			shouldCreate:  false,
+			shouldCreate:      false,
 			shouldUseExisting: true,
 		},
 		{
@@ -554,13 +554,13 @@ func TestWireGuardConfiguration(t *testing.T) {
 			wgConfig: &config.WireGuardConfig{
 				Enabled: false,
 			},
-			shouldCreate:  false,
+			shouldCreate:      false,
 			shouldUseExisting: false,
 		},
 		{
-			name:          "No WireGuard config",
-			wgConfig:      nil,
-			shouldCreate:  false,
+			name:              "No WireGuard config",
+			wgConfig:          nil,
+			shouldCreate:      false,
 			shouldUseExisting: false,
 		},
 	}
@@ -639,22 +639,22 @@ func TestStackNameParsing(t *testing.T) {
 // TestDryRunMode tests dry-run mode detection
 func TestDryRunMode(t *testing.T) {
 	tests := []struct {
-		name            string
-		dryRun          bool
-		shouldPreview   bool
-		shouldDeploy    bool
+		name          string
+		dryRun        bool
+		shouldPreview bool
+		shouldDeploy  bool
 	}{
 		{
-			name:            "Dry-run enabled",
-			dryRun:          true,
-			shouldPreview:   true,
-			shouldDeploy:    false,
+			name:          "Dry-run enabled",
+			dryRun:        true,
+			shouldPreview: true,
+			shouldDeploy:  false,
 		},
 		{
-			name:            "Dry-run disabled",
-			dryRun:          false,
-			shouldPreview:   false,
-			shouldDeploy:    true,
+			name:          "Dry-run disabled",
+			dryRun:        false,
+			shouldPreview: false,
+			shouldDeploy:  true,
 		},
 	}
 
@@ -676,46 +676,46 @@ func TestDryRunMode(t *testing.T) {
 // TestOutputParsing tests output key parsing
 func TestOutputParsing(t *testing.T) {
 	tests := []struct {
-		name       string
-		outputKey  string
-		isVPC      bool
-		isVPCID    bool
-		provider   string
+		name      string
+		outputKey string
+		isVPC     bool
+		isVPCID   bool
+		provider  string
 	}{
 		{
-			name:       "DO VPC ID",
-			outputKey:  "vpc_digitalocean_id",
-			isVPC:      true,
-			isVPCID:    true,
-			provider:   "digitalocean",
+			name:      "DO VPC ID",
+			outputKey: "vpc_digitalocean_id",
+			isVPC:     true,
+			isVPCID:   true,
+			provider:  "digitalocean",
 		},
 		{
-			name:       "Linode VPC ID",
-			outputKey:  "vpc_linode_id",
-			isVPC:      true,
-			isVPCID:    true,
-			provider:   "linode",
+			name:      "Linode VPC ID",
+			outputKey: "vpc_linode_id",
+			isVPC:     true,
+			isVPCID:   true,
+			provider:  "linode",
 		},
 		{
-			name:       "DO VPC CIDR",
-			outputKey:  "vpc_digitalocean_cidr",
-			isVPC:      true,
-			isVPCID:    false,
-			provider:   "digitalocean",
+			name:      "DO VPC CIDR",
+			outputKey: "vpc_digitalocean_cidr",
+			isVPC:     true,
+			isVPCID:   false,
+			provider:  "digitalocean",
 		},
 		{
-			name:       "Non-VPC output",
-			outputKey:  "clusterName",
-			isVPC:      false,
-			isVPCID:    false,
-			provider:   "",
+			name:      "Non-VPC output",
+			outputKey: "clusterName",
+			isVPC:     false,
+			isVPCID:   false,
+			provider:  "",
 		},
 		{
-			name:       "VPN output",
-			outputKey:  "vpn_server_ip",
-			isVPC:      false,
-			isVPCID:    false,
-			provider:   "",
+			name:      "VPN output",
+			outputKey: "vpn_server_ip",
+			isVPC:     false,
+			isVPCID:   false,
+			provider:  "",
 		},
 	}
 

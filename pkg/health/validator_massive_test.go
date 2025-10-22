@@ -74,12 +74,12 @@ func TestMasterNodes_HAConfiguration(t *testing.T) {
 		masterCount int
 		ha          bool
 	}{
-		{"1 master (non-HA)", 1, true},       // Valid but not HA
+		{"1 master (non-HA)", 1, true}, // Valid but not HA
 		{"3 masters (HA)", 3, true},
 		{"5 masters (HA)", 5, true},
 		{"7 masters (HA)", 7, true},
-		{"2 masters (not HA)", 2, false},    // Even number - not recommended
-		{"4 masters (not HA)", 4, false},    // Even number - no quorum
+		{"2 masters (not HA)", 2, false}, // Even number - not recommended
+		{"4 masters (not HA)", 4, false}, // Even number - no quorum
 		{"0 masters", 0, false},
 		{"Negative masters", -1, false},
 	}
@@ -126,27 +126,27 @@ func TestWorkerNodes_Validation(t *testing.T) {
 // TestDiskSpace_Requirements tests disk space validation
 func TestDiskSpace_Requirements(t *testing.T) {
 	tests := []struct {
-		name       string
+		name        string
 		diskSpaceGB int
-		role       string
-		sufficient bool
+		role        string
+		sufficient  bool
 	}{
 		{"Master with 50GB", 50, "master", true},
 		{"Master with 100GB", 100, "master", true},
-		{"Master with 20GB", 20, "master", false},  // Too small
+		{"Master with 20GB", 20, "master", false}, // Too small
 		{"Worker with 100GB", 100, "worker", true},
 		{"Worker with 50GB", 50, "worker", true},
-		{"Worker with 20GB", 20, "worker", false},  // Too small
-		{"Worker with 10GB", 10, "worker", false},  // Insufficient
+		{"Worker with 20GB", 20, "worker", false}, // Too small
+		{"Worker with 10GB", 10, "worker", false}, // Insufficient
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var minRequired int
 			if tt.role == "master" {
-				minRequired = 50  // Masters need more for etcd
+				minRequired = 50 // Masters need more for etcd
 			} else {
-				minRequired = 50  // Workers need space for containers/logs
+				minRequired = 50 // Workers need space for containers/logs
 			}
 
 			isSufficient := tt.diskSpaceGB >= minRequired
@@ -169,20 +169,20 @@ func TestMemory_Requirements(t *testing.T) {
 	}{
 		{"Master with 4GB", 4, "master", true},
 		{"Master with 8GB", 8, "master", true},
-		{"Master with 2GB", 2, "master", false},   // Too small
+		{"Master with 2GB", 2, "master", false}, // Too small
 		{"Worker with 2GB", 2, "worker", true},
 		{"Worker with 4GB", 4, "worker", true},
 		{"Worker with 8GB", 8, "worker", true},
-		{"Worker with 1GB", 1, "worker", false},   // Insufficient
+		{"Worker with 1GB", 1, "worker", false}, // Insufficient
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			var minRequired int
 			if tt.role == "master" {
-				minRequired = 4  // Masters need more for control plane
+				minRequired = 4 // Masters need more for control plane
 			} else {
-				minRequired = 2  // Workers need memory for pods
+				minRequired = 2 // Workers need memory for pods
 			}
 
 			isSufficient := tt.memoryGB >= minRequired
@@ -198,9 +198,9 @@ func TestMemory_Requirements(t *testing.T) {
 // TestKubernetesPorts_Validation tests required Kubernetes port availability
 func TestKubernetesPorts_Validation(t *testing.T) {
 	tests := []struct {
-		name  string
-		port  int
-		role  string
+		name     string
+		port     int
+		role     string
 		required bool
 	}{
 		{"API server 6443", 6443, "master", true},
@@ -250,7 +250,7 @@ func TestSwapDisabled_Validation(t *testing.T) {
 		valid       bool
 	}{
 		{"Swap disabled", false, true},
-		{"Swap enabled", true, false},  // Invalid for Kubernetes
+		{"Swap enabled", true, false}, // Invalid for Kubernetes
 	}
 
 	for _, tt := range tests {
@@ -268,9 +268,9 @@ func TestSwapDisabled_Validation(t *testing.T) {
 // TestKernelModules_Validation tests required kernel modules
 func TestKernelModules_Validation(t *testing.T) {
 	tests := []struct {
-		name      string
-		module    string
-		required  bool
+		name     string
+		module   string
+		required bool
 	}{
 		{"br_netfilter", "br_netfilter", true},
 		{"overlay", "overlay", true},
@@ -368,7 +368,7 @@ func TestWireGuardKernelSupport(t *testing.T) {
 		{"Kernel 5.6+ (built-in)", "5.6.0", true},
 		{"Kernel 5.10+ (LTS)", "5.10.0", true},
 		{"Kernel 5.15+ (LTS)", "5.15.0", true},
-		{"Kernel 4.19 (module)", "4.19.0", true},   // Can use module
+		{"Kernel 4.19 (module)", "4.19.0", true}, // Can use module
 		{"Kernel 3.10 (too old)", "3.10.0", false},
 		{"Empty kernel", "", false},
 	}
@@ -395,7 +395,7 @@ func TestIPForwarding_Validation(t *testing.T) {
 	}{
 		{"Both enabled", 1, 1, true},
 		{"IPv4 only", 1, 0, true},
-		{"IPv6 only", 0, 1, false},      // IPv4 required
+		{"IPv6 only", 0, 1, false}, // IPv4 required
 		{"Both disabled", 0, 0, false},
 		{"Invalid value", 2, 0, false},
 		{"Negative value", -1, 0, false},
@@ -425,7 +425,7 @@ func TestValidationTimeout(t *testing.T) {
 		{"2 minute timeout", 2 * time.Minute, true},
 		{"5 minute timeout", 5 * time.Minute, true},
 		{"10 minute timeout", 10 * time.Minute, true},
-		{"30 second timeout", 30 * time.Second, false},  // Too short
+		{"30 second timeout", 30 * time.Second, false}, // Too short
 		{"Zero timeout", 0, false},
 		{"Negative timeout", -1 * time.Minute, false},
 		{"30 minute timeout", 30 * time.Minute, false}, // Too long
@@ -561,36 +561,36 @@ func TestSystemdServiceValidation(t *testing.T) {
 // Test100ValidationScenarios generates 100 validation test scenarios
 func Test100ValidationScenarios(t *testing.T) {
 	scenarios := []struct {
-		nodes      int
-		masters    int
-		workers    int
-		diskGB     int
-		memoryGB   int
-		valid      bool
+		nodes    int
+		masters  int
+		workers  int
+		diskGB   int
+		memoryGB int
+		valid    bool
 	}{
 		{3, 1, 2, 50, 4, true},
 		{5, 3, 2, 100, 8, true},
 		{7, 3, 4, 100, 8, true},
 		{10, 5, 5, 200, 16, true},
-		{2, 1, 1, 50, 4, false},  // Too few nodes
-		{3, 2, 1, 50, 4, false},  // Even masters (no HA)
+		{2, 1, 1, 50, 4, false}, // Too few nodes
+		{3, 2, 1, 50, 4, false}, // Even masters (no HA)
 	}
 
 	// Generate 94 more scenarios
 	for i := 1; i <= 94; i++ {
 		nodes := 3 + (i % 10)
-		masters := 1 + (i % 2) * 2  // 1, 3, 1, 3, ...
+		masters := 1 + (i%2)*2 // 1, 3, 1, 3, ...
 		workers := nodes - masters
 		diskGB := 50 + (i%5)*50
 		memoryGB := 4 + (i%3)*4
 
 		scenario := struct {
-			nodes      int
-			masters    int
-			workers    int
-			diskGB     int
-			memoryGB   int
-			valid      bool
+			nodes    int
+			masters  int
+			workers  int
+			diskGB   int
+			memoryGB int
+			valid    bool
 		}{
 			nodes:    nodes,
 			masters:  masters,

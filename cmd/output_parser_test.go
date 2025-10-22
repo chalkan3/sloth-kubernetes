@@ -319,8 +319,8 @@ func TestFormatNodesAsJSON_AllFields(t *testing.T) {
 
 func TestFormatClusterAsJSON_WithOptionalFields(t *testing.T) {
 	tests := []struct {
-		name    string
-		cluster *ClusterInfo
+		name       string
+		cluster    *ClusterInfo
 		wantFields []string
 	}{
 		{

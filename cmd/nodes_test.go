@@ -328,9 +328,9 @@ func TestForceRemoveFlag(t *testing.T) {
 // TestNodeNameValidation tests node name validation
 func TestNodeNameValidation(t *testing.T) {
 	tests := []struct {
-		name      string
-		nodeName  string
-		valid     bool
+		name     string
+		nodeName string
+		valid    bool
 	}{
 		{"Valid node name", "master-1", true},
 		{"Valid worker name", "worker-primary", true},
@@ -504,9 +504,9 @@ func TestNodePoolCountUpdate(t *testing.T) {
 // TestBastionModeDetection tests bastion mode detection logic
 func TestBastionModeDetection(t *testing.T) {
 	tests := []struct {
-		name           string
-		bastionEnabled bool
-		bastionIP      string
+		name            string
+		bastionEnabled  bool
+		bastionIP       string
 		shouldUseDirect bool
 	}{
 		{"Bastion enabled with IP", true, "203.0.113.1", false},

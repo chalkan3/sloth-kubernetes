@@ -121,11 +121,11 @@ func TestExpandEnvVars_EmptyValue(t *testing.T) {
 
 func TestExpandEnvVars_SpecialCharsInValue(t *testing.T) {
 	tests := []struct {
-		name    string
-		envVar  string
-		envVal  string
-		input   string
-		want    string
+		name   string
+		envVar string
+		envVal string
+		input  string
+		want   string
 	}{
 		{
 			name:   "Value with spaces",

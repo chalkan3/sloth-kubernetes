@@ -68,9 +68,9 @@ func TestWireGuardPort_Range(t *testing.T) {
 // TestWireGuardSubnet_Format tests subnet CIDR format
 func TestWireGuardSubnet_Format(t *testing.T) {
 	tests := []struct {
-		name   string
-		cidr   string
-		valid  bool
+		name  string
+		cidr  string
+		valid bool
 	}{
 		{"Default subnet", "10.8.0.0/24", true},
 		{"Larger subnet", "10.8.0.0/16", true},
@@ -332,9 +332,9 @@ func TestWireGuardService_Systemd(t *testing.T) {
 // TestWireGuardClientIPBase_Format tests client IP base format
 func TestWireGuardClientIPBase_Format(t *testing.T) {
 	tests := []struct {
-		name   string
-		base   string
-		valid  bool
+		name  string
+		base  string
+		valid bool
 	}{
 		{"Default base", "10.8.0", true},
 		{"Alternative base", "10.9.0", true},
@@ -358,8 +358,8 @@ func TestWireGuardClientIPBase_Format(t *testing.T) {
 // TestWireGuardPeer_Count tests peer count limits
 func TestWireGuardPeer_Count(t *testing.T) {
 	tests := []struct {
-		name       string
-		peerCount  int
+		name        string
+		peerCount   int
 		withinLimit bool
 	}{
 		{"1 peer", 1, true},
@@ -386,8 +386,8 @@ func TestWireGuardPeer_Count(t *testing.T) {
 // TestWireGuardInstallScript_Commands tests install script commands
 func TestWireGuardInstallScript_Commands(t *testing.T) {
 	tests := []struct {
-		name    string
-		command string
+		name     string
+		command  string
 		required bool
 	}{
 		{"apt-get update", "apt-get update", true},
@@ -402,9 +402,9 @@ func TestWireGuardInstallScript_Commands(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			isRequired := tt.command != "" &&
 				(strings.Contains(tt.command, "wireguard") ||
-				 strings.Contains(tt.command, "wg") ||
-				 strings.Contains(tt.command, "systemctl") ||
-				 strings.Contains(tt.command, "apt-get update"))
+					strings.Contains(tt.command, "wg") ||
+					strings.Contains(tt.command, "systemctl") ||
+					strings.Contains(tt.command, "apt-get update"))
 
 			if isRequired != tt.required {
 				t.Errorf("Expected required=%v for command %q, got %v",

@@ -10,12 +10,12 @@ import (
 // TestWireGuardDefaults tests default values
 func TestWireGuardDefaults(t *testing.T) {
 	tests := []struct {
-		name         string
-		cfg          *config.WireGuardConfig
-		wantPort     int
-		wantCIDR     string
-		wantImage    string
-		wantName     string
+		name      string
+		cfg       *config.WireGuardConfig
+		wantPort  int
+		wantCIDR  string
+		wantImage string
+		wantName  string
 	}{
 		{
 			name:      "All defaults",
@@ -142,9 +142,9 @@ func TestWireGuardSubnetCIDR(t *testing.T) {
 // TestWireGuardImageNames tests OS image naming
 func TestWireGuardImageNames(t *testing.T) {
 	tests := []struct {
-		name         string
-		provider     string
-		inputImage   string
+		name          string
+		provider      string
+		inputImage    string
 		expectedImage string
 	}{
 		{
@@ -267,9 +267,9 @@ func TestWireGuardServerNaming(t *testing.T) {
 // TestWireGuardClientIPBase tests client IP base
 func TestWireGuardClientIPBase(t *testing.T) {
 	tests := []struct {
-		name       string
-		cidr       string
-		wantBase   string
+		name     string
+		cidr     string
+		wantBase string
 	}{
 		{
 			name:     "Standard subnet",
@@ -358,8 +358,8 @@ echo "WireGuard server installed successfully!"`
 // TestWireGuardIPTablesRules tests iptables configuration
 func TestWireGuardIPTablesRules(t *testing.T) {
 	rules := []struct {
-		name string
-		rule string
+		name     string
+		rule     string
 		isPostUp bool
 	}{
 		{

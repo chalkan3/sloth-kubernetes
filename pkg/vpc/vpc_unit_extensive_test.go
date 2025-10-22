@@ -119,9 +119,9 @@ func TestVPC_RegionSelection(t *testing.T) {
 // Test VPC name generation
 func TestVPC_NameGeneration(t *testing.T) {
 	tests := []struct {
-		name        string
-		baseName    string
-		provider    string
+		name         string
+		baseName     string
+		provider     string
 		expectedName string
 	}{
 		{"DigitalOcean VPC", "k8s-cluster", "do", "k8s-cluster"},
@@ -171,8 +171,8 @@ func TestVPC_CIDRPatterns(t *testing.T) {
 // Test VPC description generation
 func TestVPC_DescriptionGenerationUnit(t *testing.T) {
 	tests := []struct {
-		name        string
-		vpcName     string
+		name         string
+		vpcName      string
 		expectedDesc string
 	}{
 		{"Standard VPC", "production-vpc", "VPC for Kubernetes cluster - production-vpc"},
@@ -253,12 +253,12 @@ func TestVPCResult_ProviderField(t *testing.T) {
 // Test VPC configuration combinations
 func TestVPC_ConfigurationCombinations(t *testing.T) {
 	tests := []struct {
-		name     string
-		create   bool
-		vpcName  string
-		cidr     string
-		region   string
-		valid    bool
+		name    string
+		create  bool
+		vpcName string
+		cidr    string
+		region  string
+		valid   bool
 	}{
 		{"Valid full config", true, "vpc-1", "10.0.0.0/16", "nyc3", true},
 		{"Create disabled", false, "vpc-1", "10.0.0.0/16", "nyc3", false},

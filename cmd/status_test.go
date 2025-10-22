@@ -205,11 +205,11 @@ func TestStatus_StatusMessages(t *testing.T) {
 // Test node naming conventions
 func TestStatus_NodeNamingConvention(t *testing.T) {
 	tests := []struct {
-		name       string
-		provider   string
-		role       string
-		number     int
-		expected   string
+		name     string
+		provider string
+		role     string
+		number   int
+		expected string
 	}{
 		{"DO master 1", "do", "master", 1, "do-master-1"},
 		{"Linode master 1", "linode", "master", 1, "linode-master-1"},
@@ -379,10 +379,10 @@ func TestStatus_ComponentChecks(t *testing.T) {
 // Test node count calculations
 func TestStatus_NodeCounting(t *testing.T) {
 	tests := []struct {
-		name        string
-		masters     int
-		workers     int
-		totalNodes  int
+		name       string
+		masters    int
+		workers    int
+		totalNodes int
 	}{
 		{"Single master", 1, 0, 1},
 		{"HA masters", 3, 0, 3},
@@ -401,10 +401,10 @@ func TestStatus_NodeCounting(t *testing.T) {
 // Test provider distribution
 func TestStatus_ProviderDistribution(t *testing.T) {
 	tests := []struct {
-		name       string
-		doNodes    int
+		name        string
+		doNodes     int
 		linodeNodes int
-		totalNodes int
+		totalNodes  int
 	}{
 		{"All DO", 6, 0, 6},
 		{"All Linode", 0, 6, 6},
@@ -466,9 +466,9 @@ func TestStatus_DataStructure(t *testing.T) {
 // Test cluster health calculation
 func TestStatus_ClusterHealthCalculation(t *testing.T) {
 	tests := []struct {
-		name         string
-		readyNodes   int
-		totalNodes   int
+		name           string
+		readyNodes     int
+		totalNodes     int
 		expectedHealth string
 	}{
 		{"All ready", 6, 6, "Healthy"},

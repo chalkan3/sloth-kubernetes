@@ -37,9 +37,9 @@ func TestVPCResult_Fields(t *testing.T) {
 // TestVPCName_Format tests VPC name formatting
 func TestVPCName_Format(t *testing.T) {
 	tests := []struct {
-		name      string
-		vpcName   string
-		validDO   bool
+		name        string
+		vpcName     string
+		validDO     bool
 		validLinode bool
 	}{
 		{"Simple name", "vpc", true, true},
@@ -77,8 +77,8 @@ func TestVPCName_Format(t *testing.T) {
 // TestVPCCIDR_PrivateRanges tests private CIDR ranges
 func TestVPCCIDR_PrivateRanges(t *testing.T) {
 	tests := []struct {
-		name    string
-		cidr    string
+		name      string
+		cidr      string
 		isPrivate bool
 	}{
 		{"Class A private", "10.0.0.0/8", true},
@@ -232,8 +232,8 @@ func TestVPCRegion_LinodeExtended(t *testing.T) {
 // TestVPCDescription_Format tests VPC description format
 func TestVPCDescription_Format(t *testing.T) {
 	tests := []struct {
-		name        string
-		vpcName     string
+		name         string
+		vpcName      string
 		expectedDesc string
 	}{
 		{"Production VPC", "prod-vpc", "VPC for Kubernetes cluster - prod-vpc"},
@@ -254,9 +254,9 @@ func TestVPCDescription_Format(t *testing.T) {
 // TestVPCManager_Creation tests VPCManager creation
 func TestVPCManager_Creation(t *testing.T) {
 	tests := []struct {
-		name    string
-		ctxNil  bool
-		valid   bool
+		name   string
+		ctxNil bool
+		valid  bool
 	}{
 		{"Valid manager", false, true},
 		{"Nil context", true, false},

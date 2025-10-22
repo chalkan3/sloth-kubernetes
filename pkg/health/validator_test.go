@@ -98,46 +98,46 @@ func TestValidateMasterNodes(t *testing.T) {
 	}
 
 	tests := []struct {
-		name         string
-		nodes        []*providers.NodeOutput
-		wantSuccess  bool
-		masterCount  int
+		name        string
+		nodes       []*providers.NodeOutput
+		wantSuccess bool
+		masterCount int
 	}{
 		{
-			name:         "One master (valid)",
-			nodes:        makeNodesWithRole(1, "master"),
-			wantSuccess:  true,
-			masterCount:  1,
+			name:        "One master (valid)",
+			nodes:       makeNodesWithRole(1, "master"),
+			wantSuccess: true,
+			masterCount: 1,
 		},
 		{
-			name:         "Three masters (valid HA)",
-			nodes:        makeNodesWithRole(3, "master"),
-			wantSuccess:  true,
-			masterCount:  3,
+			name:        "Three masters (valid HA)",
+			nodes:       makeNodesWithRole(3, "master"),
+			wantSuccess: true,
+			masterCount: 3,
 		},
 		{
-			name:         "Five masters (valid HA)",
-			nodes:        makeNodesWithRole(5, "master"),
-			wantSuccess:  true,
-			masterCount:  5,
+			name:        "Five masters (valid HA)",
+			nodes:       makeNodesWithRole(5, "master"),
+			wantSuccess: true,
+			masterCount: 5,
 		},
 		{
-			name:         "Two masters (invalid - even)",
-			nodes:        makeNodesWithRole(2, "master"),
-			wantSuccess:  false,
-			masterCount:  2,
+			name:        "Two masters (invalid - even)",
+			nodes:       makeNodesWithRole(2, "master"),
+			wantSuccess: false,
+			masterCount: 2,
 		},
 		{
-			name:         "Four masters (invalid - even)",
-			nodes:        makeNodesWithRole(4, "master"),
-			wantSuccess:  false,
-			masterCount:  4,
+			name:        "Four masters (invalid - even)",
+			nodes:       makeNodesWithRole(4, "master"),
+			wantSuccess: false,
+			masterCount: 4,
 		},
 		{
-			name:         "No masters",
-			nodes:        makeNodesWithRole(0, "master"),
-			wantSuccess:  false,
-			masterCount:  0,
+			name:        "No masters",
+			nodes:       makeNodesWithRole(0, "master"),
+			wantSuccess: false,
+			masterCount: 0,
 		},
 	}
 

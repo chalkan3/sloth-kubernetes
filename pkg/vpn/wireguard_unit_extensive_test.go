@@ -11,9 +11,9 @@ func TestWireGuard_DefaultPort(t *testing.T) {
 	defaultPort := 51820
 
 	tests := []struct {
-		name        string
-		port        int
-		isDefault   bool
+		name      string
+		port      int
+		isDefault bool
 	}{
 		{"Standard port", 51820, true},
 		{"Custom port 1", 12345, false},
@@ -56,9 +56,9 @@ func TestWireGuard_SubnetCalculations(t *testing.T) {
 // Test WireGuard key generation requirements
 func TestWireGuard_KeyGenerationRequirements(t *testing.T) {
 	tests := []struct {
-		name       string
-		keyType    string
-		command    string
+		name    string
+		keyType string
+		command string
 	}{
 		{"Private key", "private", "wg genkey"},
 		{"Public key", "public", "wg pubkey"},
@@ -313,11 +313,11 @@ func TestWireGuard_MeshTopology(t *testing.T) {
 // Test WireGuard total connections in mesh
 func TestWireGuard_TotalConnections(t *testing.T) {
 	tests := []struct {
-		name              string
-		nodeCount         int
-		totalConnections  int
+		name             string
+		nodeCount        int
+		totalConnections int
 	}{
-		{"2 nodes", 2, 1},   // n*(n-1)/2
+		{"2 nodes", 2, 1}, // n*(n-1)/2
 		{"3 nodes", 3, 3},
 		{"5 nodes", 5, 10},
 		{"10 nodes", 10, 45},
@@ -393,10 +393,10 @@ func TestWireGuard_ClientIPAllocation(t *testing.T) {
 // Test 100 WireGuard configuration scenarios
 func Test100WireGuardScenarios(t *testing.T) {
 	scenarios := []struct {
-		port       int
-		subnet     string
-		nodeCount  int
-		keepalive  int
+		port      int
+		subnet    string
+		nodeCount int
+		keepalive int
 	}{
 		{51820, "10.8.0.0/24", 3, 25},
 		{12345, "10.9.0.0/24", 5, 30},
@@ -410,15 +410,15 @@ func Test100WireGuardScenarios(t *testing.T) {
 
 	for i := 0; i < 97; i++ {
 		scenarios = append(scenarios, struct {
-			port       int
-			subnet     string
-			nodeCount  int
-			keepalive  int
+			port      int
+			subnet    string
+			nodeCount int
+			keepalive int
 		}{
-			port:       ports[i%len(ports)],
-			subnet:     subnets[i%len(subnets)],
-			nodeCount:  (i%10) + 2,
-			keepalive:  keepalives[i%len(keepalives)],
+			port:      ports[i%len(ports)],
+			subnet:    subnets[i%len(subnets)],
+			nodeCount: (i % 10) + 2,
+			keepalive: keepalives[i%len(keepalives)],
 		})
 	}
 
@@ -451,9 +451,9 @@ func Test100WireGuardScenarios(t *testing.T) {
 func TestWireGuard_KeyFormatValidation(t *testing.T) {
 	// WireGuard keys are base64 encoded, 44 characters
 	tests := []struct {
-		name   string
-		key    string
-		valid  bool
+		name  string
+		key   string
+		valid bool
 	}{
 		{"Valid length", "0123456789012345678901234567890123456789012=", true},
 		{"Too short", "short", false},
@@ -471,9 +471,9 @@ func TestWireGuard_KeyFormatValidation(t *testing.T) {
 // Test WireGuard handshake verification
 func TestWireGuard_HandshakeVerification(t *testing.T) {
 	tests := []struct {
-		name             string
-		lastHandshake    int // seconds ago
-		healthy          bool
+		name          string
+		lastHandshake int // seconds ago
+		healthy       bool
 	}{
 		{"Recent", 10, true},
 		{"Within threshold", 120, true},

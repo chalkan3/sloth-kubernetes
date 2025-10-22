@@ -50,8 +50,8 @@ func TestVersionFormat(t *testing.T) {
 // TestGitCommitFormat tests git commit format
 func TestGitCommitFormat(t *testing.T) {
 	tests := []struct {
-		name   string
-		commit string
+		name    string
+		commit  string
 		isValid bool
 	}{
 		{"Short SHA", "abc123d", true},

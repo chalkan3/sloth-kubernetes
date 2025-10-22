@@ -159,7 +159,7 @@ func TestNodeFilter_Validation(t *testing.T) {
 		{"By label", "env=production", true},
 		{"Multiple filters", "role=worker,provider=linode", true},
 		{"Simple name filter", "invalid", true}, // Simple names are valid filters
-		{"Empty filter", "", true},           // Empty means all nodes
+		{"Empty filter", "", true},              // Empty means all nodes
 	}
 
 	for _, tt := range tests {
@@ -356,10 +356,10 @@ func TestYes_Flag(t *testing.T) {
 // TestParallel_Flag tests parallel execution flag
 func TestParallel_Flag(t *testing.T) {
 	tests := []struct {
-		name            string
-		parallel        bool
-		maxConcurrency  int
-		shouldParallel  bool
+		name           string
+		parallel       bool
+		maxConcurrency int
+		shouldParallel bool
 	}{
 		{"Parallel enabled", true, 5, true},
 		{"Parallel disabled", false, 1, false},
@@ -380,10 +380,10 @@ func TestParallel_Flag(t *testing.T) {
 // TestRetry_Config tests retry configuration
 func TestRetry_Config(t *testing.T) {
 	tests := []struct {
-		name         string
-		maxRetries   int
-		retryDelay   string
-		valid        bool
+		name       string
+		maxRetries int
+		retryDelay string
+		valid      bool
 	}{
 		{"Valid retry config", 3, "5s", true},
 		{"No retries", 0, "0s", true},

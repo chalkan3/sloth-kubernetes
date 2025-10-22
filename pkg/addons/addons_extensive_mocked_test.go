@@ -183,12 +183,12 @@ func TestDashboard_Config(t *testing.T) {
 // TestMonitoring_Config tests monitoring stack configuration
 func TestMonitoring_Config(t *testing.T) {
 	tests := []struct {
-		name                 string
-		prometheusEnabled    bool
-		grafanaEnabled       bool
-		alertmanagerEnabled  bool
-		retentionDays        int
-		valid                bool
+		name                string
+		prometheusEnabled   bool
+		grafanaEnabled      bool
+		alertmanagerEnabled bool
+		retentionDays       int
+		valid               bool
 	}{
 		{"Full stack", true, true, true, 15, true},
 		{"Prometheus only", true, false, false, 7, true},
@@ -294,11 +294,11 @@ func TestAddonNamespace_Validation(t *testing.T) {
 // TestHelmChart_Validation tests Helm chart configuration
 func TestHelmChart_Validation(t *testing.T) {
 	tests := []struct {
-		name       string
-		chartName  string
-		chartRepo  string
-		version    string
-		valid      bool
+		name      string
+		chartName string
+		chartRepo string
+		version   string
+		valid     bool
 	}{
 		{
 			"Valid cert-manager",
@@ -363,7 +363,7 @@ func TestResourceRequests_Validation(t *testing.T) {
 		{"Valid with decimals", "0.5", "512Mi", true},
 		{"Missing CPU", "", "128Mi", false},
 		{"Missing memory", "100m", "", false},
-		{"Invalid CPU format", "100", "", false}, // Should have unit
+		{"Invalid CPU format", "100", "", false},        // Should have unit
 		{"Invalid memory format", "100m", "128", false}, // Should have unit
 	}
 
@@ -418,12 +418,12 @@ func TestStorageClass_Validation(t *testing.T) {
 // Test150AddonScenarios generates 150 addon test scenarios
 func Test150AddonScenarios(t *testing.T) {
 	scenarios := []struct {
-		addonType   string
-		version     string
-		namespace   string
-		enabled     bool
+		addonType    string
+		version      string
+		namespace    string
+		enabled      bool
 		replicaCount int
-		valid       bool
+		valid        bool
 	}{
 		{"cert-manager", "v1.12.0", "cert-manager", true, 1, true},
 		{"metrics-server", "v0.6.3", "kube-system", true, 1, true},
@@ -444,19 +444,19 @@ func Test150AddonScenarios(t *testing.T) {
 
 	for i := 0; i < 147; i++ {
 		scenarios = append(scenarios, struct {
-			addonType   string
-			version     string
-			namespace   string
-			enabled     bool
+			addonType    string
+			version      string
+			namespace    string
+			enabled      bool
 			replicaCount int
-			valid       bool
+			valid        bool
 		}{
-			addonType:   addonTypes[i%len(addonTypes)],
-			version:     versions[i%len(versions)],
-			namespace:   namespaces[i%len(namespaces)],
-			enabled:     true,
+			addonType:    addonTypes[i%len(addonTypes)],
+			version:      versions[i%len(versions)],
+			namespace:    namespaces[i%len(namespaces)],
+			enabled:      true,
 			replicaCount: replicas[i%len(replicas)],
-			valid:       true,
+			valid:        true,
 		})
 	}
 

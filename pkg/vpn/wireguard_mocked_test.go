@@ -88,12 +88,12 @@ func TestWireGuardResult_Structure(t *testing.T) {
 // TestWireGuardConfig_Defaults tests default value assignment
 func TestWireGuardConfig_Defaults(t *testing.T) {
 	tests := []struct {
-		name           string
-		config         *config.WireGuardConfig
-		expectedPort   int
-		expectedCIDR   string
-		expectedImage  string
-		expectedName   string
+		name          string
+		config        *config.WireGuardConfig
+		expectedPort  int
+		expectedCIDR  string
+		expectedImage string
+		expectedName  string
 	}{
 		{
 			name: "Empty config gets defaults",
@@ -262,10 +262,10 @@ func TestWireGuardProvider_Support(t *testing.T) {
 // TestWireGuardImage_Conversion tests image name conversion for providers
 func TestWireGuardImage_Conversion(t *testing.T) {
 	tests := []struct {
-		name           string
-		provider       string
-		inputImage     string
-		expectedImage  string
+		name          string
+		provider      string
+		inputImage    string
+		expectedImage string
 	}{
 		{
 			name:          "DigitalOcean Ubuntu image",
@@ -307,11 +307,11 @@ func TestWireGuardClientConfig_Generation(t *testing.T) {
 	manager := &WireGuardManager{}
 
 	tests := []struct {
-		name            string
-		serverIP        string
-		serverPort      int
-		clientIP        string
-		shouldContain   []string
+		name          string
+		serverIP      string
+		serverPort    int
+		clientIP      string
+		shouldContain []string
 	}{
 		{
 			name:       "Standard client config",
@@ -384,9 +384,9 @@ sysctl -p`
 // TestWireGuardServerName_Validation tests server name validation
 func TestWireGuardServerName_Validation(t *testing.T) {
 	tests := []struct {
-		name  string
+		name   string
 		server string
-		valid bool
+		valid  bool
 	}{
 		{"Valid simple name", "wireguard-vpn", true},
 		{"Valid with numbers", "wg-server-01", true},

@@ -7,8 +7,8 @@ import (
 
 func TestBuildAptInstallCommand(t *testing.T) {
 	tests := []struct {
-		name     string
-		packages []string
+		name         string
+		packages     []string
 		wantContains []string
 	}{
 		{
@@ -147,9 +147,9 @@ func TestBuildSystemdEnableStart_Components(t *testing.T) {
 
 func TestBuildFileWrite(t *testing.T) {
 	tests := []struct {
-		name    string
-		path    string
-		content string
+		name         string
+		path         string
+		content      string
 		wantContains []string
 	}{
 		{
@@ -336,12 +336,12 @@ func TestBuildDirectoryCreate_Components(t *testing.T) {
 func TestConstants(t *testing.T) {
 	// Test that constants are defined and not empty
 	constants := map[string]string{
-		"InstallDocker":        InstallDocker,
-		"InstallWireGuard":     InstallWireGuard,
+		"InstallDocker":         InstallDocker,
+		"InstallWireGuard":      InstallWireGuard,
 		"GenerateWireGuardKeys": GenerateWireGuardKeys,
-		"EnableIPForwarding":   EnableIPForwarding,
-		"CheckDockerStatus":    CheckDockerStatus,
-		"CheckWireGuardStatus": CheckWireGuardStatus,
+		"EnableIPForwarding":    EnableIPForwarding,
+		"CheckDockerStatus":     CheckDockerStatus,
+		"CheckWireGuardStatus":  CheckWireGuardStatus,
 	}
 
 	for name, value := range constants {

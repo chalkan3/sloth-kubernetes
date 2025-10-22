@@ -9,9 +9,9 @@ import (
 // TestDNSRecordName_Format tests DNS record name format
 func TestDNSRecordName_Format(t *testing.T) {
 	tests := []struct {
-		name  string
+		name   string
 		record string
-		valid bool
+		valid  bool
 	}{
 		{"Simple name", "api", true},
 		{"With number", "master1", true},
@@ -138,9 +138,9 @@ func TestDNSNodeType_Detection(t *testing.T) {
 // TestDNSMasterNames_Generation tests master node DNS names
 func TestDNSMasterNames_Generation(t *testing.T) {
 	tests := []struct {
-		name         string
-		masterNum    int
-		provider     string
+		name          string
+		masterNum     int
+		provider      string
 		expectedNames []string
 	}{
 		{
@@ -192,9 +192,9 @@ func TestDNSMasterNames_Generation(t *testing.T) {
 // TestDNSWorkerNames_Generation tests worker node DNS names
 func TestDNSWorkerNames_Generation(t *testing.T) {
 	tests := []struct {
-		name         string
-		workerNum    int
-		provider     string
+		name          string
+		workerNum     int
+		provider      string
 		expectedNames []string
 	}{
 		{
@@ -331,9 +331,9 @@ func TestDNSIPAddress_Format(t *testing.T) {
 // TestDNSAPIEndpoint_Names tests API endpoint DNS names
 func TestDNSAPIEndpoint_Names(t *testing.T) {
 	tests := []struct {
-		name          string
-		aliases       []string
-		includesAPI   bool
+		name           string
+		aliases        []string
+		includesAPI    bool
 		includesK8sAPI bool
 	}{
 		{

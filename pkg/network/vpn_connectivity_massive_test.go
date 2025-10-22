@@ -66,8 +66,8 @@ func TestVPNConnectivityChecker_Timeout(t *testing.T) {
 // TestConnectionStatus_Latency tests latency measurements
 func TestConnectionStatus_Latency(t *testing.T) {
 	tests := []struct {
-		name      string
-		latency   time.Duration
+		name       string
+		latency    time.Duration
 		acceptable bool
 	}{
 		{"Sub-millisecond latency", 500 * time.Microsecond, true},
@@ -104,12 +104,12 @@ func TestConnectionStatus_PacketLoss(t *testing.T) {
 		{"0.1% packet loss", 0.1, true},
 		{"1% packet loss", 1.0, true},
 		{"2% packet loss", 2.0, true},
-		{"5% packet loss", 5.0, false},    // High
-		{"10% packet loss", 10.0, false},  // Too high
-		{"50% packet loss", 50.0, false},  // Severe
-		{"100% packet loss", 100.0, false}, // Complete failure
+		{"5% packet loss", 5.0, false},        // High
+		{"10% packet loss", 10.0, false},      // Too high
+		{"50% packet loss", 50.0, false},      // Severe
+		{"100% packet loss", 100.0, false},    // Complete failure
 		{"Negative packet loss", -1.0, false}, // Invalid
-		{"Over 100%", 150.0, false},       // Invalid
+		{"Over 100%", 150.0, false},           // Invalid
 	}
 
 	for _, tt := range tests {
@@ -140,7 +140,7 @@ func TestWireGuardStats_PersistentKeepAlive(t *testing.T) {
 		{"60 second keepalive", 60, true},
 		{"120 second keepalive", 120, true},
 		{"Negative keepalive", -1, false},
-		{"Too short (1s)", 1, false},     // Too frequent
+		{"Too short (1s)", 1, false},    // Too frequent
 		{"Too long (300s)", 300, false}, // Excessive
 	}
 
@@ -193,10 +193,10 @@ func TestWireGuardInterface_Name(t *testing.T) {
 // TestConnectivityResult_AllConnected tests full mesh connectivity validation
 func TestConnectivityResult_AllConnected(t *testing.T) {
 	tests := []struct {
-		name          string
-		totalPeers    int
+		name           string
+		totalPeers     int
 		connectedPeers int
-		allConnected  bool
+		allConnected   bool
 	}{
 		{"Full mesh (3 peers)", 3, 3, true},
 		{"Full mesh (5 peers)", 5, 5, true},
@@ -621,10 +621,10 @@ func TestWireGuardInterfaceStatus(t *testing.T) {
 // TestPeerCount_Validation tests WireGuard peer count validation
 func TestPeerCount_Validation(t *testing.T) {
 	tests := []struct {
-		name            string
-		peerCount       int
-		expectedPeers   int
-		fullMesh        bool
+		name          string
+		peerCount     int
+		expectedPeers int
+		fullMesh      bool
 	}{
 		{"Full mesh (4 nodes, 3 peers each)", 3, 3, true},
 		{"Partial mesh (4 nodes, 2 peers)", 2, 3, false},

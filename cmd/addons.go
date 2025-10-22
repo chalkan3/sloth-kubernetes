@@ -381,11 +381,11 @@ func runAddonsStatus(cmd *cobra.Command, args []string) error {
 
 	// Example data - TODO: Get real data from kubectl
 	apps := []struct {
-		Name      string
+		Name       string
 		SyncStatus string
-		Health    string
-		Namespace string
-		Repo      string
+		Health     string
+		Namespace  string
+		Repo       string
 	}{
 		{"cluster-addons", "✅ Synced", "✅ Healthy", "argocd", "github.com/user/gitops"},
 		{"ingress-nginx", "✅ Synced", "✅ Healthy", "ingress-nginx", "Auto-synced"},

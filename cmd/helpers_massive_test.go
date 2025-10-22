@@ -41,9 +41,9 @@ func getStackFromArgsHelper(args []string, index int) string {
 // TestPrintHeader_Formatting tests header formatting
 func TestPrintHeader_Formatting(t *testing.T) {
 	tests := []struct {
-		name     string
-		text     string
-		minLen   int
+		name   string
+		text   string
+		minLen int
 	}{
 		{"Short header", "Test", 10},
 		{"Long header", "This is a very long deployment header", 50},
@@ -194,9 +194,9 @@ func TestNodeSize_Linode(t *testing.T) {
 // TestEnvVarName_Validation tests environment variable name validation
 func TestEnvVarName_Validation(t *testing.T) {
 	tests := []struct {
-		name    string
-		envVar  string
-		valid   bool
+		name   string
+		envVar string
+		valid  bool
 	}{
 		{"Uppercase with underscore", "DO_TOKEN", true},
 		{"All uppercase", "DIGITALOCEAN_TOKEN", true},

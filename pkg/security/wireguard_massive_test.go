@@ -98,10 +98,10 @@ func TestWireGuardConfig_Validation(t *testing.T) {
 		{
 			name: "Valid config",
 			config: &config.WireGuardConfig{
-				Enabled:          true,
-				ServerEndpoint:   "1.2.3.4",
-				ServerPublicKey:  "pubkey123",
-				AllowedIPs:       []string{"10.0.0.0/8"},
+				Enabled:         true,
+				ServerEndpoint:  "1.2.3.4",
+				ServerPublicKey: "pubkey123",
+				AllowedIPs:      []string{"10.0.0.0/8"},
 			},
 			wantError: false,
 		},
@@ -260,8 +260,8 @@ func TestWireGuardMTU(t *testing.T) {
 // TestWireGuardDNS tests DNS configurations
 func TestWireGuardDNS(t *testing.T) {
 	tests := []struct {
-		name string
-		dns  []string
+		name  string
+		dns   []string
 		valid bool
 	}{
 		{"Google DNS", []string{"8.8.8.8", "8.8.4.4"}, true},
@@ -341,9 +341,9 @@ func TestWireGuardKeepalive(t *testing.T) {
 // TestWireGuardSubnetCIDR tests subnet CIDR formats
 func TestWireGuardSubnetCIDR(t *testing.T) {
 	tests := []struct {
-		name   string
-		cidr   string
-		valid  bool
+		name  string
+		cidr  string
+		valid bool
 	}{
 		{"Standard /24", "10.8.0.0/24", true},
 		{"Larger /16", "10.8.0.0/16", true},

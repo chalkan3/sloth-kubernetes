@@ -51,12 +51,12 @@ func TestBuildRKE2ServerConfig(t *testing.T) {
 		{
 			name: "First master",
 			cfg: &RKE2Config{
-				ClusterToken:        "test-token",
-				TLSSan:              []string{"api.example.com"},
-				DisableComponents:   []string{"rke2-ingress-nginx"},
+				ClusterToken:         "test-token",
+				TLSSan:               []string{"api.example.com"},
+				DisableComponents:    []string{"rke2-ingress-nginx"},
 				SnapshotScheduleCron: "0 */6 * * *",
-				SnapshotRetention:   3,
-				SecretsEncryption:   true,
+				SnapshotRetention:    3,
+				SecretsEncryption:    true,
 			},
 			nodeIP:        "10.0.0.1",
 			nodeName:      "master-1",
@@ -414,7 +414,7 @@ func TestMergeRKE2Config(t *testing.T) {
 			name: "User snapshot settings override defaults",
 			user: &RKE2Config{
 				SnapshotScheduleCron: "0 */6 * * *",
-				SnapshotRetention:   10,
+				SnapshotRetention:    10,
 			},
 			want: func(cfg *RKE2Config) bool {
 				return cfg.SnapshotScheduleCron == "0 */6 * * *" &&

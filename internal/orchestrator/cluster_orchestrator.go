@@ -82,25 +82,25 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 		// is more flexible for multi-cloud deployments
 		// This component-based VPC creation is commented out to avoid conflicts
 		/*
-		// Phase 1.6: Create VPC for private networking
-		ctx.Log.Info("🌐 Phase 1.6: Creating VPC for private cluster networking...", nil)
-		// Use first node's region for VPC (or bastion region if no nodes)
-		vpcRegion := cfg.Security.Bastion.Region
-		if len(cfg.Nodes) > 0 {
-			vpcRegion = cfg.Nodes[0].Region
-		}
-		vpcComponent, err = components.NewVPCComponent(
-			ctx,
-			fmt.Sprintf("%s-vpc", name),
-			vpcRegion,
-			"10.0.0.0/16", // Private network range
-			pulumi.Parent(component),
-			pulumi.DependsOn([]pulumi.Resource{sshKeyComponent}),
-		)
-		if err != nil {
-			return nil, fmt.Errorf("failed to create VPC: %w", err)
-		}
-		ctx.Log.Info("✅ VPC created for private networking", nil)
+			// Phase 1.6: Create VPC for private networking
+			ctx.Log.Info("🌐 Phase 1.6: Creating VPC for private cluster networking...", nil)
+			// Use first node's region for VPC (or bastion region if no nodes)
+			vpcRegion := cfg.Security.Bastion.Region
+			if len(cfg.Nodes) > 0 {
+				vpcRegion = cfg.Nodes[0].Region
+			}
+			vpcComponent, err = components.NewVPCComponent(
+				ctx,
+				fmt.Sprintf("%s-vpc", name),
+				vpcRegion,
+				"10.0.0.0/16", // Private network range
+				pulumi.Parent(component),
+				pulumi.DependsOn([]pulumi.Resource{sshKeyComponent}),
+			)
+			if err != nil {
+				return nil, fmt.Errorf("failed to create VPC: %w", err)
+			}
+			ctx.Log.Info("✅ VPC created for private networking", nil)
 		*/
 	} else {
 		// No bastion - nodes can start immediately after SSH keys
@@ -251,15 +251,15 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 	for i, node := range realNodes {
 		nodeKey := fmt.Sprintf("node_%d", i)
 		nodesMap[nodeKey] = pulumi.Map{
-			"name":        node.NodeName,
-			"public_ip":   node.PublicIP,
-			"private_ip":  node.PrivateIP,
-			"vpn_ip":      node.WireGuardIP,
-			"provider":    node.Provider,
-			"region":      node.Region,
-			"size":        node.Size,
-			"roles":       node.Roles,
-			"status":      node.Status,
+			"name":       node.NodeName,
+			"public_ip":  node.PublicIP,
+			"private_ip": node.PrivateIP,
+			"vpn_ip":     node.WireGuardIP,
+			"provider":   node.Provider,
+			"region":     node.Region,
+			"size":       node.Size,
+			"roles":      node.Roles,
+			"status":     node.Status,
 		}
 	}
 	ctx.Export("nodes", nodesMap)

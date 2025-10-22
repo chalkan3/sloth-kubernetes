@@ -21,7 +21,7 @@ func TestGenerateArgoCDApp_DefaultValues(t *testing.T) {
 	assert.Contains(t, manifest, "namespace: argocd")
 	assert.Contains(t, manifest, "repoURL: https://github.com/example/gitops-repo")
 	assert.Contains(t, manifest, "targetRevision: main") // default branch
-	assert.Contains(t, manifest, "path: addons/")         // default path
+	assert.Contains(t, manifest, "path: addons/")        // default path
 	assert.Contains(t, manifest, "prune: true")
 	assert.Contains(t, manifest, "selfHeal: true")
 	assert.Contains(t, manifest, "CreateNamespace=true")

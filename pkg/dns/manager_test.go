@@ -57,11 +57,11 @@ func TestGetDomain(t *testing.T) {
 // TestDNSNameGeneration tests DNS name generation logic
 func TestDNSNameGeneration(t *testing.T) {
 	tests := []struct {
-		name         string
-		nodeType     string
-		nodeCount    int
-		provider     string
-		expectedDNS  []string
+		name        string
+		nodeType    string
+		nodeCount   int
+		provider    string
+		expectedDNS []string
 	}{
 		{
 			name:      "First master node",
@@ -210,11 +210,11 @@ func TestNodeRoleDetection(t *testing.T) {
 // TestWireGuardDNSNaming tests WireGuard DNS name generation
 func TestWireGuardDNSNaming(t *testing.T) {
 	tests := []struct {
-		name         string
-		nodeName     string
-		nodeType     string
-		nodeCount    int
-		wantWGNames  []string
+		name        string
+		nodeName    string
+		nodeType    string
+		nodeCount   int
+		wantWGNames []string
 	}{
 		{
 			name:      "Master node with WireGuard",
@@ -282,9 +282,9 @@ func TestWireGuardDNSNaming(t *testing.T) {
 // TestPrivateDNSNaming tests private DNS record naming
 func TestPrivateDNSNaming(t *testing.T) {
 	tests := []struct {
-		name         string
-		nodeName     string
-		wantPrivate  string
+		name        string
+		nodeName    string
+		wantPrivate string
 	}{
 		{
 			name:        "Master node private DNS",
@@ -532,9 +532,9 @@ func TestDNSTTL(t *testing.T) {
 // TestWildcardDNSPattern tests wildcard DNS pattern
 func TestWildcardDNSPattern(t *testing.T) {
 	tests := []struct {
-		name     string
-		pattern  string
-		isValid  bool
+		name    string
+		pattern string
+		isValid bool
 	}{
 		{"Valid wildcard", "*.k8s", true},
 		{"Invalid - no asterisk", "k8s", false},

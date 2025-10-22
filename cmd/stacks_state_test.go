@@ -106,10 +106,10 @@ func TestStateDeleteCmd_ArgumentValidation(t *testing.T) {
 // TestDeploymentJSONParsing tests JSON parsing logic for deployment
 func TestDeploymentJSONParsing(t *testing.T) {
 	testCases := []struct {
-		name          string
+		name           string
 		deploymentJSON string
-		expectedCount int
-		shouldError   bool
+		expectedCount  int
+		shouldError    bool
 	}{
 		{
 			name: "Valid deployment with resources",
@@ -245,11 +245,11 @@ func TestResourceFiltering(t *testing.T) {
 // TestResourceRemoval tests resource removal logic
 func TestResourceRemoval(t *testing.T) {
 	testCases := []struct {
-		name           string
-		resources      []map[string]interface{}
-		removeURN      string
-		expectedCount  int
-		shouldBeFound  bool
+		name          string
+		resources     []map[string]interface{}
+		removeURN     string
+		expectedCount int
+		shouldBeFound bool
 	}{
 		{
 			name: "Remove existing resource",
@@ -258,25 +258,25 @@ func TestResourceRemoval(t *testing.T) {
 				{"urn": "urn:pulumi:test::project::digitalocean:Droplet::node2", "type": "digitalocean:Droplet"},
 				{"urn": "urn:pulumi:test::project::digitalocean:Vpc::vpc1", "type": "digitalocean:Vpc"},
 			},
-			removeURN:      "urn:pulumi:test::project::digitalocean:Droplet::node1",
-			expectedCount:  2,
-			shouldBeFound:  true,
+			removeURN:     "urn:pulumi:test::project::digitalocean:Droplet::node1",
+			expectedCount: 2,
+			shouldBeFound: true,
 		},
 		{
 			name: "Remove non-existent resource",
 			resources: []map[string]interface{}{
 				{"urn": "urn:pulumi:test::project::digitalocean:Droplet::node1", "type": "digitalocean:Droplet"},
 			},
-			removeURN:      "urn:pulumi:test::project::digitalocean:Droplet::node999",
-			expectedCount:  1,
-			shouldBeFound:  false,
+			removeURN:     "urn:pulumi:test::project::digitalocean:Droplet::node999",
+			expectedCount: 1,
+			shouldBeFound: false,
 		},
 		{
-			name:           "Remove from empty list",
-			resources:      []map[string]interface{}{},
-			removeURN:      "urn:pulumi:test::project::digitalocean:Droplet::node1",
-			expectedCount:  0,
-			shouldBeFound:  false,
+			name:          "Remove from empty list",
+			resources:     []map[string]interface{}{},
+			removeURN:     "urn:pulumi:test::project::digitalocean:Droplet::node1",
+			expectedCount: 0,
+			shouldBeFound: false,
 		},
 	}
 

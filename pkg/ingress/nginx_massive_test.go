@@ -201,12 +201,12 @@ func TestNginxIngressConfig_ReplicaCount(t *testing.T) {
 // TestNginxIngressConfig_Resources tests resource requirements
 func TestNginxIngressConfig_Resources(t *testing.T) {
 	tests := []struct {
-		name         string
-		cpuRequest   string
-		memRequest   string
-		cpuLimit     string
-		memLimit     string
-		valid        bool
+		name       string
+		cpuRequest string
+		memRequest string
+		cpuLimit   string
+		memLimit   string
+		valid      bool
 	}{
 		{"Valid minimal resources", "100m", "128Mi", "200m", "512Mi", true},
 		{"Valid standard resources", "250m", "256Mi", "500m", "1Gi", true},
@@ -242,13 +242,13 @@ func TestNginxIngressConfig_Resources(t *testing.T) {
 // TestNginxIngressConfig_Autoscaling tests HPA configurations
 func TestNginxIngressConfig_Autoscaling(t *testing.T) {
 	tests := []struct {
-		name                            string
-		enabled                         bool
-		minReplicas                     int
-		maxReplicas                     int
-		targetCPUUtilizationPercentage  int
-		targetMemUtilizationPercentage  int
-		valid                           bool
+		name                           string
+		enabled                        bool
+		minReplicas                    int
+		maxReplicas                    int
+		targetCPUUtilizationPercentage int
+		targetMemUtilizationPercentage int
+		valid                          bool
 	}{
 		{"Valid autoscaling", true, 2, 4, 80, 80, true},
 		{"Valid high replicas", true, 3, 10, 75, 75, true},
@@ -343,10 +343,10 @@ func TestNginxIngressConfig_ForwardedHeaders(t *testing.T) {
 // TestNginxIngressConfig_PodAntiAffinity tests pod anti-affinity rules
 func TestNginxIngressConfig_PodAntiAffinity(t *testing.T) {
 	tests := []struct {
-		name         string
-		topologyKey  string
-		requireType  string
-		valid        bool
+		name        string
+		topologyKey string
+		requireType string
+		valid       bool
 	}{
 		{"Required on hostname", "kubernetes.io/hostname", "required", true},
 		{"Preferred on hostname", "kubernetes.io/hostname", "preferred", true},
@@ -372,10 +372,10 @@ func TestNginxIngressConfig_PodAntiAffinity(t *testing.T) {
 // TestNginxIngressConfig_Metrics tests metrics and monitoring configurations
 func TestNginxIngressConfig_Metrics(t *testing.T) {
 	tests := []struct {
-		name                   string
-		metricsEnabled         bool
-		serviceMonitorEnabled  bool
-		valid                  bool
+		name                  string
+		metricsEnabled        bool
+		serviceMonitorEnabled bool
+		valid                 bool
 	}{
 		{"Metrics and ServiceMonitor enabled", true, true, true},
 		{"Only metrics enabled", true, false, true},
@@ -455,11 +455,11 @@ func TestCertManager_Version(t *testing.T) {
 // TestCertManager_ClusterIssuer tests ClusterIssuer configurations
 func TestCertManager_ClusterIssuer(t *testing.T) {
 	tests := []struct {
-		name        string
-		issuerName  string
-		acmeServer  string
-		email       string
-		valid       bool
+		name       string
+		issuerName string
+		acmeServer string
+		email      string
+		valid      bool
 	}{
 		{"Let's Encrypt production", "letsencrypt-prod", "https://acme-v02.api.letsencrypt.org/directory", "admin@example.com", true},
 		{"Let's Encrypt staging", "letsencrypt-staging", "https://acme-staging-v02.api.letsencrypt.org/directory", "admin@example.com", true},
@@ -640,10 +640,10 @@ func TestIngressRule_Backend(t *testing.T) {
 // TestNginxIngressConfig_TCPServices tests TCP service configurations
 func TestNginxIngressConfig_TCPServices(t *testing.T) {
 	tests := []struct {
-		name        string
-		port        int
-		target      string
-		valid       bool
+		name   string
+		port   int
+		target string
+		valid  bool
 	}{
 		{"SSH service", 22, "default/ssh:22", true},
 		{"PostgreSQL service", 5432, "database/postgres:5432", true},
@@ -674,10 +674,10 @@ func TestNginxIngressConfig_TCPServices(t *testing.T) {
 // TestNginxIngressConfig_UDPServices tests UDP service configurations
 func TestNginxIngressConfig_UDPServices(t *testing.T) {
 	tests := []struct {
-		name        string
-		port        int
-		target      string
-		valid       bool
+		name   string
+		port   int
+		target string
+		valid  bool
 	}{
 		{"DNS service", 53, "kube-system/coredns:53", true},
 		{"NTP service", 123, "default/ntp:123", true},

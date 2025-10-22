@@ -125,9 +125,9 @@ func TestGetSSHPrivateKey(t *testing.T) {
 // TestIngressIPParsing tests parsing of LoadBalancer IP from output
 func TestIngressIPParsing(t *testing.T) {
 	tests := []struct {
-		name     string
-		output   string
-		wantIP   string
+		name   string
+		output string
+		wantIP string
 	}{
 		{
 			name:   "Valid IP in output",
@@ -184,15 +184,15 @@ func TestIngressIPParsing(t *testing.T) {
 func TestNginxIngressConfiguration(t *testing.T) {
 	// Test configuration values
 	config := map[string]interface{}{
-		"replicaCount":               2,
-		"minReplicas":                2,
-		"maxReplicas":                4,
-		"targetCPUUtilization":       80,
-		"targetMemoryUtilization":    80,
-		"healthcheckInterval":        10,
-		"loadBalancerSize":           "lb-small",
-		"loadBalancerAlgorithm":      "round_robin",
-		"loadBalancerProtocol":       "tcp",
+		"replicaCount":                2,
+		"minReplicas":                 2,
+		"maxReplicas":                 4,
+		"targetCPUUtilization":        80,
+		"targetMemoryUtilization":     80,
+		"healthcheckInterval":         10,
+		"loadBalancerSize":            "lb-small",
+		"loadBalancerAlgorithm":       "round_robin",
+		"loadBalancerProtocol":        "tcp",
 		"loadBalancerHealthcheckPort": 10254,
 	}
 
@@ -238,12 +238,12 @@ func TestNginxIngressConfiguration(t *testing.T) {
 // TestResourceRequirements tests resource limits and requests
 func TestResourceRequirements(t *testing.T) {
 	tests := []struct {
-		name            string
-		componentType   string
-		cpuRequest      string
-		memoryRequest   string
-		memoryLimit     string
-		isValid         bool
+		name          string
+		componentType string
+		cpuRequest    string
+		memoryRequest string
+		memoryLimit   string
+		isValid       bool
 	}{
 		{
 			name:          "Controller resources",
@@ -322,12 +322,12 @@ func TestSSLConfiguration(t *testing.T) {
 // TestIngressAnnotations tests ingress controller annotations
 func TestIngressAnnotations(t *testing.T) {
 	annotations := map[string]string{
-		"service.beta.kubernetes.io/do-loadbalancer-protocol":                   "tcp",
-		"service.beta.kubernetes.io/do-loadbalancer-algorithm":                  "round_robin",
-		"service.beta.kubernetes.io/do-loadbalancer-healthcheck-port":           "10254",
-		"service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol":       "tcp",
+		"service.beta.kubernetes.io/do-loadbalancer-protocol":                     "tcp",
+		"service.beta.kubernetes.io/do-loadbalancer-algorithm":                    "round_robin",
+		"service.beta.kubernetes.io/do-loadbalancer-healthcheck-port":             "10254",
+		"service.beta.kubernetes.io/do-loadbalancer-healthcheck-protocol":         "tcp",
 		"service.beta.kubernetes.io/do-loadbalancer-healthcheck-interval-seconds": "10",
-		"service.beta.kubernetes.io/do-loadbalancer-size-slug":                  "lb-small",
+		"service.beta.kubernetes.io/do-loadbalancer-size-slug":                    "lb-small",
 	}
 
 	// Validate annotation keys
@@ -643,14 +643,14 @@ func TestNginxIngressManagerStructure(t *testing.T) {
 // TestLoadBalancerConfiguration tests load balancer settings
 func TestLoadBalancerConfiguration(t *testing.T) {
 	lbConfig := map[string]interface{}{
-		"type":                   "LoadBalancer",
-		"externalTrafficPolicy":  "Local",
-		"protocol":               "tcp",
-		"algorithm":              "round_robin",
-		"healthcheckPort":        10254,
-		"healthcheckProtocol":    "tcp",
-		"healthcheckInterval":    10,
-		"size":                   "lb-small",
+		"type":                  "LoadBalancer",
+		"externalTrafficPolicy": "Local",
+		"protocol":              "tcp",
+		"algorithm":             "round_robin",
+		"healthcheckPort":       10254,
+		"healthcheckProtocol":   "tcp",
+		"healthcheckInterval":   10,
+		"size":                  "lb-small",
 	}
 
 	// Validate service type

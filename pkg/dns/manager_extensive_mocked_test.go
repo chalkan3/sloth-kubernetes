@@ -75,8 +75,8 @@ func TestCreateNodeRecords_SingleMaster(t *testing.T) {
 		nodes := map[string][]*providers.NodeOutput{
 			"digitalocean": {
 				{
-					Name:     "master-1",
-					PublicIP: pulumi.String("203.0.113.10").ToStringOutput(),
+					Name:      "master-1",
+					PublicIP:  pulumi.String("203.0.113.10").ToStringOutput(),
 					PrivateIP: pulumi.String("10.10.0.10").ToStringOutput(),
 					Labels: map[string]string{
 						"role": "master",

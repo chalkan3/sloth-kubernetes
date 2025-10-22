@@ -26,9 +26,9 @@ check_wireguard() {
 `
 
 	tests := []struct {
-		name    string
-		check   func(string) bool
-		pass    bool
+		name  string
+		check func(string) bool
+		pass  bool
 	}{
 		{"Has shebang", func(s string) bool { return strings.HasPrefix(s, "#!/bin/bash") }, true},
 		{"Has set -e", func(s string) bool { return strings.Contains(s, "set -e") }, true},
@@ -75,9 +75,9 @@ func TestVPNValidationTimeout_Values(t *testing.T) {
 // TestWireGuardPeerCount_Calculation tests peer count calculation
 func TestWireGuardPeerCount_Calculation(t *testing.T) {
 	tests := []struct {
-		name           string
-		totalNodes     int
-		expectedPeers  int
+		name          string
+		totalNodes    int
+		expectedPeers int
 	}{
 		{"Single node", 1, 0},
 		{"Two nodes", 2, 1},
@@ -100,11 +100,11 @@ func TestWireGuardPeerCount_Calculation(t *testing.T) {
 // TestHandshakeThreshold_Percentage tests handshake threshold calculation
 func TestHandshakeThreshold_Percentage(t *testing.T) {
 	tests := []struct {
-		name          string
-		peerCount     int
-		activeCount   int
-		threshold     int
-		shouldPass    bool
+		name        string
+		peerCount   int
+		activeCount int
+		threshold   int
+		shouldPass  bool
 	}{
 		{"100% active", 10, 10, 70, true},
 		{"80% active", 10, 8, 70, true},
@@ -358,8 +358,8 @@ func TestCloudInitWaitLoop_Logic(t *testing.T) {
 // TestVPNMesh_Connectivity tests VPN mesh connectivity patterns
 func TestVPNMesh_Connectivity(t *testing.T) {
 	tests := []struct {
-		name            string
-		totalNodes      int
+		name             string
+		totalNodes       int
 		totalConnections int
 	}{
 		{"2 nodes", 2, 1},    // 1 connection
@@ -383,11 +383,11 @@ func TestVPNMesh_Connectivity(t *testing.T) {
 // Test100ValidationScenarios generates 100 validation test scenarios
 func Test100ValidationScenarios(t *testing.T) {
 	scenarios := []struct {
-		nodeCount      int
-		timeout        int
-		checkInterval  int
+		nodeCount          int
+		timeout            int
+		checkInterval      int
 		handshakeThreshold int
-		valid          bool
+		valid              bool
 	}{
 		{3, 300, 5, 70, true},
 		{5, 600, 10, 70, true},
@@ -397,17 +397,17 @@ func Test100ValidationScenarios(t *testing.T) {
 	// Generate 97 more scenarios
 	for i := 0; i < 97; i++ {
 		scenarios = append(scenarios, struct {
-			nodeCount      int
-			timeout        int
-			checkInterval  int
+			nodeCount          int
+			timeout            int
+			checkInterval      int
 			handshakeThreshold int
-			valid          bool
+			valid              bool
 		}{
-			nodeCount:      2 + (i % 15),      // 2-16 nodes
-			timeout:        300 + (i%3)*300,   // 300, 600, 900 seconds
-			checkInterval:  5 + (i%3)*5,       // 5, 10, 15 seconds
-			handshakeThreshold: 70 + (i%3)*10, // 70, 80, 90 percent
-			valid:          true,
+			nodeCount:          2 + (i % 15),    // 2-16 nodes
+			timeout:            300 + (i%3)*300, // 300, 600, 900 seconds
+			checkInterval:      5 + (i%3)*5,     // 5, 10, 15 seconds
+			handshakeThreshold: 70 + (i%3)*10,   // 70, 80, 90 percent
+			valid:              true,
 		})
 	}
 
