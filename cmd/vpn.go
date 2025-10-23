@@ -19,6 +19,21 @@ import (
 	"golang.org/x/crypto/curve25519"
 )
 
+var (
+	// VPN join command flags
+	vpnJoinRemote  string
+	vpnJoinIP      string
+	vpnJoinLabel   string
+	vpnJoinInstall bool
+
+	// VPN leave command flags
+	vpnLeaveIP string
+
+	// VPN client config flags
+	vpnConfigOutput string
+	vpnConfigQR     bool
+)
+
 var vpnCmd = &cobra.Command{
 	Use:   "vpn",
 	Short: "Manage WireGuard VPN",
@@ -108,15 +123,6 @@ var vpnClientConfigCmd = &cobra.Command{
 	RunE: runVPNClientConfig,
 }
 
-var (
-	vpnJoinRemote   string
-	vpnJoinIP       string
-	vpnJoinInstall  bool
-	vpnLeaveIP      string
-	vpnConfigOutput string
-	vpnConfigQR     bool
-)
-
 func init() {
 	rootCmd.AddCommand(vpnCmd)
 
@@ -132,6 +138,7 @@ func init() {
 	// Join flags
 	vpnJoinCmd.Flags().StringVar(&vpnJoinRemote, "remote", "", "Remote SSH host to add (e.g., user@host.com)")
 	vpnJoinCmd.Flags().StringVar(&vpnJoinIP, "vpn-ip", "", "Custom VPN IP address (default: auto-assign)")
+	vpnJoinCmd.Flags().StringVar(&vpnJoinLabel, "label", "", "Peer label/name (e.g., 'laptop', 'ci-server')")
 	vpnJoinCmd.Flags().BoolVar(&vpnJoinInstall, "install", false, "Auto-install WireGuard configuration")
 
 	// Leave flags
@@ -223,20 +230,12 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 	color.Cyan("ℹ  Fetching peer information from cluster nodes...")
 	fmt.Println()
 
-	// Debug: Show loaded nodes if verbose
-	if verbose {
-		fmt.Println("\nDebug: Loaded nodes from Pulumi state:")
-		for _, n := range nodes {
-			fmt.Printf("  - %s: VPN IP = '%s'\n", n.Name, n.WireGuardIP)
-		}
-		fmt.Println()
-	}
-
 	// Collect peer information from all nodes
 	type PeerInfo struct {
 		NodeName      string
 		VPNIp         string
 		PublicKey     string
+		Label         string
 		Endpoint      string
 		LastHandshake string
 		Transfer      string
@@ -255,10 +254,66 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 			}
 		}
 
-		// Get WireGuard peers from this node
-		// wg show wg0 dump format: public_key preshared_key endpoint allowed_ips latest_handshake rx tx persistent_keepalive
-		fetchCmd := "wg show wg0 dump | tail -n +2"  // Skip header line
+		// Get WireGuard config and peers from this node
+		// First get the config to extract labels from comments
+		fetchConfigCmd := "cat /etc/wireguard/wg0.conf"
+		fetchPeersCmd := "wg show wg0 dump | tail -n +2"  // Skip header line
 
+		// Fetch config to extract peer labels
+		var configCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			configCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("root@%s", targetIP),
+				fetchConfigCmd,
+			)
+		} else {
+			configCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				fmt.Sprintf("root@%s", targetIP),
+				fetchConfigCmd,
+			)
+		}
+
+		// Parse labels from config
+		peerLabels := make(map[string]string) // map[publicKey]label
+		if configOutput, err := configCmd.CombinedOutput(); err == nil {
+			configLines := strings.Split(string(configOutput), "\n")
+			var currentLabel string
+			var currentPublicKey string
+
+			for _, line := range configLines {
+				line = strings.TrimSpace(line)
+
+				// Check for label comment (# Peer: xxx)
+				if strings.HasPrefix(line, "# Peer:") {
+					currentLabel = strings.TrimSpace(strings.TrimPrefix(line, "# Peer:"))
+				}
+
+				// Check for PublicKey line
+				if strings.HasPrefix(line, "PublicKey") {
+					parts := strings.Split(line, "=")
+					if len(parts) == 2 {
+						currentPublicKey = strings.TrimSpace(parts[1])
+						if currentLabel != "" {
+							peerLabels[currentPublicKey] = currentLabel
+							currentLabel = "" // Reset for next peer
+						}
+					}
+				}
+			}
+		}
+
+		// Fetch peer information
 		var sshCmd *exec.Cmd
 		if bastionEnabled && bastionIP != "" {
 			sshCmd = exec.Command("ssh",
@@ -269,7 +324,7 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 				"-o", "ConnectTimeout=5",
 				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
 				fmt.Sprintf("root@%s", targetIP),
-				fetchCmd,
+				fetchPeersCmd,
 			)
 		} else {
 			sshCmd = exec.Command("ssh",
@@ -279,7 +334,7 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 				"-o", "UserKnownHostsFile=/dev/null",
 				"-o", "ConnectTimeout=5",
 				fmt.Sprintf("root@%s", targetIP),
-				fetchCmd,
+				fetchPeersCmd,
 			)
 		}
 
@@ -340,7 +395,7 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 			}
 
 			// Find peer node name by VPN IP
-			peerNodeName := "Unknown"
+			peerNodeName := ""
 			for _, n := range nodes {
 				// Compare VPN IPs, handling potential /32 suffix
 				nodeVPNIP := strings.TrimSuffix(n.WireGuardIP, "/32")
@@ -350,19 +405,21 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 				}
 			}
 
-			// Debug: Show when we can't match a peer
-			if verbose && peerNodeName == "Unknown" {
-				fmt.Printf("  Debug: Could not match VPN IP '%s' to any node\n", vpnIP)
-			}
+			// Only add peers that belong to cluster nodes (skip external/unknown peers)
+			if peerNodeName != "" {
+				// Get label from map
+				label := peerLabels[publicKey]
 
-			allPeers = append(allPeers, PeerInfo{
-				NodeName:      peerNodeName,
-				VPNIp:         vpnIP,
-				PublicKey:     publicKey[:16] + "...",  // Truncate for display
-				Endpoint:      endpoint,
-				LastHandshake: handshakeStr,
-				Transfer:      transferStr,
-			})
+				allPeers = append(allPeers, PeerInfo{
+					NodeName:      peerNodeName,
+					VPNIp:         vpnIP,
+					PublicKey:     publicKey[:16] + "...",  // Truncate for display
+					Label:         label,
+					Endpoint:      endpoint,
+					LastHandshake: handshakeStr,
+					Transfer:      transferStr,
+				})
+			}
 		}
 
 		// Only need to get from one node since all should have the same peers
@@ -385,15 +442,20 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	defer w.Flush()
 
-	color.New(color.Bold).Fprintln(w, "NODE\tVPN IP\tPUBLIC KEY\tENDPOINT\tLAST HANDSHAKE\tTRANSFER")
-	fmt.Fprintln(w, "----\t------\t----------\t--------\t--------------\t--------")
+	color.New(color.Bold).Fprintln(w, "NODE\tLABEL\tVPN IP\tPUBLIC KEY\tENDPOINT\tLAST HANDSHAKE\tTRANSFER")
+	fmt.Fprintln(w, "----\t-----\t------\t----------\t--------\t--------------\t--------")
 
 	if len(uniquePeers) == 0 {
 		fmt.Fprintln(w, "No peers found")
 	} else {
 		for _, peer := range uniquePeers {
-			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+			label := peer.Label
+			if label == "" {
+				label = "-"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\n",
 				peer.NodeName,
+				label,
 				peer.VPNIp,
 				peer.PublicKey,
 				peer.Endpoint,
@@ -805,10 +867,131 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 
 	printInfo(fmt.Sprintf("Target: %s", target))
 
+	// Get SSH key and bastion info early (needed for peer discovery)
+	sshKeyPath := GetSSHKeyPath(stack)
+	bastionEnabled := false
+	bastionIP := ""
+
+	if bastionEnabledOutput, ok := outputs["bastion_enabled"]; ok {
+		if bastionEnabledOutput.Value != nil {
+			bastionEnabled = bastionEnabledOutput.Value == true
+		}
+	}
+
+	if bastionEnabled {
+		if bastionOutput, ok := outputs["bastion"]; ok {
+			if bastionMap, ok := bastionOutput.Value.(map[string]interface{}); ok {
+				if pubIP, ok := bastionMap["public_ip"].(string); ok {
+					bastionIP = pubIP
+				}
+			}
+		}
+	}
+
+	// STEP 0.5: Discover existing VPN clients early (needed for IP auto-assignment)
+	var existingPeersForIPAssign []VPNPeerInfo
+
+	// Get first master node to query peers  (all masters are peers)
+	var firstMaster NodeInfo
+	for _, node := range nodes {
+		// Just get the first node - all have the same peer list
+		firstMaster = node
+		break
+	}
+
+	if firstMaster.Name != "" {
+		targetIP := firstMaster.WireGuardIP
+		if targetIP == "" {
+			targetIP = firstMaster.PrivateIP
+			if targetIP == "" {
+				targetIP = firstMaster.PublicIP
+			}
+		}
+
+		listPeersScript := `wg show wg0 dump | tail -n +2 | while IFS=$'\t' read -r pubkey _ endpoint allowed_ips _; do
+			first_ip=$(echo "$allowed_ips" | cut -d, -f1 | cut -d/ -f1)
+			if [ -n "$first_ip" ] && [ "$first_ip" != "(none)" ]; then
+				echo "$pubkey|$first_ip"
+			fi
+		done`
+
+		var listCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			listCmd = exec.Command("ssh",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("root@%s", targetIP),
+				listPeersScript,
+			)
+		} else {
+			listCmd = exec.Command("ssh",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				fmt.Sprintf("root@%s", targetIP),
+				listPeersScript,
+			)
+		}
+
+		output, err := listCmd.CombinedOutput()
+		if err == nil {
+			lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+			for _, line := range lines {
+				parts := strings.Split(line, "|")
+				if len(parts) == 2 {
+					peerIP := strings.TrimSpace(parts[1])
+					peerKey := strings.TrimSpace(parts[0])
+
+					if peerIP == "" || peerIP == "(none)" {
+						continue
+					}
+
+					// Filter out cluster node IPs (10.8.0.10-99)
+					if strings.HasPrefix(peerIP, "10.8.0.") {
+						ipParts := strings.Split(peerIP, ".")
+						if len(ipParts) == 4 {
+							var lastOctet int
+							if _, err := fmt.Sscanf(ipParts[3], "%d", &lastOctet); err == nil {
+								if lastOctet >= 10 && lastOctet < 100 {
+									continue
+								}
+							}
+						}
+					}
+
+					existingPeersForIPAssign = append(existingPeersForIPAssign, VPNPeerInfo{
+						PublicKey:  peerKey,
+						VPNAddress: peerIP,
+					})
+				}
+			}
+		}
+	}
+
 	// Auto-assign VPN IP if not specified
 	if vpnJoinIP == "" {
-		// Find next available IP in 10.8.0.x range
-		vpnJoinIP = fmt.Sprintf("10.8.0.%d", 100+len(nodes))
+		// Find next available IP in 10.8.0.x range (100-254)
+		// Check existing peers to avoid collisions
+		usedIPs := make(map[string]bool)
+		for _, peer := range existingPeersForIPAssign {
+			usedIPs[peer.VPNAddress] = true
+		}
+
+		// Start from 100 and find first available
+		for i := 100; i < 255; i++ {
+			candidateIP := fmt.Sprintf("10.8.0.%d", i)
+			if !usedIPs[candidateIP] {
+				vpnJoinIP = candidateIP
+				break
+			}
+		}
+
+		if vpnJoinIP == "" {
+			return fmt.Errorf("no available VPN IPs in range 10.8.0.100-254")
+		}
+
 		printInfo(fmt.Sprintf("Auto-assigned VPN IP: %s", vpnJoinIP))
 	} else {
 		printInfo(fmt.Sprintf("Using custom VPN IP: %s", vpnJoinIP))
@@ -822,19 +1005,7 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to generate keypair: %w", err)
 	}
 	printSuccess(fmt.Sprintf("Generated keypair (public key: %s...)", publicKey[:16]))
-
-	// STEP 2: Get SSH key for node access
-	sshKeyPath := GetSSHKeyPath(stack)
 	printInfo(fmt.Sprintf("Using SSH key: %s", sshKeyPath))
-
-	// Check if bastion is enabled
-	bastionEnabled := false
-	bastionIP := ""
-	if bastionEnabledOutput, ok := outputs["bastion_enabled"]; ok {
-		if bastionEnabledOutput.Value != nil {
-			bastionEnabled = bastionEnabledOutput.Value == true
-		}
-	}
 
 	// Get bastion info if enabled
 	if bastionEnabled {
@@ -942,7 +1113,7 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 
 	for i, node := range nodes {
 		nodeTarget := node.PublicIP
-		peerAddScript := generatePeerAddScript(vpnJoinIP, publicKey)
+		peerAddScript := generatePeerAddScript(vpnJoinIP, publicKey, vpnJoinLabel)
 
 		// Build SSH command based on bastion mode
 		var sshCmd *exec.Cmd
@@ -1083,7 +1254,7 @@ fi
 	// STEP 6: Generate client configuration
 	fmt.Println()
 	printInfo("Step 5/5: Generating client configuration...")
-	clientConfig := generateClientConfig(privateKey, vpnJoinIP, nodes, existingPeers, sshKeyPath, bastionEnabled, bastionIP)
+	clientConfig := generateClientConfig(privateKey, vpnJoinIP, vpnJoinLabel, nodes, existingPeers, sshKeyPath, bastionEnabled, bastionIP)
 
 	configPath := "./wg0-client.conf"
 	if err := os.WriteFile(configPath, []byte(clientConfig), 0600); err != nil {
@@ -1149,13 +1320,14 @@ fi
 echo "✓ WireGuard installed and started"
 `, clientConfig)
 
-			// Execute installation via SSH
+			// Execute installation via SSH using stdin to avoid shell escaping issues
 			sshCmd := exec.Command("ssh",
 				"-o", "StrictHostKeyChecking=accept-new",
 				"-o", "UserKnownHostsFile=/dev/null",
 				vpnJoinRemote,
-				"sudo", "bash", "-c", installScript,
+				"sudo", "bash",
 			)
+			sshCmd.Stdin = strings.NewReader(installScript)
 
 			output, err := sshCmd.CombinedOutput()
 			if err != nil {
@@ -1629,14 +1801,19 @@ func generateWireGuardKeypair() (privateKey string, publicKey string, err error)
 }
 
 // generatePeerAddScript creates a bash script to add a peer to WireGuard config
-func generatePeerAddScript(peerIP string, peerPublicKey string) string {
+func generatePeerAddScript(peerIP string, peerPublicKey string, peerLabel string) string {
+	comment := "Client joined via CLI"
+	if peerLabel != "" {
+		comment = fmt.Sprintf("Peer: %s", peerLabel)
+	}
+
 	return fmt.Sprintf(`
 set -e
 # Add new peer to WireGuard configuration
 cat >> /etc/wireguard/wg0.conf <<EOF
 
 [Peer]
-# Client joined via CLI
+# %s
 PublicKey = %s
 AllowedIPs = %s/32
 PersistentKeepalive = 25
@@ -1645,7 +1822,7 @@ EOF
 # Reload WireGuard configuration
 wg syncconf wg0 <(wg-quick strip wg0)
 echo "Peer added and WireGuard reloaded"
-`, peerPublicKey, peerIP)
+`, comment, peerPublicKey, peerIP)
 }
 
 // fetchNodePublicKey fetches the WireGuard public key from a node via SSH
@@ -1700,11 +1877,16 @@ func fetchNodePublicKey(node NodeInfo, sshKeyPath string, bastionEnabled bool, b
 }
 
 // generateClientConfig generates a complete WireGuard client configuration
-func generateClientConfig(privateKey string, clientIP string, nodes []NodeInfo, existingPeers []VPNPeerInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) string {
+func generateClientConfig(privateKey string, clientIP string, peerLabel string, nodes []NodeInfo, existingPeers []VPNPeerInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) string {
+	labelComment := ""
+	if peerLabel != "" {
+		labelComment = fmt.Sprintf("# Peer Label: %s\n", peerLabel)
+	}
+
 	config := fmt.Sprintf(`[Interface]
 # WireGuard Client Configuration
 # Generated by sloth-kubernetes CLI
-PrivateKey = %s
+%sPrivateKey = %s
 Address = %s/24
 DNS = 1.1.1.1
 
@@ -1712,7 +1894,7 @@ DNS = 1.1.1.1
 # PostUp = echo "Connected to Kubernetes cluster VPN"
 # PreDown = echo "Disconnecting from cluster VPN"
 
-`, privateKey, clientIP)
+`, labelComment, privateKey, clientIP)
 
 	// Add each cluster node as a peer
 	for _, node := range nodes {
