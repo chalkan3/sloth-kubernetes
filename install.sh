@@ -3,13 +3,18 @@
 set -e
 
 # Sloth Kubernetes Installer
-# Usage: curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash
+# Usage:
+#   curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash
+#   ./install.sh                    # Install latest version
+#   ./install.sh v1.0.0             # Install specific version
 
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
 NC='\033[0m' # No Color
 
 # Configuration
@@ -19,9 +24,10 @@ INSTALL_DIR="${INSTALL_DIR:-/usr/local/bin}"
 
 # Functions
 print_header() {
-    echo -e "${BLUE}========================================${NC}"
-    echo -e "${BLUE}  Sloth Kubernetes Installer${NC}"
-    echo -e "${BLUE}========================================${NC}"
+    echo ""
+    echo -e "${CYAN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${CYAN}║${NC}  ${BOLD}🦥 Sloth Kubernetes Installer${NC}                          ${CYAN}║${NC}"
+    echo -e "${CYAN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
 }
 
@@ -150,6 +156,37 @@ install_binary() {
 
     print_success "Downloaded successfully"
 
+    # Download and verify checksum
+    print_info "Verifying checksum..."
+    local checksum_url="https://github.com/${REPO}/releases/download/${version}/checksums.txt"
+
+    if command -v curl >/dev/null 2>&1; then
+        curl -fsSL -o "${tmp_dir}/checksums.txt" "${checksum_url}" 2>/dev/null || true
+    elif command -v wget >/dev/null 2>&1; then
+        wget -q -O "${tmp_dir}/checksums.txt" "${checksum_url}" 2>/dev/null || true
+    fi
+
+    if [ -f "${tmp_dir}/checksums.txt" ]; then
+        cd "${tmp_dir}"
+        if command -v shasum >/dev/null 2>&1; then
+            if grep "${archive_name}" checksums.txt | shasum -a 256 -c - >/dev/null 2>&1; then
+                print_success "Checksum verified"
+            else
+                print_warning "Checksum verification failed, but continuing..."
+            fi
+        elif command -v sha256sum >/dev/null 2>&1; then
+            if grep "${archive_name}" checksums.txt | sha256sum -c - >/dev/null 2>&1; then
+                print_success "Checksum verified"
+            else
+                print_warning "Checksum verification failed, but continuing..."
+            fi
+        else
+            print_warning "No checksum tool found (shasum/sha256sum), skipping verification"
+        fi
+    else
+        print_warning "Checksums not available, skipping verification"
+    fi
+
     # Extract archive
     print_info "Extracting archive..."
     cd "${tmp_dir}"
@@ -206,37 +243,58 @@ verify_installation() {
 # Print usage information
 print_usage() {
     echo ""
-    print_success "Installation complete!"
+    echo -e "${GREEN}╔════════════════════════════════════════════════════════════╗${NC}"
+    echo -e "${GREEN}║${NC}  ${BOLD}✨ Installation Complete!${NC}                               ${GREEN}║${NC}"
+    echo -e "${GREEN}╚════════════════════════════════════════════════════════════╝${NC}"
     echo ""
-    echo "Usage:"
-    echo "  ${BINARY_NAME} --help                 # Show help"
-    echo "  ${BINARY_NAME} deploy <stack-name>    # Deploy a cluster"
-    echo "  ${BINARY_NAME} state locate           # Configure state backend"
-    echo "  ${BINARY_NAME} stacks list            # List all stacks"
-    echo "  ${BINARY_NAME} vpn status             # Show VPN status"
+    echo -e "${BOLD}Quick Start:${NC}"
     echo ""
-    echo "Configuration examples:"
-    echo "  See: https://github.com/${REPO}/tree/main/examples"
+    echo -e "  ${CYAN}1.${NC} Get help and see available commands:"
+    echo -e "     ${BLUE}${BINARY_NAME} --help${NC}"
     echo ""
-    echo "Documentation:"
-    echo "  https://github.com/${REPO}"
+    echo -e "  ${CYAN}2.${NC} Deploy a Kubernetes cluster:"
+    echo -e "     ${BLUE}${BINARY_NAME} deploy production${NC}"
+    echo ""
+    echo -e "  ${CYAN}3.${NC} Join the VPN to access your cluster:"
+    echo -e "     ${BLUE}${BINARY_NAME} vpn join production --install${NC}"
+    echo ""
+    echo -e "  ${CYAN}4.${NC} View VPN peers:"
+    echo -e "     ${BLUE}${BINARY_NAME} vpn peers production${NC}"
+    echo ""
+    echo -e "${BOLD}Other Useful Commands:${NC}"
+    echo -e "  ${BLUE}${BINARY_NAME} stacks list${NC}              # List all stacks"
+    echo -e "  ${BLUE}${BINARY_NAME} nodes list <stack>${NC}       # List cluster nodes"
+    echo -e "  ${BLUE}${BINARY_NAME} destroy <stack>${NC}          # Destroy a cluster"
+    echo ""
+    echo -e "${BOLD}Documentation:${NC}"
+    echo -e "  📚 README: ${BLUE}https://github.com/${REPO}${NC}"
+    echo -e "  📝 Examples: ${BLUE}https://github.com/${REPO}/tree/main/examples${NC}"
     echo ""
 }
 
 # Main installation flow
 main() {
+    local requested_version="$1"
+
     print_header
 
     # Check if already installed
     if command -v "${BINARY_NAME}" >/dev/null 2>&1; then
-        local current_version=$("${BINARY_NAME}" --version 2>/dev/null || echo "unknown")
-        print_warning "${BINARY_NAME} is already installed (${current_version})"
+        local current_version=$("${BINARY_NAME}" --version 2>/dev/null | head -n1 || echo "unknown")
+        print_warning "${BINARY_NAME} is already installed"
+        print_info "Current version: ${current_version}"
         echo ""
-        read -p "Do you want to reinstall/upgrade? (y/N): " -n 1 -r
-        echo ""
-        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
-            print_info "Installation cancelled"
-            exit 0
+
+        # Only prompt if running interactively
+        if [ -t 0 ]; then
+            read -p "Do you want to reinstall/upgrade? (y/N): " -n 1 -r
+            echo ""
+            if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+                print_info "Installation cancelled"
+                exit 0
+            fi
+        else
+            print_info "Running in non-interactive mode, proceeding with installation..."
         fi
     fi
 
@@ -244,9 +302,15 @@ main() {
     local platform=$(detect_platform)
     print_success "Detected platform: $platform"
 
-    # Get latest version
-    local version=$(get_latest_version)
-    print_success "Latest version: $version"
+    # Get version to install
+    local version
+    if [ -n "$requested_version" ]; then
+        version="$requested_version"
+        print_success "Installing requested version: $version"
+    else
+        version=$(get_latest_version)
+        print_success "Installing latest version: $version"
+    fi
 
     # Install binary
     install_binary "$version" "$platform"

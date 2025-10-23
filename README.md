@@ -246,10 +246,8 @@ Phase 3: Kubernetes Cluster
 ### 3 Minutes to Your First Cluster
 
 ```bash
-# 1. Clone and build (30 seconds)
-git clone https://github.com/yourusername/sloth-kubernetes.git
-cd sloth-kubernetes
-go build -o sloth-kubernetes
+# 1. Install sloth-kubernetes (10 seconds)
+curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash
 
 # 2. Create config file (1 minute)
 cat > cluster.yaml <<EOF
@@ -294,10 +292,10 @@ EOF
 
 # 3. Deploy! (5-10 minutes)
 export DIGITALOCEAN_TOKEN="your-token-here"
-./sloth-kubernetes deploy --config cluster.yaml
+sloth-kubernetes deploy --config cluster.yaml
 
 # 4. Access your cluster
-./sloth-kubernetes kubeconfig > ~/.kube/config
+sloth-kubernetes kubeconfig > ~/.kube/config
 kubectl get nodes
 ```
 
@@ -316,11 +314,66 @@ do-worker-3       Ready    worker                 4m    v1.28.5+rke2r1
 
 ## 📥 Installation
 
-### Method 1: Build from Source (Recommended)
+### Method 1: One-Line Install (Recommended)
+
+Install the latest version with a single command:
+
+```bash
+# Install latest version
+curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash
+
+# Or install specific version
+curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash -s v1.0.0
+```
+
+Or download and run the script manually:
+
+```bash
+# Download install script
+curl -fsSL -o install.sh https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh
+
+# Make it executable
+chmod +x install.sh
+
+# Run installer
+./install.sh
+
+# Or install specific version
+./install.sh v1.0.0
+```
+
+The installer will:
+- ✅ Detect your OS and architecture automatically
+- ✅ Download the correct binary from GitHub Releases
+- ✅ Verify checksums for security
+- ✅ Install to `/usr/local/bin`
+- ✅ Make the binary executable
+
+### Method 2: Download Pre-built Binary
+
+Download directly from [GitHub Releases](https://github.com/chalkan3/sloth-kubernetes/releases):
+
+```bash
+# Linux AMD64
+curl -L https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes_Linux_x86_64.tar.gz -o sloth-kubernetes.tar.gz
+
+# macOS Intel
+curl -L https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes_Darwin_x86_64.tar.gz -o sloth-kubernetes.tar.gz
+
+# macOS Apple Silicon
+curl -L https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes_Darwin_arm64.tar.gz -o sloth-kubernetes.tar.gz
+
+# Extract and install
+tar -xzf sloth-kubernetes.tar.gz
+chmod +x sloth-kubernetes
+sudo mv sloth-kubernetes /usr/local/bin/
+```
+
+### Method 3: Build from Source
 
 ```bash
 # Clone repository
-git clone https://github.com/yourusername/sloth-kubernetes.git
+git clone https://github.com/chalkan3/sloth-kubernetes.git
 cd sloth-kubernetes
 
 # Build binary
@@ -333,26 +386,14 @@ sudo mv sloth-kubernetes /usr/local/bin/
 sloth-kubernetes version
 ```
 
-### Method 2: Direct Go Install
+### Verify Installation
 
 ```bash
-go install github.com/yourusername/sloth-kubernetes@latest
-```
+# Check version
+sloth-kubernetes --version
 
-### Method 3: Download Pre-built Binary (Coming Soon)
-
-```bash
-# Linux
-curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-amd64 -o sloth-kubernetes
-
-# macOS Intel
-curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-amd64 -o sloth-kubernetes
-
-# macOS Apple Silicon
-curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-arm64 -o sloth-kubernetes
-
-chmod +x sloth-kubernetes
-sudo mv sloth-kubernetes /usr/local/bin/
+# Show help
+sloth-kubernetes --help
 ```
 
 ### Prerequisites
