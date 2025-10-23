@@ -3,10 +3,10 @@ package orchestrator
 import (
 	"fmt"
 
-	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator/components"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 // RealRKEComponent with actual RKE installation

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // Manager handles DNS record creation

@@ -3,9 +3,9 @@ package orchestrator
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // RealWireGuardSetupComponent installs and configures WireGuard mesh VPN

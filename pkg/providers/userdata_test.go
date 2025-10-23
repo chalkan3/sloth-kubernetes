@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/stretchr/testify/assert"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/stretchr/testify/assert"
 )
 
 // Test generateUserData for DigitalOcean

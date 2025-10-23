@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // DigitalOceanProvider implements the Provider interface for DigitalOcean

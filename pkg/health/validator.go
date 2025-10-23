@@ -6,8 +6,8 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 // ValidationResult represents the result of a validation

@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // LinodeProvider implements the Provider interface for Linode/Akamai

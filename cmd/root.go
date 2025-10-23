@@ -4,8 +4,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/spf13/cobra"
 	"github.com/chalkan3/sloth-kubernetes/internal/common"
+	"github.com/spf13/cobra"
 )
 
 var (

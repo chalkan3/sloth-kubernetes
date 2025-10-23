@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/chalkan3/sloth-kubernetes/pkg/cluster"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/chalkan3/sloth-kubernetes/pkg/dns"
@@ -13,6 +12,7 @@ import (
 	"github.com/chalkan3/sloth-kubernetes/pkg/network"
 	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 	"github.com/chalkan3/sloth-kubernetes/pkg/security"
+	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
 // Orchestrator coordinates the entire cluster deployment

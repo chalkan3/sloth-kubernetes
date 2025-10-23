@@ -772,15 +772,15 @@ func TestPrivateNetworkRanges(t *testing.T) {
 // TestNewManager_Complete tests complete manager creation
 func TestNewManager_Complete(t *testing.T) {
 	cfg := &config.NetworkConfig{
-		CIDR:       "10.0.0.0/16",
-		PodCIDR:    "10.244.0.0/16",
+		CIDR:        "10.0.0.0/16",
+		PodCIDR:     "10.244.0.0/16",
 		ServiceCIDR: "10.96.0.0/12",
 	}
 
 	// Mock context - we can't create a real one without Pulumi runtime
 	// But we can test the manager structure
 	manager := &Manager{
-		ctx:       nil,  // Would be real context in production
+		ctx:       nil, // Would be real context in production
 		config:    cfg,
 		providers: make(map[string]providers.Provider),
 		networks:  make(map[string]*providers.NetworkOutput),
@@ -789,7 +789,7 @@ func TestNewManager_Complete(t *testing.T) {
 	if manager.config == nil {
 		t.Error("Config should not be nil")
 	}
-	
+
 	if manager.config.CIDR != "10.0.0.0/16" {
 		t.Errorf("Expected CIDR 10.0.0.0/16, got %s", manager.config.CIDR)
 	}
