@@ -7,29 +7,29 @@ import (
 	"strings"
 )
 
-// LoadSavedCredentials loads credentials from ~/.sloth-kubernetes/credentials
+// LoadSavedConfig loads config from ~/.sloth-kubernetes/config
 // and sets them as environment variables if not already set
-func LoadSavedCredentials() error {
+func LoadSavedConfig() error {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil // Silently skip if we can't get home dir
 	}
 
-	credsFile := filepath.Join(home, ".sloth-kubernetes", "credentials")
+	configFile := filepath.Join(home, ".sloth-kubernetes", "config")
 
 	// Check if file exists
-	if _, err := os.Stat(credsFile); os.IsNotExist(err) {
-		return nil // No saved credentials, that's ok
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		return nil // No saved config, that's ok
 	}
 
-	// Load credentials
-	creds, err := loadCredentialsFile(credsFile)
+	// Load config
+	config, err := loadConfigFile(configFile)
 	if err != nil {
 		return nil // Silently skip on error
 	}
 
 	// Set environment variables if not already set
-	for key, value := range creds {
+	for key, value := range config {
 		if os.Getenv(key) == "" {
 			os.Setenv(key, value)
 		}
@@ -38,12 +38,17 @@ func LoadSavedCredentials() error {
 	return nil
 }
 
-func loadCredentialsFile(path string) (map[string]string, error) {
-	creds := make(map[string]string)
+// Deprecated: Use LoadSavedConfig instead
+func LoadSavedCredentials() error {
+	return LoadSavedConfig()
+}
+
+func loadConfigFile(path string) (map[string]string, error) {
+	config := make(map[string]string)
 
 	file, err := os.Open(path)
 	if err != nil {
-		return creds, err
+		return config, err
 	}
 	defer file.Close()
 
@@ -60,11 +65,11 @@ func loadCredentialsFile(path string) (map[string]string, error) {
 			value := strings.TrimSpace(parts[1])
 			// Remove quotes if present
 			value = strings.Trim(value, `"'`)
-			creds[key] = value
+			config[key] = value
 		}
 	}
 
-	return creds, scanner.Err()
+	return config, scanner.Err()
 }
 
 // GetCredentialsStatus returns information about saved credentials
