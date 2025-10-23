@@ -12,12 +12,13 @@ type CloudInitValidatorComponent struct {
 	pulumi.ResourceState
 
 	Status         pulumi.StringOutput `pulumi:"status"`
-	RKE2Ready      pulumi.BoolOutput   `pulumi:"rke2Ready"`
+	K3sReady       pulumi.BoolOutput   `pulumi:"k3sReady"`
 	WireGuardReady pulumi.BoolOutput   `pulumi:"wireGuardReady"`
 }
 
 // NewCloudInitValidatorComponent waits for cloud-init to complete on all nodes
-// This ensures RKE2 and WireGuard are installed before WireGuard configuration
+// This ensures WireGuard and prerequisites are installed before WireGuard mesh configuration
+// K3s installation is handled separately via remote commands AFTER WireGuard is configured
 func NewCloudInitValidatorComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, bastionComponent *BastionComponent, opts ...pulumi.ResourceOption) (*CloudInitValidatorComponent, error) {
 	component := &CloudInitValidatorComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:provisioning:CloudInitValidator", name, component, opts...)
@@ -29,8 +30,8 @@ func NewCloudInitValidatorComponent(ctx *pulumi.Context, name string, nodes []*R
 
 	// Simplified validation using basic commands instead of large bash script
 	// This avoids exit code 126 issues with inline scripts
-	// We just need to check if RKE2 and WireGuard exist
-	validationScript := `timeout=300; elapsed=0; while [ $elapsed -lt $timeout ]; do if command -v wg >/dev/null 2>&1 && [ -f /usr/local/bin/rke2 ]; then echo "Cloud-init provisioning complete"; exit 0; fi; sleep 5; elapsed=$((elapsed + 5)); done; echo "Timeout waiting for provisioning"; exit 1`
+	// We only check if WireGuard is installed - K3s will be installed later via remote commands
+	validationScript := `timeout=180; elapsed=0; while [ $elapsed -lt $timeout ]; do if command -v wg >/dev/null 2>&1; then echo "Cloud-init provisioning complete"; exit 0; fi; sleep 2; elapsed=$((elapsed + 2)); done; echo "Timeout waiting for provisioning"; exit 1`
 
 	// Run validation on all nodes in parallel
 	var validationResults []pulumi.Resource
@@ -67,12 +68,12 @@ func NewCloudInitValidatorComponent(ctx *pulumi.Context, name string, nodes []*R
 	ctx.Log.Info(fmt.Sprintf("✅ Created %d cloud-init validators (running in parallel)", len(validationResults)), nil)
 
 	component.Status = pulumi.Sprintf("Cloud-init validated on %d nodes", len(nodes))
-	component.RKE2Ready = pulumi.Bool(true).ToBoolOutput()
+	component.K3sReady = pulumi.Bool(true).ToBoolOutput()
 	component.WireGuardReady = pulumi.Bool(true).ToBoolOutput()
 
 	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{
 		"status":         component.Status,
-		"rke2Ready":      component.RKE2Ready,
+		"k3sReady":       component.K3sReady,
 		"wireGuardReady": component.WireGuardReady,
 	}); err != nil {
 		return nil, err

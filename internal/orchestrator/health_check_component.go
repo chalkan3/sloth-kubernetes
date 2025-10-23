@@ -2,7 +2,7 @@ package orchestrator
 
 import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // HealthCheckComponent performs health checks on all nodes

@@ -3,12 +3,8 @@ package cloudinit
 import "fmt"
 
 // GenerateUserDataWithHostname generates cloud-init user data with hostname configuration
-func GenerateUserDataWithHostname(k3sVersion string, hostname string) string {
-	k3sInstallCmd := "curl -sfL https://get.k3s.io | sh -"
-	if k3sVersion != "" {
-		k3sInstallCmd = fmt.Sprintf("curl -sfL https://get.k3s.io | INSTALL_K3S_VERSION=%s sh -", k3sVersion)
-	}
-
+// K3s installation is handled by remote commands AFTER WireGuard is configured
+func GenerateUserDataWithHostname(hostname string) string {
 	// Add hostname configuration if provided
 	hostnameConfig := ""
 	if hostname != "" {
@@ -23,17 +19,22 @@ manage_etc_hosts: true
 	cloudConfig := fmt.Sprintf(`#cloud-config
 %s
 # Package installation (runs during boot)
+# Only install prerequisites - K3s will be installed later via remote commands
 packages:
   - curl
   - wget
   - git
+  - wireguard
+  - wireguard-tools
+  - net-tools
 
-# Commands to run after packages are installed
+# Enable IP forwarding for Kubernetes networking
 runcmd:
-  - %s
-  - systemctl enable k3s || systemctl enable k3s-agent
-  - systemctl start k3s || systemctl start k3s-agent
-`, hostnameConfig, k3sInstallCmd)
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+  - sysctl -w net.ipv6.conf.all.forwarding=1
+  - echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
+`, hostnameConfig)
 
 	return cloudConfig
 }

@@ -6,7 +6,7 @@ import (
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // K3sRealComponent represents a real K3s Kubernetes cluster
@@ -29,9 +29,6 @@ func NewK3sRealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComp
 		return nil, err
 	}
 
-	// Get K3s configuration (merge with defaults) - uses RKE2 config structure for compatibility
-	rke2Cfg := config.MergeRKE2Config(cfg.Kubernetes.RKE2, cfg.Kubernetes.Version)
-
 	// Separate nodes: first 3 are masters, last 3 are workers
 	// NOTE: This works because node_deployment_real.go now creates pools in deterministic order:
 	// 1. do-masters (1 node) → masters[0]
@@ -53,8 +50,12 @@ func NewK3sRealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComp
 
 	ctx.Log.Info(fmt.Sprintf("🚀 Installing K3s: %d masters, %d workers", len(masters), len(workers)), nil)
 
-	// Use cluster token from configuration
-	clusterToken := pulumi.String(rke2Cfg.ClusterToken).ToStringOutput()
+	// Use cluster token from configuration (from RKE2 config if exists, otherwise generate a default)
+	clusterToken := "my-super-secret-cluster-token-k3s-production-2025"
+	if cfg.Kubernetes.RKE2 != nil && cfg.Kubernetes.RKE2.ClusterToken != "" {
+		clusterToken = cfg.Kubernetes.RKE2.ClusterToken
+	}
+	clusterTokenOutput := pulumi.String(clusterToken).ToStringOutput()
 
 	// STEP 1: Install K3s on first master node (this becomes the cluster leader)
 	firstMaster := masters[0]
@@ -82,15 +83,6 @@ func NewK3sRealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComp
 			wgIP := args[0].(string)
 			publicIP := args[1].(string)
 
-			// Build config with WireGuard IP for internal cluster communication
-			// This ensures K3s binds to the VPN interface instead of public IP
-			rke2Config := config.BuildRKE2ServerConfig(rke2Cfg, wgIP, "master-1", true, "", &cfg.Kubernetes)
-
-			// Add TLS SANs if not already present
-			if len(rke2Cfg.TLSSan) == 0 {
-				rke2Config = "tls-san:\n  - " + publicIP + "\n" + rke2Config
-			}
-
 			return fmt.Sprintf(`#!/bin/bash
 set -e
 
@@ -115,10 +107,10 @@ echo "📥 Installing K3s server..."
 if ! curl -sfL https://get.k3s.io | INSTALL_K3S_EXEC="server \
   --node-ip=%s \
   --node-external-ip=%s \
-  --bind-address=0.0.0.0 \
   --advertise-address=%s \
   --tls-san=%s \
   --tls-san=%s \
+  --tls-san=127.0.0.1 \
   --flannel-iface=wg0 \
   --write-kubeconfig-mode=644 \
   --cluster-init \
@@ -141,6 +133,14 @@ if ! systemctl is-active --quiet k3s; then
 fi
 echo "✅ K3s service is running!"
 
+# Fix kubeconfig to use VPN IP instead of 127.0.0.1 or 0.0.0.0
+echo "🔧 Fixing kubeconfig to use VPN IP..."
+if [ -f /etc/rancher/k3s/k3s.yaml ]; then
+  sed -i "s|https://127.0.0.1:6443|https://%s:6443|g" /etc/rancher/k3s/k3s.yaml
+  sed -i "s|https://0.0.0.0:6443|https://%s:6443|g" /etc/rancher/k3s/k3s.yaml
+  echo "✅ Kubeconfig updated to use VPN IP %s"
+fi
+
 # Wait for K3s API
 echo "⏳ Waiting for K3s API server..."
 timeout=180
@@ -160,7 +160,7 @@ done
 # Show status
 kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes
 cat /etc/rancher/k3s/k3s.yaml
-`, wgIP, wgIP, wgIP, publicIP, wgIP, publicIP, wgIP)
+`, wgIP, wgIP, wgIP, publicIP, wgIP, wgIP, publicIP, wgIP, wgIP, wgIP)
 		}).(pulumi.StringOutput),
 	}, pulumi.Parent(component), pulumi.Timeouts(&pulumi.CustomTimeouts{
 		Create: "20m",
@@ -283,10 +283,11 @@ exit 1
 
 		masterInstall, err := remote.NewCommand(ctx, fmt.Sprintf("%s-master-%d-install", name, i), &remote.CommandArgs{
 			Connection: masterConnArgs,
-			Create: pulumi.All(k3sToken, firstMaster.WireGuardIP, master.WireGuardIP).ApplyT(func(args []interface{}) string {
+			Create: pulumi.All(k3sToken, firstMaster.WireGuardIP, master.WireGuardIP, master.PublicIP).ApplyT(func(args []interface{}) string {
 				token := args[0].(string) // K3s join token from first master
 				firstMasterWgIP := args[1].(string)
 				myWgIP := args[2].(string)
+				myPublicIP := args[3].(string)
 				masterNum := i + 1
 
 				return fmt.Sprintf(`#!/bin/bash
@@ -338,6 +339,11 @@ if ! curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 \
   INSTALL_K3S_EXEC="server \
     --server https://%s:6443 \
     --node-ip=%s \
+    --node-external-ip=%s \
+    --advertise-address=%s \
+    --tls-san=%s \
+    --tls-san=%s \
+    --tls-san=127.0.0.1 \
     --flannel-iface=wg0 \
     --write-kubeconfig-mode=644 \
     --disable=traefik" sh -; then
@@ -378,7 +384,7 @@ done
 kubectl --kubeconfig=/etc/rancher/k3s/k3s.yaml get nodes
 
 echo "✅ K3s master %d joined cluster"
-`, masterNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, firstMasterWgIP, myWgIP, masterNum)
+`, masterNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, firstMasterWgIP, myWgIP, myPublicIP, myWgIP, myWgIP, myPublicIP, masterNum)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{tokenFetch}), pulumi.Timeouts(&pulumi.CustomTimeouts{
 			Create: "20m",
@@ -411,10 +417,11 @@ echo "✅ K3s master %d joined cluster"
 
 		workerInstall, err := remote.NewCommand(ctx, fmt.Sprintf("%s-worker-%d-install", name, i), &remote.CommandArgs{
 			Connection: workerConnArgs,
-			Create: pulumi.All(k3sToken, firstMaster.WireGuardIP, worker.WireGuardIP).ApplyT(func(args []interface{}) string {
+			Create: pulumi.All(k3sToken, firstMaster.WireGuardIP, worker.WireGuardIP, worker.PublicIP).ApplyT(func(args []interface{}) string {
 				token := args[0].(string) // K3s join token from first master
 				firstMasterWgIP := args[1].(string)
 				myWgIP := args[2].(string)
+				myPublicIP := args[3].(string)
 				workerNum := i + 1
 
 				return fmt.Sprintf(`#!/bin/bash
@@ -457,12 +464,17 @@ if ! nc -z -w 5 %s 6443 2>/dev/null; then
   exit 1
 fi
 
+# Get hostname for node name
+HOSTNAME=$(hostname -s)
+
 # Install K3s agent (worker node)
 echo "📥 Installing K3s agent (joining cluster)..."
 if ! curl -sfL https://get.k3s.io | K3S_URL=https://%s:6443 \
   K3S_TOKEN="%s" \
   INSTALL_K3S_EXEC="agent \
+    --node-name=${HOSTNAME} \
     --node-ip=%s \
+    --node-external-ip=%s \
     --flannel-iface=wg0" sh -; then
   echo "❌ K3s agent installation script failed!"
   exit 1
@@ -487,7 +499,7 @@ echo "⏳ Waiting for K3s agent to join cluster..."
 sleep 30
 
 echo "✅ K3s worker %d joined cluster"
-`, workerNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, myWgIP, workerNum)
+`, workerNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, myWgIP, myPublicIP, workerNum)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{tokenFetch}), pulumi.Timeouts(&pulumi.CustomTimeouts{
 			Create: "20m",
@@ -505,7 +517,7 @@ echo "✅ K3s worker %d joined cluster"
 	component.KubeConfig = kubeConfig
 	component.MasterCount = pulumi.Int(len(masters)).ToIntOutput()
 	component.WorkerCount = pulumi.Int(len(workers)).ToIntOutput()
-	component.ClusterToken = clusterToken
+	component.ClusterToken = clusterTokenOutput
 	component.FirstMasterIP = firstMaster.PublicIP
 
 	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{

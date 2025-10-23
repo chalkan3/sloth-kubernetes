@@ -5,12 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strings"
 	"text/tabwriter"
 	"time"
 
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/spf13/cobra"
+
+	"github.com/chalkan3/sloth-kubernetes/internal/common"
 )
 
 var stacksCmd = &cobra.Command{
@@ -109,6 +114,18 @@ var renameStackCmd = &cobra.Command{
 	RunE: runRenameStack,
 }
 
+var cancelCmd = &cobra.Command{
+	Use:   "cancel [stack-name]",
+	Short: "Cancel and unlock a stack",
+	Long:  `Remove stale locks from a stack that was interrupted or crashed`,
+	Example: `  # Cancel/unlock a stack
+  sloth-kubernetes stacks cancel home-cluster
+
+  # Cancel using shorthand
+  sloth-kubernetes cancel home-cluster`,
+	RunE: runCancel,
+}
+
 var stateCmd = &cobra.Command{
 	Use:   "state",
 	Short: "Manage stack state",
@@ -164,6 +181,7 @@ func init() {
 	stacksCmd.AddCommand(exportStackCmd)
 	stacksCmd.AddCommand(importStackCmd)
 	stacksCmd.AddCommand(renameStackCmd)
+	stacksCmd.AddCommand(cancelCmd)
 	stacksCmd.AddCommand(stateCmd)
 
 	// State subcommands
@@ -187,13 +205,61 @@ func init() {
 	stateListCmd.Flags().StringVar(&resourceType, "type", "", "Filter by resource type (e.g., digitalocean:Droplet)")
 }
 
+// createWorkspaceWithS3Support creates a Pulumi workspace with S3/MinIO backend support
+func createWorkspaceWithS3Support(ctx context.Context) (auto.Workspace, error) {
+	// Load saved S3 backend configuration
+	_ = common.LoadSavedConfig()
+
+	projectName := "sloth-kubernetes"
+	workspaceOpts := []auto.LocalWorkspaceOption{
+		auto.Project(workspace.Project{
+			Name:    tokens.PackageName(projectName),
+			Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+		}),
+	}
+
+	// Collect all AWS/S3 environment variables to pass to Pulumi subprocess
+	envVars := make(map[string]string)
+	awsEnvKeys := []string{
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_REGION",
+		"AWS_S3_ENDPOINT",
+		"AWS_S3_USE_PATH_STYLE",
+		"AWS_S3_FORCE_PATH_STYLE",
+		"PULUMI_BACKEND_URL",
+		"PULUMI_CONFIG_PASSPHRASE",
+	}
+	for _, key := range awsEnvKeys {
+		if val := os.Getenv(key); val != "" {
+			envVars[key] = val
+		}
+	}
+
+	// Add environment variables to workspace options
+	if len(envVars) > 0 {
+		workspaceOpts = append(workspaceOpts, auto.EnvVars(envVars))
+	}
+
+	// If PULUMI_BACKEND_URL is set, use passphrase secrets provider
+	if backendURL := os.Getenv("PULUMI_BACKEND_URL"); backendURL != "" {
+		workspaceOpts = append(workspaceOpts, auto.SecretsProvider("passphrase"))
+		if os.Getenv("PULUMI_CONFIG_PASSPHRASE") == "" {
+			os.Setenv("PULUMI_CONFIG_PASSPHRASE", "")
+			envVars["PULUMI_CONFIG_PASSPHRASE"] = ""
+		}
+	}
+
+	return auto.NewLocalWorkspace(ctx, workspaceOpts...)
+}
+
 func runListStacks(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
 
 	printHeader("📦 Deployment Stacks")
 
-	// Create workspace
-	workspace, err := auto.NewLocalWorkspace(ctx)
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
@@ -228,13 +294,15 @@ func runStackInfo(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("📊 Stack Info: %s", stackName))
 
-	// Get stack
-	workspace, err := auto.NewLocalWorkspace(ctx)
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	s, err := auto.SelectStack(ctx, stackName, workspace)
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
 	}
@@ -285,6 +353,9 @@ func printStacksTable(stacks []auto.StackSummary) {
 	color.New(color.Bold).Fprintln(w, "NAME\tLAST UPDATE\tRESOURCE COUNT\tURL")
 	fmt.Fprintln(w, "----\t-----------\t--------------\t---")
 
+	// Get backend URL from environment (set by createWorkspaceWithS3Support)
+	backendURL := os.Getenv("PULUMI_BACKEND_URL")
+
 	for _, stack := range stacks {
 		lastUpdate := "Never"
 		if stack.LastUpdate != "" {
@@ -298,8 +369,25 @@ func printStacksTable(stacks []auto.StackSummary) {
 		}
 
 		url := stack.URL
-		if url == "" {
-			url = "local://"
+		if url == "" || url == "local://" {
+			// If URL is empty and we have a backend URL, use it
+			if backendURL != "" {
+				// Extract just the S3 bucket part for cleaner display
+				// Format: s3://bucket?endpoint=...&params
+				if strings.HasPrefix(backendURL, "s3://") {
+					// Extract bucket name
+					parts := strings.Split(strings.TrimPrefix(backendURL, "s3://"), "?")
+					if len(parts) > 0 {
+						url = "s3://" + parts[0]
+					} else {
+						url = backendURL
+					}
+				} else {
+					url = backendURL
+				}
+			} else {
+				url = "local://"
+			}
 		}
 
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\n", stack.Name, lastUpdate, resourceCount, url)
@@ -363,13 +451,15 @@ func runStackOutput(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("📤 Stack Outputs: %s", stackName))
 
-	// Get stack
-	workspace, err := auto.NewLocalWorkspace(ctx)
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
 	if err != nil {
 		return fmt.Errorf("failed to create workspace: %w", err)
 	}
 
-	s, err := auto.SelectStack(ctx, stackName, workspace)
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
 	}
@@ -770,6 +860,48 @@ func runStateDelete(cmd *cobra.Command, args []string) error {
 	fmt.Println("  1. The cloud resource still exists and is now unmanaged")
 	fmt.Println("  2. You can manually delete it from the cloud provider console")
 	fmt.Println("  3. Or import it back with: pulumi import <type> <name> <id>")
+
+	return nil
+}
+
+func runCancel(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("stack name required")
+	}
+
+	stackName := args[0]
+	ctx := context.Background()
+
+	printHeader("🔓 Canceling Stack Operations")
+	fmt.Printf("Stack: %s\n\n", color.CyanString(stackName))
+
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Select the stack using the fully qualified stack name format
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	stack, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w", stackName, err)
+	}
+
+	color.Yellow("⏳ Canceling ongoing operations and removing locks...")
+
+	// Cancel the stack - this removes locks
+	err = stack.Cancel(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to cancel stack: %w", err)
+	}
+
+	fmt.Println()
+	color.Green("✅ Stack unlocked successfully")
+	fmt.Println()
+	color.Cyan("Next steps:")
+	fmt.Println("  • You can now run deploy, destroy, or other operations on this stack")
+	fmt.Println("  • If there were running operations, they have been cancelled")
 
 	return nil
 }

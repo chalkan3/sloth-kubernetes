@@ -4,8 +4,8 @@ import (
 	"fmt"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/internal/orchestrator/components"
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator/components"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // RealWireGuardPeerComponent with actual WireGuard installation

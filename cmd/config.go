@@ -6,7 +6,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 var (

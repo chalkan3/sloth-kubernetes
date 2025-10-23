@@ -7,7 +7,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/stretchr/testify/assert"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // VPCMocks implements pulumi.MockResourceMonitor for VPC testing

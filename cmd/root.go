@@ -5,7 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
-	"sloth-kubernetes/internal/common"
+	"github.com/chalkan3/sloth-kubernetes/internal/common"
 )
 
 var (

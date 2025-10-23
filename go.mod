@@ -1,4 +1,4 @@
-module sloth-kubernetes
+module github.com/chalkan3/sloth-kubernetes
 
 go 1.23.11
 

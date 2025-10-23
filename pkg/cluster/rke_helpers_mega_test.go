@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // TestGetNodeRoles_Comprehensive tests all node role detection scenarios

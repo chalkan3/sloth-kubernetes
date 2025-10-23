@@ -18,7 +18,23 @@ type ClusterConfig struct {
 	Monitoring   MonitoringConfig       `yaml:"monitoring" json:"monitoring"`
 	Storage      StorageConfig          `yaml:"storage" json:"storage"`
 	LoadBalancer LoadBalancerConfig     `yaml:"loadBalancer" json:"loadBalancer"`
-	Addons       map[string]interface{} `yaml:"addons" json:"addons"`
+	Addons       AddonsConfig           `yaml:"addons" json:"addons"`
+}
+
+// AddonsConfig defines cluster addons configuration
+type AddonsConfig struct {
+	ArgoCD *ArgoCDConfig `yaml:"argocd,omitempty" json:"argocd,omitempty"`
+}
+
+// ArgoCDConfig defines ArgoCD GitOps configuration
+type ArgoCDConfig struct {
+	Enabled        bool   `yaml:"enabled" json:"enabled"`
+	Version        string `yaml:"version" json:"version"` // ArgoCD version to install
+	GitOpsRepoURL  string `yaml:"gitopsRepoUrl" json:"gitopsRepoUrl"`
+	GitOpsRepoBranch string `yaml:"gitopsRepoBranch" json:"gitopsRepoBranch"` // default: main
+	AppsPath       string `yaml:"appsPath" json:"appsPath"` // default: argocd/apps
+	Namespace      string `yaml:"namespace" json:"namespace"` // default: argocd
+	AdminPassword  string `yaml:"adminPassword,omitempty" json:"adminPassword,omitempty"`
 }
 
 // Metadata contains cluster metadata

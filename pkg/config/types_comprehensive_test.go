@@ -285,29 +285,24 @@ func TestClusterConfig_WithNodePools(t *testing.T) {
 func TestClusterConfig_WithAddons(t *testing.T) {
 	config := &ClusterConfig{
 		Metadata: Metadata{Name: "test"},
-		Addons: map[string]interface{}{
-			"ingress-nginx": map[string]interface{}{
-				"enabled":  true,
-				"replicas": 3,
-			},
-			"cert-manager": map[string]interface{}{
-				"enabled": true,
-				"version": "v1.12.0",
+		Addons: AddonsConfig{
+			ArgoCD: &ArgoCDConfig{
+				Enabled:       true,
+				GitOpsRepoURL: "https://github.com/example/gitops",
 			},
 		},
 	}
 
-	if len(config.Addons) != 2 {
-		t.Errorf("Expected 2 addons, got %d", len(config.Addons))
+	if config.Addons.ArgoCD == nil {
+		t.Error("ArgoCD addon should not be nil")
 	}
 
-	nginx, ok := config.Addons["ingress-nginx"].(map[string]interface{})
-	if !ok {
-		t.Error("ingress-nginx should be a map")
+	if !config.Addons.ArgoCD.Enabled {
+		t.Error("ArgoCD should be enabled")
 	}
 
-	if nginx["enabled"] != true {
-		t.Error("ingress-nginx should be enabled")
+	if config.Addons.ArgoCD.GitOpsRepoURL != "https://github.com/example/gitops" {
+		t.Errorf("Expected repo URL 'https://github.com/example/gitops', got %s", config.Addons.ArgoCD.GitOpsRepoURL)
 	}
 }
 
@@ -426,15 +421,12 @@ func TestClusterConfig_EmptyNodePools(t *testing.T) {
 func TestClusterConfig_EmptyAddons(t *testing.T) {
 	config := &ClusterConfig{
 		Metadata: Metadata{Name: "test"},
-		Addons:   make(map[string]interface{}),
+		Addons:   AddonsConfig{},
 	}
 
-	if config.Addons == nil {
-		t.Error("Addons should not be nil")
-	}
-
-	if len(config.Addons) != 0 {
-		t.Errorf("Expected 0 addons, got %d", len(config.Addons))
+	// Empty AddonsConfig should have nil ArgoCD
+	if config.Addons.ArgoCD != nil {
+		t.Error("ArgoCD should be nil in empty AddonsConfig")
 	}
 }
 

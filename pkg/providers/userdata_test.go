@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // Test generateUserData for DigitalOcean

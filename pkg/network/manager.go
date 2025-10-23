@@ -5,8 +5,8 @@ import (
 	"net"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/config"
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // Manager handles network orchestration across providers

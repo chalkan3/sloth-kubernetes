@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // TestDeployCommand tests deploy command structure

@@ -10,7 +10,6 @@ import (
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optdestroy"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/spf13/cobra"
 )
 
@@ -38,6 +37,12 @@ func init() {
 
 func runDestroy(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+
+	// Use stack name from args if provided, otherwise use global stackName
+	targetStack := stackName
+	if len(args) > 0 {
+		targetStack = args[0]
+	}
 
 	// Print warning header
 	fmt.Println()
@@ -68,14 +73,19 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 		}
 	}
 
-	// Get stack
+	// Get stack with S3 backend support
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
 	s.Suffix = " Connecting to Pulumi stack..."
 	s.Start()
 
-	stack, err := auto.SelectStackInlineSource(ctx, stackName, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", targetStack)
+	stack, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		s.Stop()
 		return fmt.Errorf("failed to select stack: %w", err)
@@ -98,7 +108,7 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 	color.Green("✅ Cluster destroyed successfully")
 	fmt.Println()
 	color.Yellow("💡 The Pulumi stack still exists. To remove it completely:")
-	fmt.Println("   kubernetes-create stack remove --stack " + stackName)
+	fmt.Println("   sloth-kubernetes stacks remove " + targetStack)
 	fmt.Println()
 
 	return nil

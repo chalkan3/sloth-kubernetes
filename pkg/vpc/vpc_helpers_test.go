@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // TestVPCResult_Providers tests VPCResult with different providers

@@ -5,7 +5,7 @@ import (
 	"strings"
 	"testing"
 
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // TestNewNginxIngressManager tests manager creation
