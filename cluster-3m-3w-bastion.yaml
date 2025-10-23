@@ -16,7 +16,7 @@ providers:
       create: true
       name: sloth-k8s-do-vpc
       cidr: 10.10.0.0/16
-      description: "DigitalOcean VPC for Sloth Kubernetes"
+      description: "DigitalOcean VPC for Sloth Kubernetes v2"
 
   linode:
     enabled: true
@@ -25,10 +25,10 @@ providers:
     vpc:
       create: true
       name: sloth-k8s-linode-vpc
-      description: "Linode VPC for Sloth Kubernetes"
+      description: "Linode VPC for Sloth Kubernetes v2"
       linode:
         label: sloth-k8s-linode-vpc
-        description: "Linode VPC for Sloth Kubernetes"
+        description: "Linode VPC for Sloth Kubernetes v2"
         subnets:
           - label: k8s-subnet
             ipv4: 10.11.0.0/24
@@ -36,7 +36,7 @@ providers:
 network:
   mode: wireguard
   dns:
-    domain: example.com
+    domain: chalkan3.com.br
     provider: digitalocean
   wireguard:
     enabled: true
@@ -68,7 +68,7 @@ security:
       - "0.0.0.0/0"  # Allow from anywhere (restrict in production!)
     idleTimeout: 30
     maxSessions: 10
-    enableAuditLog: true
+    enableAuditLog: false
     enableMFA: false
   ssh:
     enabled: true
@@ -76,8 +76,8 @@ security:
     keyType: "ed25519"
 
 kubernetes:
-  distribution: rke2
-  version: v1.28.5+rke2r1
+  distribution: k3s
+  version: v1.28.5+k3s1
   podCidr: 10.42.0.0/16
   serviceCidr: 10.43.0.0/16
   clusterDns: 10.43.0.10
@@ -151,3 +151,13 @@ sshKey:
   name: sloth-k8s-key
   publicKeyPath: ~/.ssh/id_rsa.pub
   privateKeyPath: ~/.ssh/id_rsa
+
+# ArgoCD GitOps Addon Configuration
+addons:
+  argocd:
+    enabled: true
+    version: stable
+    namespace: argocd
+    gitopsRepoUrl: https://github.com/chalkan3/kubernetes-gitops-infrastructure
+    gitopsRepoBranch: main
+    appsPath: argocd/apps

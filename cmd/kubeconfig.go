@@ -10,7 +10,6 @@ import (
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/spf13/cobra"
 )
 
@@ -48,10 +47,16 @@ func runKubeconfig(cmd *cobra.Command, args []string) error {
 	s.Suffix = " Retrieving kubeconfig..."
 	s.Start()
 
-	// Get stack
-	stack, err := auto.SelectStackInlineSource(ctx, stackName, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	stack, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		s.Stop()
 		return fmt.Errorf("failed to select stack: %w", err)

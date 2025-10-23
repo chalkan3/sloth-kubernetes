@@ -3,9 +3,9 @@ package components
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/security"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/config"
-	"sloth-kubernetes/pkg/security"
 )
 
 // SSHKeyComponent manages SSH keys

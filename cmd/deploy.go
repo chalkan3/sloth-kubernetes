@@ -4,20 +4,24 @@ import (
 	"context"
 	"fmt"
 	"os"
-
+	"strings"
 	"time"
 
 	"github.com/briandowns/spinner"
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto/optup"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
+	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/spf13/cobra"
 
-	"sloth-kubernetes/internal/orchestrator"
-	"sloth-kubernetes/internal/validation"
-	"sloth-kubernetes/pkg/config"
-	"sloth-kubernetes/pkg/vpc"
+	"github.com/chalkan3/sloth-kubernetes/internal/common"
+	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator"
+	"github.com/chalkan3/sloth-kubernetes/internal/validation"
+	"github.com/chalkan3/sloth-kubernetes/pkg/addons"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/vpc"
 )
 
 var (
@@ -67,6 +71,10 @@ func init() {
 
 func runDeploy(cmd *cobra.Command, args []string) error {
 	ctx := context.Background()
+
+	// IMPORTANT: Load saved S3 backend configuration FIRST,
+	// before any Pulumi API calls that might initialize AWS SDK
+	_ = common.LoadSavedConfig()
 
 	// Parse stack name from args (first positional argument)
 	if len(args) > 0 {
@@ -160,7 +168,62 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	printInfo("🔧 Setting up Pulumi stack...")
 
-	stack, err := auto.UpsertStackInlineSource(ctx, stackName, "kubernetes-create", program)
+	// Create workspace with backend URL from environment
+	// Note: LoadSavedConfig() already set all environment variables at line 74
+	// For S3 backend, we need to set the project name
+	projectName := "sloth-kubernetes"
+	workspaceOpts := []auto.LocalWorkspaceOption{
+		auto.Program(program),
+		auto.Project(workspace.Project{
+			Name:    tokens.PackageName(projectName),
+			Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+		}),
+	}
+
+	// Collect all AWS/S3 environment variables to pass to Pulumi subprocess
+	envVars := make(map[string]string)
+	awsEnvKeys := []string{
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_REGION",
+		"AWS_S3_ENDPOINT",
+		"AWS_S3_USE_PATH_STYLE",
+		"AWS_S3_FORCE_PATH_STYLE",
+		"PULUMI_BACKEND_URL",
+		"PULUMI_CONFIG_PASSPHRASE",
+	}
+	for _, key := range awsEnvKeys {
+		if val := os.Getenv(key); val != "" {
+			envVars[key] = val
+		}
+	}
+
+	// Add environment variables to workspace options
+	// This ensures Pulumi subprocess gets the S3 credentials
+	if len(envVars) > 0 {
+		workspaceOpts = append(workspaceOpts, auto.EnvVars(envVars))
+	}
+
+	// If PULUMI_BACKEND_URL is set, use it
+	if backendURL := os.Getenv("PULUMI_BACKEND_URL"); backendURL != "" {
+		workspaceOpts = append(workspaceOpts, auto.SecretsProvider("passphrase"))
+		// Set PULUMI_CONFIG_PASSPHRASE if not set
+		if os.Getenv("PULUMI_CONFIG_PASSPHRASE") == "" {
+			os.Setenv("PULUMI_CONFIG_PASSPHRASE", "")
+			envVars["PULUMI_CONFIG_PASSPHRASE"] = ""
+		}
+	}
+
+	ws, err := auto.NewLocalWorkspace(ctx, workspaceOpts...)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// For S3 backend, we need to use fully qualified stack name: organization/project/stack
+	// We use "organization" as the organization name (self-managed backend doesn't need real org)
+	fullyQualifiedStackName := fmt.Sprintf("organization/%s/%s", projectName, stackName)
+
+	stack, err := auto.UpsertStack(ctx, fullyQualifiedStackName, ws)
 	if err != nil {
 		return fmt.Errorf("failed to create or select stack: %w", err)
 	}
@@ -453,6 +516,79 @@ func joinStrings(strs []string, sep string) string {
 	return result
 }
 
+// installArgoCDIfEnabled installs ArgoCD if enabled in the configuration
+func installArgoCDIfEnabled(cfg *config.ClusterConfig, outputs auto.OutputMap) error {
+	// Check if ArgoCD is enabled
+	if cfg.Addons.ArgoCD == nil || !cfg.Addons.ArgoCD.Enabled {
+		return nil // ArgoCD not enabled, skip
+	}
+
+	// Get master node IP from outputs
+	// The nodes are exported as a map in the format: {"node_0": {"public_ip": "...", ...}, ...}
+	nodesOutput, ok := outputs["nodes"]
+	if !ok {
+		return fmt.Errorf("nodes output not found")
+	}
+
+	nodesMap, ok := nodesOutput.Value.(map[string]interface{})
+	if !ok {
+		return fmt.Errorf("nodes output is not a map")
+	}
+
+	// Find the first master node
+	var masterNodeIP string
+	for _, nodeData := range nodesMap {
+		nodeMap, ok := nodeData.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		// Check if this node has master role
+		roles, ok := nodeMap["roles"]
+		if !ok {
+			continue
+		}
+
+		rolesStr, ok := roles.(string)
+		if !ok {
+			continue
+		}
+
+		if strings.Contains(rolesStr, "master") || strings.Contains(rolesStr, "control-plane") {
+			// Get the public IP
+			publicIP, ok := nodeMap["public_ip"]
+			if !ok {
+				continue
+			}
+
+			masterNodeIP, ok = publicIP.(string)
+			if !ok {
+				continue
+			}
+
+			break
+		}
+	}
+
+	if masterNodeIP == "" {
+		return fmt.Errorf("no master node found in cluster outputs")
+	}
+
+	// Get SSH private key from outputs
+	sshKeyOutput, ok := outputs["sshPrivateKey"]
+	if !ok {
+		return fmt.Errorf("sshPrivateKey output not found")
+	}
+
+	sshPrivateKey, ok := sshKeyOutput.Value.(string)
+	if !ok {
+		return fmt.Errorf("sshPrivateKey output is not a string")
+	}
+
+	// Install ArgoCD
+	return addons.InstallArgoCD(cfg, masterNodeIP, sshPrivateKey)
+}
+
 func printClusterOutputs(outputs auto.OutputMap) {
 	// VPC Information
 	hasVPC := false
@@ -578,6 +714,10 @@ func printSuccess(text string) {
 
 func printInfo(text string) {
 	color.Cyan(text)
+}
+
+func printWarning(text string) {
+	color.Yellow(text)
 }
 
 func confirm(question string) bool {

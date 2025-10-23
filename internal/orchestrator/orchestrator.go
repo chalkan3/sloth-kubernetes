@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"sync"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/cluster"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/dns"
+	"github.com/chalkan3/sloth-kubernetes/pkg/health"
+	"github.com/chalkan3/sloth-kubernetes/pkg/ingress"
+	"github.com/chalkan3/sloth-kubernetes/pkg/network"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/security"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/cluster"
-	"sloth-kubernetes/pkg/config"
-	"sloth-kubernetes/pkg/dns"
-	"sloth-kubernetes/pkg/health"
-	"sloth-kubernetes/pkg/ingress"
-	"sloth-kubernetes/pkg/network"
-	"sloth-kubernetes/pkg/providers"
-	"sloth-kubernetes/pkg/security"
 )
 
 // Orchestrator coordinates the entire cluster deployment

@@ -14,7 +14,6 @@ import (
 
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/curve25519"
 )
@@ -155,10 +154,15 @@ func runVPNStatus(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("🔐 VPN Status - Stack: %s", stack))
 
-	// Get stack using SelectStackInlineSource (same as status command)
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -185,10 +189,15 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("👥 VPN Peers - Stack: %s", stack))
 
-	// Get stack using SelectStackInlineSource
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -482,10 +491,15 @@ func runVPNConfig(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("📋 VPN Config - Node: %s", nodeName))
 
-	// Get stack outputs
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -595,10 +609,15 @@ func runVPNTest(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("🧪 Testing VPN Connectivity - Stack: %s", stack))
 
-	// Get stack outputs
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -833,10 +852,15 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("🔗 Joining VPN - Stack: %s", stack))
 
-	// Get stack using SelectStackInlineSource (same as status command)
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support (loads config from ~/.sloth-kubernetes/config)
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -1489,10 +1513,15 @@ func runVPNLeave(cmd *cobra.Command, args []string) error {
 		printInfo("Removing local machine from VPN mesh...")
 	}
 
-	// Get stack outputs
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}
@@ -1709,10 +1738,15 @@ func runVPNClientConfig(cmd *cobra.Command, args []string) error {
 
 	printHeader(fmt.Sprintf("📱 Generate Client Config - Stack: %s", stack))
 
-	// Get stack using SelectStackInlineSource (same as status command)
-	s, err := auto.SelectStackInlineSource(ctx, stack, "kubernetes-create", func(ctx *pulumi.Context) error {
-		return nil
-	})
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
 	if err != nil {
 		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
 	}

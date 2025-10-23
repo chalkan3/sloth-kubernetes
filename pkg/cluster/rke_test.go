@@ -4,8 +4,8 @@ import (
 	"strings"
 	"testing"
 
-	"sloth-kubernetes/pkg/config"
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // TestNewRKEManager tests RKEManager creation

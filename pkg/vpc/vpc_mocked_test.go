@@ -4,7 +4,7 @@ import (
 	"strings"
 	"testing"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // TestNewVPCManagerMocked tests VPC manager creation (mocked)

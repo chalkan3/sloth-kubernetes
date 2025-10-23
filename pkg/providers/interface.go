@@ -3,8 +3,8 @@ package providers
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/config"
 )
 
 // Provider defines the interface for cloud providers

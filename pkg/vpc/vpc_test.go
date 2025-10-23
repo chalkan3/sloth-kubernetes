@@ -3,7 +3,7 @@ package vpc
 import (
 	"testing"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 func TestNewVPCManager(t *testing.T) {

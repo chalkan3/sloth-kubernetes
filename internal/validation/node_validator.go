@@ -3,7 +3,7 @@ package validation
 import (
 	"fmt"
 
-	"sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
 // NodeDistribution holds information about node distribution

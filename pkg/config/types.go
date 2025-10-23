@@ -7,18 +7,34 @@ import (
 
 // ClusterConfig represents the complete cluster configuration
 type ClusterConfig struct {
-	Metadata     Metadata               `yaml:"metadata" json:"metadata"`
-	Cluster      ClusterSpec            `yaml:"cluster" json:"cluster"`
-	Providers    ProvidersConfig        `yaml:"providers" json:"providers"`
-	Network      NetworkConfig          `yaml:"network" json:"network"`
-	Security     SecurityConfig         `yaml:"security" json:"security"`
-	Nodes        []NodeConfig           `yaml:"nodes" json:"nodes"`
-	NodePools    map[string]NodePool    `yaml:"nodePools" json:"nodePools"`
-	Kubernetes   KubernetesConfig       `yaml:"kubernetes" json:"kubernetes"`
-	Monitoring   MonitoringConfig       `yaml:"monitoring" json:"monitoring"`
-	Storage      StorageConfig          `yaml:"storage" json:"storage"`
-	LoadBalancer LoadBalancerConfig     `yaml:"loadBalancer" json:"loadBalancer"`
-	Addons       map[string]interface{} `yaml:"addons" json:"addons"`
+	Metadata     Metadata            `yaml:"metadata" json:"metadata"`
+	Cluster      ClusterSpec         `yaml:"cluster" json:"cluster"`
+	Providers    ProvidersConfig     `yaml:"providers" json:"providers"`
+	Network      NetworkConfig       `yaml:"network" json:"network"`
+	Security     SecurityConfig      `yaml:"security" json:"security"`
+	Nodes        []NodeConfig        `yaml:"nodes" json:"nodes"`
+	NodePools    map[string]NodePool `yaml:"nodePools" json:"nodePools"`
+	Kubernetes   KubernetesConfig    `yaml:"kubernetes" json:"kubernetes"`
+	Monitoring   MonitoringConfig    `yaml:"monitoring" json:"monitoring"`
+	Storage      StorageConfig       `yaml:"storage" json:"storage"`
+	LoadBalancer LoadBalancerConfig  `yaml:"loadBalancer" json:"loadBalancer"`
+	Addons       AddonsConfig        `yaml:"addons" json:"addons"`
+}
+
+// AddonsConfig defines cluster addons configuration
+type AddonsConfig struct {
+	ArgoCD *ArgoCDConfig `yaml:"argocd,omitempty" json:"argocd,omitempty"`
+}
+
+// ArgoCDConfig defines ArgoCD GitOps configuration
+type ArgoCDConfig struct {
+	Enabled          bool   `yaml:"enabled" json:"enabled"`
+	Version          string `yaml:"version" json:"version"` // ArgoCD version to install
+	GitOpsRepoURL    string `yaml:"gitopsRepoUrl" json:"gitopsRepoUrl"`
+	GitOpsRepoBranch string `yaml:"gitopsRepoBranch" json:"gitopsRepoBranch"` // default: main
+	AppsPath         string `yaml:"appsPath" json:"appsPath"`                 // default: argocd/apps
+	Namespace        string `yaml:"namespace" json:"namespace"`               // default: argocd
+	AdminPassword    string `yaml:"adminPassword,omitempty" json:"adminPassword,omitempty"`
 }
 
 // Metadata contains cluster metadata

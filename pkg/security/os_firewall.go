@@ -7,9 +7,9 @@ import (
 	"sync"
 	"time"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/providers"
 )
 
 // OSFirewallManager manages operating system level firewall rules

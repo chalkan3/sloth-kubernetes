@@ -3,9 +3,9 @@ package orchestrator
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator/components"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/internal/orchestrator/components"
-	"sloth-kubernetes/pkg/config"
 )
 
 // SimpleRealOrchestratorComponent orchestrates REAL cluster with WireGuard, RKE2, and DNS
@@ -238,6 +238,33 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 
 	ctx.Log.Info("✅ DNS records created", nil)
 
+	// Phase 6: ArgoCD Installation (if enabled)
+	var argoCDComponent *components.ArgoCDInstallerComponent
+	if cfg.Addons.ArgoCD != nil && cfg.Addons.ArgoCD.Enabled {
+		ctx.Log.Info("", nil)
+		ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+		ctx.Log.Info("🚀 Phase 6: ARGOCD GITOPS INSTALLATION", nil)
+		ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+		ctx.Log.Info("", nil)
+
+		argoCDComponent, err = components.NewArgoCDInstallerComponent(
+			ctx,
+			fmt.Sprintf("%s-argocd", name),
+			cfg.Addons.ArgoCD,
+			realNodes,
+			bastionComponent,
+			sshKeyComponent.PrivateKey,
+			pulumi.Parent(component),
+			pulumi.DependsOn([]pulumi.Resource{rkeComponent, dnsComponent}),
+		)
+		if err != nil {
+			ctx.Log.Warn(fmt.Sprintf("⚠️  ArgoCD installation failed: %v", err), nil)
+			ctx.Log.Warn("   Cluster is ready but ArgoCD was not installed", nil)
+		} else {
+			ctx.Log.Info("✅ ArgoCD installed successfully", nil)
+		}
+	}
+
 	// Set outputs
 	component.ClusterName = pulumi.String(cfg.Metadata.Name).ToStringOutput()
 	component.KubeConfig = rkeComponent.KubeConfig
@@ -280,6 +307,12 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 		ctx.Export("bastion_enabled", pulumi.Bool(true))
 	} else {
 		ctx.Export("bastion_enabled", pulumi.Bool(false))
+	}
+
+	// Export ArgoCD information if installed
+	if argoCDComponent != nil {
+		ctx.Export("argocd_admin_password", argoCDComponent.AdminPassword)
+		ctx.Export("argocd_status", argoCDComponent.Status)
 	}
 
 	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{

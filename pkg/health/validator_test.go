@@ -4,7 +4,7 @@ import (
 	"testing"
 	"time"
 
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 func TestValidationResult_Struct(t *testing.T) {

@@ -3,8 +3,8 @@ package orchestrator
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/config"
 )
 
 // WireGuardPeerComponent represents a single WireGuard peer configuration

@@ -4,11 +4,11 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/cloudinit"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/cloudinit"
-	"sloth-kubernetes/pkg/config"
 )
 
 // NodeDeploymentComponent handles node deployment
@@ -66,15 +66,8 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 		return nil, nil, fmt.Errorf("failed to create shared DO SSH key: %w", err)
 	}
 
-	// Get RKE2 version from cluster config
-	rke2Version := ""
-	if clusterConfig.Kubernetes.Version != "" {
-		rke2Version = clusterConfig.Kubernetes.Version
-	} else if clusterConfig.Kubernetes.RKE2 != nil && clusterConfig.Kubernetes.RKE2.Version != "" {
-		rke2Version = clusterConfig.Kubernetes.RKE2.Version
-	}
-
-	// NOTE: Stackscript is NO LONGER NEEDED!
+	// NOTE: cloud-init installs prerequisites (WireGuard, packages) on all nodes
+	// K3s installation is handled by remote commands AFTER WireGuard is configured
 	// Linode supports cloud-init natively via Metadatas.UserData field
 	// This is cleaner and more consistent with DigitalOcean's UserData approach
 
@@ -83,7 +76,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 
 	// Create individual nodes
 	for _, nodeConfig := range clusterConfig.Nodes {
-		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, rke2Version, component)
+		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, component)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -92,7 +85,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 	}
 
 	// Create nodes from pools IN DETERMINISTIC ORDER
-	// CRITICAL: Go maps have random iteration order, which causes RKE2 to assign
+	// CRITICAL: Go maps have random iteration order, which causes K3s to assign
 	// master/worker roles incorrectly. Process pools in explicit order: masters first!
 	nodeIndex := len(realNodeComponents)
 
@@ -121,7 +114,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 				WireGuardIP: fmt.Sprintf("10.8.0.%d", 10+nodeIndex),
 			}
 
-			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, rke2Version, component)
+			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, component)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -169,7 +162,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 }
 
 // newRealNodeComponent creates a real DigitalOcean Droplet or Linode Instance AND provisions it
-func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, sharedLinodeStackscript *linode.StackScript, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, rke2Version string, parent pulumi.Resource) (*RealNodeComponent, error) {
+func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, sharedLinodeStackscript *linode.StackScript, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, parent pulumi.Resource) (*RealNodeComponent, error) {
 	component := &RealNodeComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:compute:RealNode", name, component, pulumi.Parent(parent))
 	if err != nil {
@@ -191,9 +184,9 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 
 	// Create real cloud resource based on provider
 	if nodeConfig.Provider == "digitalocean" {
-		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, rke2Version, component)
+		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, component)
 	} else if nodeConfig.Provider == "linode" {
-		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, sharedLinodeStackscript, linodeToken, bastionEnabled, rke2Version, component)
+		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, sharedLinodeStackscript, linodeToken, bastionEnabled, component)
 	} else {
 		return nil, fmt.Errorf("unknown provider: %s", nodeConfig.Provider)
 	}
@@ -226,7 +219,7 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 }
 
 // createDigitalOceanDroplet creates a real DigitalOcean Droplet
-func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, rke2Version string, component *RealNodeComponent) error {
+func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, component *RealNodeComponent) error {
 	// Use the shared SSH key (already created, no duplication)
 
 	// Build droplet args
@@ -244,10 +237,10 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 		},
 		Ipv6:       pulumi.Bool(true),
 		Monitoring: pulumi.Bool(true),
-		// Cloud-init user-data: Install Docker + WireGuard + RKE2 during VM boot (parallel to VM initialization)
-		// This saves ~2-3 minutes per node by avoiding sequential SSH provisioning
+		// Cloud-init user-data: Install prerequisites (WireGuard, packages) during VM boot
+		// K3s installation is handled by remote commands AFTER WireGuard is configured
 		// Set unique hostname to avoid etcd "duplicate node name" errors
-		UserData: pulumi.String(cloudinit.GenerateUserDataWithHostname(rke2Version, nodeConfig.Name)),
+		UserData: pulumi.String(cloudinit.GenerateUserDataWithHostname(nodeConfig.Name)),
 	}
 
 	// If bastion is enabled, attach to VPC and configure for bastion-only SSH access
@@ -286,7 +279,7 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 }
 
 // createLinodeInstance creates a real Linode Instance
-func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sharedStackscript *linode.StackScript, linodeToken pulumi.StringInput, bastionEnabled bool, rke2Version string, component *RealNodeComponent) error {
+func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sharedStackscript *linode.StackScript, linodeToken pulumi.StringInput, bastionEnabled bool, component *RealNodeComponent) error {
 	// Use the SSH key directly - it's already normalized in sshkeys.go
 	// The key is in format: "ssh-rsa AAAAB3..." (type + key-data only, no comment)
 
@@ -325,9 +318,10 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 		// Linode's cloud-init support is native (not via Stackscripts)
 		// UserData must be base64-encoded
 		// Set unique hostname to avoid etcd "duplicate node name" errors
+		// K3s installation is handled by remote commands AFTER WireGuard is configured
 		Metadatas: linode.InstanceMetadataArray{
 			&linode.InstanceMetadataArgs{
-				UserData: pulumi.String(base64.StdEncoding.EncodeToString([]byte(cloudinit.GenerateUserDataWithHostname(rke2Version, nodeConfig.Name)))),
+				UserData: pulumi.String(base64.StdEncoding.EncodeToString([]byte(cloudinit.GenerateUserDataWithHostname(nodeConfig.Name)))),
 			},
 		},
 	}, pulumi.Parent(component))

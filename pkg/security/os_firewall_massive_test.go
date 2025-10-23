@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 )
 
 // TestFirewallRuleStructure tests FirewallRule structure

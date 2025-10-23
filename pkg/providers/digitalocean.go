@@ -4,9 +4,9 @@ import (
 	"encoding/base64"
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/pkg/config"
 )
 
 // DigitalOceanProvider implements the Provider interface for DigitalOcean
@@ -441,6 +441,12 @@ usermod -aG docker root
 # Enable Docker service
 systemctl enable docker
 systemctl start docker
+
+# Install kubectl
+curl -LO "https://dl.k8s.io/release/$(curl -L -s https://dl.k8s.io/release/stable.txt)/bin/linux/amd64/kubectl"
+chmod +x kubectl
+mv kubectl /usr/local/bin/
+kubectl version --client
 
 # Disable swap (required for Kubernetes)
 swapoff -a

@@ -3,8 +3,8 @@ package cluster
 import (
 	"testing"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
 	"github.com/stretchr/testify/assert"
-	"sloth-kubernetes/pkg/providers"
 )
 
 // Test getNodeTaints with no taints

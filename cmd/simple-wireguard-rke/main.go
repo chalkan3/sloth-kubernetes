@@ -3,9 +3,9 @@ package main
 import (
 	"fmt"
 
+	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator"
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
-	"sloth-kubernetes/internal/orchestrator"
-	"sloth-kubernetes/pkg/config"
 )
 
 func main() {
