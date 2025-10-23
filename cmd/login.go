@@ -35,7 +35,7 @@ Example:
 }
 
 var (
-	loginProvider string
+	loginProvider  string
 	loginOverwrite bool
 )
 

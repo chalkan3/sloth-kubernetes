@@ -257,7 +257,7 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 		// Get WireGuard config and peers from this node
 		// First get the config to extract labels from comments
 		fetchConfigCmd := "cat /etc/wireguard/wg0.conf"
-		fetchPeersCmd := "wg show wg0 dump | tail -n +2"  // Skip header line
+		fetchPeersCmd := "wg show wg0 dump | tail -n +2" // Skip header line
 
 		// Fetch config to extract peer labels
 		var configCmd *exec.Cmd
@@ -413,7 +413,7 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 				allPeers = append(allPeers, PeerInfo{
 					NodeName:      peerNodeName,
 					VPNIp:         vpnIP,
-					PublicKey:     publicKey[:16] + "...",  // Truncate for display
+					PublicKey:     publicKey[:16] + "...", // Truncate for display
 					Label:         label,
 					Endpoint:      endpoint,
 					LastHandshake: handshakeStr,
@@ -1093,7 +1093,7 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 					}
 
 					existingPeers = append(existingPeers, VPNPeerInfo{
-						PublicKey: peerKey,
+						PublicKey:  peerKey,
 						VPNAddress: peerIP,
 					})
 				}
