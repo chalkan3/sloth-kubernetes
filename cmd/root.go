@@ -5,6 +5,7 @@ import (
 	"os"
 
 	"github.com/spf13/cobra"
+	"sloth-kubernetes/internal/common"
 )
 
 var (
@@ -36,9 +37,18 @@ func Execute() {
 }
 
 func init() {
+	// Load saved credentials before running any command
+	cobra.OnInitialize(initConfig)
+
 	// Global flags
 	rootCmd.PersistentFlags().StringVarP(&cfgFile, "config", "c", "", "Config file (default: ./cluster-config.yaml)")
 	rootCmd.PersistentFlags().StringVarP(&stackName, "stack", "s", "production", "Pulumi stack name")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "Verbose output")
 	rootCmd.PersistentFlags().BoolVarP(&autoApprove, "yes", "y", false, "Auto-approve without prompting")
+}
+
+func initConfig() {
+	// Load saved credentials from ~/.sloth-kubernetes/credentials
+	// This runs before every command, allowing saved credentials to be used
+	_ = common.LoadSavedCredentials()
 }
