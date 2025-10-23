@@ -6,157 +6,122 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"syscall"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
-	"golang.org/x/crypto/ssh/terminal"
 )
 
 var loginCmd = &cobra.Command{
-	Use:   "login",
-	Short: "Configure cloud provider credentials",
-	Long: `Configure and securely store cloud provider API tokens.
+	Use:   "login [s3://bucket-name]",
+	Short: "Configure state backend (S3 bucket)",
+	Long: `Configure the S3 bucket for storing Pulumi state.
 
-This command interactively prompts for your cloud provider credentials and
-stores them in ~/.sloth-kubernetes/credentials for future use.
+This command works similar to 'pulumi login' - it configures where your
+infrastructure state will be stored. The state backend must be an S3-compatible
+storage bucket.
 
-Supported providers:
-  - DigitalOcean (DIGITALOCEAN_TOKEN)
-  - Linode (LINODE_TOKEN)
-
-The credentials are stored with restricted file permissions (0600) for security.
+The backend URL is stored in ~/.sloth-kubernetes/config for future use.
 
 Example:
-  sloth-kubernetes login
-  sloth-kubernetes login --provider digitalocean
-  sloth-kubernetes login --provider linode`,
+  sloth-kubernetes login s3://s3.lady-guica.chalkan3.com.br
+  sloth-kubernetes login --bucket s3.lady-guica.chalkan3.com.br`,
 	RunE: runLogin,
 }
 
 var (
-	loginProvider  string
-	loginOverwrite bool
+	loginBucket string
 )
 
 func init() {
 	rootCmd.AddCommand(loginCmd)
-	loginCmd.Flags().StringVarP(&loginProvider, "provider", "p", "", "Provider to configure (digitalocean, linode, or leave empty for all)")
-	loginCmd.Flags().BoolVar(&loginOverwrite, "overwrite", false, "Overwrite existing credentials without prompting")
+	loginCmd.Flags().StringVarP(&loginBucket, "bucket", "b", "", "S3 bucket URL for state backend")
 }
 
 func runLogin(cmd *cobra.Command, args []string) error {
-	fmt.Println()
-	color.Cyan("🔐 Cloud Provider Login")
-	fmt.Println()
-
-	// Get or create credentials directory
-	credsDir, err := getCredentialsDir()
-	if err != nil {
-		return fmt.Errorf("failed to get credentials directory: %w", err)
-	}
-
-	credsFile := filepath.Join(credsDir, "credentials")
-
-	// Load existing credentials
-	existing, err := loadCredentials(credsFile)
-	if err != nil && !os.IsNotExist(err) {
-		return fmt.Errorf("failed to load existing credentials: %w", err)
-	}
-
-	// Determine which providers to configure
-	providers := []string{}
-	if loginProvider != "" {
-		providers = append(providers, strings.ToLower(loginProvider))
+	// Determine bucket URL from args or flag
+	var bucketURL string
+	if len(args) > 0 {
+		bucketURL = args[0]
+	} else if loginBucket != "" {
+		bucketURL = loginBucket
 	} else {
-		providers = []string{"digitalocean", "linode"}
+		return fmt.Errorf("usage: sloth-kubernetes login [s3://bucket-name]\nExample: sloth-kubernetes login s3://s3.lady-guica.chalkan3.com.br")
 	}
 
-	// Configure each provider
-	for _, provider := range providers {
-		if err := configureProvider(provider, existing); err != nil {
-			return err
-		}
-	}
-
-	// Save credentials
-	if err := saveCredentials(credsFile, existing); err != nil {
-		return fmt.Errorf("failed to save credentials: %w", err)
+	// Normalize bucket URL - ensure it starts with s3://
+	if !strings.HasPrefix(bucketURL, "s3://") {
+		bucketURL = "s3://" + bucketURL
 	}
 
 	fmt.Println()
-	color.Green("✓ Credentials saved successfully!")
-	fmt.Printf("  Location: %s\n", credsFile)
-	fmt.Println()
-	color.Yellow("Note: You can now deploy clusters without setting environment variables.")
+	color.Cyan("🔐 Configuring State Backend")
 	fmt.Println()
 
-	return nil
-}
-
-func configureProvider(provider string, creds map[string]string) error {
-	var envVar string
-	var displayName string
-
-	switch provider {
-	case "digitalocean", "do":
-		envVar = "DIGITALOCEAN_TOKEN"
-		displayName = "DigitalOcean"
-	case "linode":
-		envVar = "LINODE_TOKEN"
-		displayName = "Linode"
-	default:
-		return fmt.Errorf("unsupported provider: %s (supported: digitalocean, linode)", provider)
+	// Get or create config directory
+	configDir, err := getConfigDir()
+	if err != nil {
+		return fmt.Errorf("failed to get config directory: %w", err)
 	}
 
-	// Check if already configured
-	if existing, ok := creds[envVar]; ok && !loginOverwrite {
-		fmt.Printf("%s token already configured: %s\n", displayName, maskToken(existing))
-		if !promptYesNo(fmt.Sprintf("  Overwrite %s token?", displayName)) {
-			fmt.Printf("  Skipping %s\n", displayName)
+	configFile := filepath.Join(configDir, "config")
+
+	// Load existing config
+	config, err := loadConfig(configFile)
+	if err != nil && !os.IsNotExist(err) {
+		return fmt.Errorf("failed to load existing config: %w", err)
+	}
+
+	// Check if backend is already configured
+	if existingBackend, ok := config["PULUMI_BACKEND_URL"]; ok && existingBackend != "" {
+		fmt.Printf("State backend already configured: %s\n", existingBackend)
+		fmt.Println()
+		if !promptYesNo("Overwrite existing backend configuration?") {
+			fmt.Println("Keeping existing configuration.")
 			return nil
 		}
 	}
 
-	// Prompt for token
-	token, err := promptToken(fmt.Sprintf("Enter %s API token", displayName))
-	if err != nil {
-		return err
+	// Set the backend URL
+	config["PULUMI_BACKEND_URL"] = bucketURL
+
+	// Save config
+	if err := saveConfig(configFile, config); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
 	}
 
-	if token == "" {
-		fmt.Printf("  Skipping %s (no token provided)\n", displayName)
-		return nil
-	}
-
-	creds[envVar] = token
-	color.Green("  ✓ %s token configured", displayName)
+	fmt.Println()
+	color.Green("✓ State backend configured successfully!")
+	fmt.Printf("  Backend URL: %s\n", bucketURL)
+	fmt.Printf("  Config file: %s\n", configFile)
+	fmt.Println()
+	color.Yellow("Note: All Pulumi state will now be stored in this S3 bucket.")
+	fmt.Println()
 
 	return nil
 }
 
-func getCredentialsDir() (string, error) {
+func getConfigDir() (string, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return "", err
 	}
 
-	credsDir := filepath.Join(home, ".sloth-kubernetes")
+	configDir := filepath.Join(home, ".sloth-kubernetes")
 
 	// Create directory if it doesn't exist
-	if err := os.MkdirAll(credsDir, 0700); err != nil {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
 		return "", err
 	}
 
-	return credsDir, nil
+	return configDir, nil
 }
 
-func loadCredentials(path string) (map[string]string, error) {
-	creds := make(map[string]string)
+func loadConfig(path string) (map[string]string, error) {
+	config := make(map[string]string)
 
 	file, err := os.Open(path)
 	if err != nil {
-		return creds, err
+		return config, err
 	}
 	defer file.Close()
 
@@ -173,14 +138,14 @@ func loadCredentials(path string) (map[string]string, error) {
 			value := strings.TrimSpace(parts[1])
 			// Remove quotes if present
 			value = strings.Trim(value, `"'`)
-			creds[key] = value
+			config[key] = value
 		}
 	}
 
-	return creds, scanner.Err()
+	return config, scanner.Err()
 }
 
-func saveCredentials(path string, creds map[string]string) error {
+func saveConfig(path string, config map[string]string) error {
 	// Create file with restricted permissions
 	file, err := os.OpenFile(path, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0600)
 	if err != nil {
@@ -189,33 +154,21 @@ func saveCredentials(path string, creds map[string]string) error {
 	defer file.Close()
 
 	// Write header
-	fmt.Fprintln(file, "# Sloth Kubernetes Cloud Provider Credentials")
-	fmt.Fprintln(file, "# This file contains sensitive API tokens - keep it secure!")
+	fmt.Fprintln(file, "# Sloth Kubernetes Configuration")
+	fmt.Fprintln(file, "# This file contains Pulumi backend configuration")
 	fmt.Fprintln(file, "# File permissions: 0600 (read/write for owner only)")
 	fmt.Fprintln(file, "#")
 	fmt.Fprintf(file, "# Generated by: sloth-kubernetes login\n")
 	fmt.Fprintln(file, "")
 
-	// Write credentials in order
-	for _, key := range []string{"DIGITALOCEAN_TOKEN", "LINODE_TOKEN"} {
-		if value, ok := creds[key]; ok && value != "" {
+	// Write configuration
+	for key, value := range config {
+		if value != "" {
 			fmt.Fprintf(file, "%s=%s\n", key, value)
 		}
 	}
 
 	return nil
-}
-
-func promptToken(prompt string) (string, error) {
-	fmt.Printf("%s (hidden): ", prompt)
-
-	byteToken, err := terminal.ReadPassword(int(syscall.Stdin))
-	fmt.Println() // New line after hidden input
-	if err != nil {
-		return "", fmt.Errorf("failed to read token: %w", err)
-	}
-
-	return strings.TrimSpace(string(byteToken)), nil
 }
 
 func promptYesNo(prompt string) bool {
@@ -229,11 +182,4 @@ func promptYesNo(prompt string) bool {
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
-}
-
-func maskToken(token string) string {
-	if len(token) <= 8 {
-		return "****"
-	}
-	return token[:4] + "..." + token[len(token)-4:]
 }
