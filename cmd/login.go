@@ -2,12 +2,14 @@ package cmd
 
 import (
 	"bufio"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/fatih/color"
+	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 )
 
@@ -55,6 +57,29 @@ func runLogin(cmd *cobra.Command, args []string) error {
 
 	fmt.Println()
 	color.Cyan("🔐 Configuring State Backend")
+	fmt.Println()
+
+	// Validate S3 backend access
+	fmt.Println("⏳ Validating S3 backend access...")
+	if err := validateS3Backend(bucketURL); err != nil {
+		fmt.Println()
+		color.Red("✗ Failed to access S3 backend")
+		fmt.Println()
+		fmt.Println("Error:", err.Error())
+		fmt.Println()
+		color.Yellow("💡 Possible solutions:")
+		fmt.Println("  1. Check if AWS credentials are configured:")
+		fmt.Println("     export AWS_ACCESS_KEY_ID=your_access_key")
+		fmt.Println("     export AWS_SECRET_ACCESS_KEY=your_secret_key")
+		fmt.Println()
+		fmt.Println("  2. For S3-compatible storage (MinIO, DigitalOcean Spaces, etc):")
+		fmt.Println("     export AWS_S3_ENDPOINT=https://your-endpoint.com")
+		fmt.Println()
+		fmt.Println("  3. Verify the bucket URL is correct and accessible")
+		fmt.Println()
+		return fmt.Errorf("S3 backend validation failed")
+	}
+	fmt.Println("✓ S3 backend is accessible")
 	fmt.Println()
 
 	// Get or create config directory
@@ -182,4 +207,39 @@ func promptYesNo(prompt string) bool {
 
 	response = strings.ToLower(strings.TrimSpace(response))
 	return response == "y" || response == "yes"
+}
+
+// validateS3Backend validates that the S3 backend is accessible
+func validateS3Backend(backendURL string) error {
+	ctx := context.Background()
+
+	// Set the backend URL as environment variable temporarily
+	originalBackend := os.Getenv("PULUMI_BACKEND_URL")
+	os.Setenv("PULUMI_BACKEND_URL", backendURL)
+	defer func() {
+		if originalBackend != "" {
+			os.Setenv("PULUMI_BACKEND_URL", originalBackend)
+		} else {
+			os.Unsetenv("PULUMI_BACKEND_URL")
+		}
+	}()
+
+	// Try to login to the backend using Pulumi
+	// This will fail if:
+	// - AWS credentials are missing
+	// - The bucket doesn't exist
+	// - The bucket is not accessible
+	// - Network issues
+	ws, err := auto.NewLocalWorkspace(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to initialize workspace: %w", err)
+	}
+
+	// Try to list stacks - this will validate backend access
+	_, err = ws.ListStacks(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to access backend: %w", err)
+	}
+
+	return nil
 }
