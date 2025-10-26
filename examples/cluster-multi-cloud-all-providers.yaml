@@ -1,0 +1,339 @@
+apiVersion: kubernetes-create.io/v1
+kind: Cluster
+
+metadata:
+  name: multi-cloud-5-provider-cluster
+  labels:
+    environment: production
+    managed-by: sloth-kubernetes
+    deployment: multi-cloud
+  annotations:
+    description: "Production cluster spanning 5 cloud providers for maximum resilience"
+
+spec:
+  # ========================================
+  # PROVIDERS CONFIGURATION
+  # ========================================
+  providers:
+    # DigitalOcean
+    digitalocean:
+      enabled: true
+      token: ${DIGITALOCEAN_TOKEN}
+      region: nyc3
+      vpc:
+        create: true
+        cidr: 10.10.0.0/16
+        enableDns: true
+      tags:
+        - kubernetes
+        - production
+        - multi-cloud
+
+    # Linode
+    linode:
+      enabled: true
+      token: ${LINODE_TOKEN}
+      region: us-east
+      vpc:
+        create: true
+        cidr: 10.11.0.0/16
+        label: k8s-linode-vpc
+      tags:
+        - kubernetes
+        - production
+
+    # AWS
+    aws:
+      enabled: true
+      accessKeyId: ${AWS_ACCESS_KEY_ID}
+      secretAccessKey: ${AWS_SECRET_ACCESS_KEY}
+      region: us-east-1
+      vpc:
+        create: true
+        cidr: 10.12.0.0/16
+        enableDns: true
+        enableDnsHostname: true
+      keyPair: k8s-production  # or auto-generate
+
+    # Google Cloud Platform
+    gcp:
+      enabled: true
+      projectId: ${GCP_PROJECT_ID}
+      credentials: ${GCP_CREDENTIALS}  # Path to service account JSON
+      region: us-central1
+      zone: us-central1-a
+      network:
+        create: true
+        cidr: 10.13.0.0/16
+
+    # Microsoft Azure
+    azure:
+      enabled: true
+      subscriptionId: ${AZURE_SUBSCRIPTION_ID}
+      tenantId: ${AZURE_TENANT_ID}
+      clientId: ${AZURE_CLIENT_ID}
+      clientSecret: ${AZURE_CLIENT_SECRET}
+      location: eastus
+      resourceGroup: k8s-production-rg
+      virtualNetwork:
+        create: true
+        cidr: 10.14.0.0/16
+
+  # ========================================
+  # NETWORK CONFIGURATION
+  # ========================================
+  network:
+    wireguard:
+      create: true              # Auto-create VPN server
+      provider: digitalocean    # Host VPN on DigitalOcean
+      region: nyc3
+      size: s-1vcpu-1gb
+      enabled: true
+      port: 51820
+      clientIpBase: 10.8.0
+      subnetCidr: 10.8.0.0/24
+      mtu: 1420
+      persistentKeepalive: 25
+      autoConfig: true
+      meshNetworking: true      # Full mesh between all nodes
+      allowedIps:
+        - 10.8.0.0/24   # VPN subnet
+        - 10.10.0.0/16  # DO VPC
+        - 10.11.0.0/16  # Linode VPC
+        - 10.12.0.0/16  # AWS VPC
+        - 10.13.0.0/16  # GCP VPC
+        - 10.14.0.0/16  # Azure VNet
+      dns:
+        - 1.1.1.1
+        - 8.8.8.8
+
+    dns:
+      domain: k8s-multi-cloud.example.com
+      provider: digitalocean
+
+  # ========================================
+  # KUBERNETES CONFIGURATION
+  # ========================================
+  kubernetes:
+    distribution: rke2
+    version: v1.28.5+rke2r1
+    networkPlugin: calico
+    podCIDR: 10.42.0.0/16
+    serviceCIDR: 10.43.0.0/16
+    clusterDNS: 10.43.0.10
+    clusterDomain: cluster.local
+
+    rke2:
+      channel: stable
+      clusterToken: your-super-secure-cluster-token-change-me
+      tlsSan:
+        - api.k8s-multi-cloud.example.com
+        - kubernetes.k8s-multi-cloud.example.com
+      disableComponents:
+        - rke2-ingress-nginx  # Install via GitOps instead
+      snapshotScheduleCron: "0 */6 * * *"  # Every 6 hours
+      snapshotRetention: 14                 # Keep 14 snapshots
+      secretsEncryption: true
+      writeKubeconfigMode: "0600"
+      profiles:
+        - cis-1.6  # CIS Kubernetes Benchmark compliance
+
+  # ========================================
+  # NODE POOLS - DISTRIBUTED ACROSS 5 PROVIDERS
+  # ========================================
+  nodePools:
+    # MASTER NODES (5 masters for HA across all providers)
+    # ----------------------------------------------------
+
+    # DigitalOcean Master
+    - name: do-masters
+      provider: digitalocean
+      count: 1
+      roles: [master]
+      size: s-2vcpu-4gb
+      image: ubuntu-22-04-x64
+      region: nyc3
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: digitalocean
+        zone: nyc3
+
+    # Linode Masters (2 for majority in case DO goes down)
+    - name: linode-masters
+      provider: linode
+      count: 2
+      roles: [master]
+      size: g6-standard-2
+      image: linode/ubuntu22.04
+      region: us-east
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: linode
+        zone: us-east
+
+    # AWS Master
+    - name: aws-masters
+      provider: aws
+      count: 1
+      roles: [master]
+      size: t3.medium
+      image: ami-0c55b159cbfafe1f0  # Ubuntu 22.04 LTS
+      region: us-east-1
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: aws
+        zone: us-east-1a
+
+    # GCP Master
+    - name: gcp-masters
+      provider: gcp
+      count: 1
+      roles: [master]
+      size: e2-standard-2
+      image: projects/ubuntu-os-cloud/global/images/ubuntu-2204-lts
+      region: us-central1
+      zone: us-central1-a
+      labels:
+        node-role.kubernetes.io/master: "true"
+        cloud-provider: gcp
+        zone: us-central1-a
+
+    # WORKER NODES (Distributed for workload distribution)
+    # -----------------------------------------------------
+
+    # DigitalOcean Workers
+    - name: do-workers
+      provider: digitalocean
+      count: 2
+      roles: [worker]
+      size: s-4vcpu-8gb
+      image: ubuntu-22-04-x64
+      region: nyc3
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: digitalocean
+        workload-type: general
+
+    # Linode Workers
+    - name: linode-workers
+      provider: linode
+      count: 2
+      roles: [worker]
+      size: g6-standard-4
+      image: linode/ubuntu22.04
+      region: us-east
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: linode
+        workload-type: general
+
+    # AWS Workers
+    - name: aws-workers
+      provider: aws
+      count: 2
+      roles: [worker]
+      size: t3.large
+      image: ami-0c55b159cbfafe1f0
+      region: us-east-1
+      zones:
+        - us-east-1a
+        - us-east-1b
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: aws
+        workload-type: general
+
+    # GCP Workers
+    - name: gcp-workers
+      provider: gcp
+      count: 2
+      roles: [worker]
+      size: n2-standard-4
+      image: projects/ubuntu-os-cloud/global/images/ubuntu-2204-lts
+      region: us-central1
+      zones:
+        - us-central1-a
+        - us-central1-b
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: gcp
+        workload-type: compute
+
+    # Azure Workers
+    - name: azure-workers
+      provider: azure
+      count: 2
+      roles: [worker]
+      size: Standard_D4s_v3
+      image: Canonical:0001-com-ubuntu-server-jammy:22_04-lts-gen2:latest
+      region: eastus
+      labels:
+        node-role.kubernetes.io/worker: "true"
+        cloud-provider: azure
+        workload-type: general
+
+  # ========================================
+  # SECURITY CONFIGURATION
+  # ========================================
+  security:
+    ssh:
+      generateKeys: true
+      keyPath: ~/.ssh/k8s-multi-cloud
+      allowedIPs:
+        - 0.0.0.0/0  # Restricted via VPN
+
+    bastion:
+      enabled: true
+      provider: digitalocean
+      region: nyc3
+      size: s-1vcpu-1gb
+      vpnOnly: true  # Only accessible via VPN
+      enableAuditLog: true
+
+    rbac:
+      enabled: true
+
+    podSecurity:
+      enabled: true
+      policyLevel: restricted
+
+    networkPolicies:
+      enabled: true
+      defaultDeny: true
+
+  # ========================================
+  # ADDONS CONFIGURATION
+  # ========================================
+  addons:
+    argocd:
+      enabled: true
+      version: v2.9.3
+      gitopsRepoUrl: https://github.com/yourorg/k8s-gitops
+      gitopsRepoBranch: main
+      appsPath: apps/
+      namespace: argocd
+
+# ========================================
+# CLUSTER SUMMARY
+# ========================================
+# Total Nodes: 16
+#   - Masters: 6 (DO: 1, Linode: 2, AWS: 1, GCP: 1, Azure: 1)
+#   - Workers: 10 (DO: 2, Linode: 2, AWS: 2, GCP: 2, Azure: 2)
+#
+# Geographic Distribution:
+#   - North America: DO (NYC), AWS (US-East), GCP (US-Central), Azure (East US)
+#   - Europe: Linode (US-East - can be changed to EU)
+#
+# Estimated Monthly Cost: ~$550-650
+#   - DigitalOcean: ~$120 (3 nodes)
+#   - Linode: ~$100 (4 nodes)
+#   - AWS: ~$150 (3 nodes)
+#   - GCP: ~$120 (3 nodes)
+#   - Azure: ~$110 (3 nodes)
+#
+# High Availability Features:
+#   - Odd number of masters (6) distributed across providers
+#   - Etcd quorum maintained even if 2 providers fail
+#   - WireGuard mesh ensures cross-cloud communication
+#   - Pod scheduling across all providers for resilience
+# ========================================

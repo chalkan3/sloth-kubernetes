@@ -9,6 +9,24 @@ import (
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 )
 
+// getSSHUserForProviderK3s returns the correct SSH username for the given cloud provider
+// Azure uses "azureuser", while other providers use "root" or "ubuntu"
+// This is identical to getSSHUserForProvider() in cloudinit_validator.go
+func getSSHUserForProviderK3s(provider pulumi.StringOutput) pulumi.StringOutput {
+	return provider.ApplyT(func(p string) string {
+		switch p {
+		case "azure":
+			return "azureuser"
+		case "aws":
+			return "ubuntu" // AWS Ubuntu AMIs use "ubuntu"
+		case "gcp":
+			return "ubuntu" // GCP uses "ubuntu" for Ubuntu images
+		default:
+			return "root" // DigitalOcean, Linode, and others use "root"
+		}
+	}).(pulumi.StringOutput)
+}
+
 // K3sRealComponent represents a real K3s Kubernetes cluster
 type K3sRealComponent struct {
 	pulumi.ResourceState
@@ -62,14 +80,18 @@ func NewK3sRealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComp
 
 	ctx.Log.Info("📦 Installing K3s on first master (cluster init)...", nil)
 
+	// Determine SSH user based on provider (Azure uses "azureuser", others use "root")
+	firstMasterSSHUser := getSSHUserForProviderK3s(firstMaster.Provider)
+
 	// Build connection args with ProxyJump if bastion is enabled
 	firstMasterConnArgs := remote.ConnectionArgs{
 		Host:           firstMaster.PublicIP,
-		User:           pulumi.String("root"),
+		User:           firstMasterSSHUser,
 		PrivateKey:     sshPrivateKey,
 		DialErrorLimit: pulumi.Int(30),
 	}
 	if bastionComponent != nil {
+		// Bastion is on Linode in this config, so it uses "root"
 		firstMasterConnArgs.Proxy = &remote.ProxyConnectionArgs{
 			Host:       bastionComponent.PublicIP,
 			User:       pulumi.String("root"),
@@ -163,7 +185,7 @@ cat /etc/rancher/k3s/k3s.yaml
 `, wgIP, wgIP, wgIP, publicIP, wgIP, wgIP, publicIP, wgIP, wgIP, wgIP)
 		}).(pulumi.StringOutput),
 	}, pulumi.Parent(component), pulumi.Timeouts(&pulumi.CustomTimeouts{
-		Create: "20m",
+		Create: "30m", // Increased from 20m for slower Azure B1s VMs
 	}))
 	if err != nil {
 		return nil, fmt.Errorf("failed to install K3s on first master: %w", err)
@@ -212,11 +234,12 @@ cat /etc/rancher/k3s/k3s.yaml
 
 	tokenFetchConnArgs := remote.ConnectionArgs{
 		Host:           firstMaster.PublicIP,
-		User:           pulumi.String("root"),
+		User:           firstMasterSSHUser, // Reuse SSH user from first master (Azure = azureuser, others = root)
 		PrivateKey:     sshPrivateKey,
 		DialErrorLimit: pulumi.Int(30),
 	}
 	if bastionComponent != nil {
+		// Bastion is on Linode in this config, so it uses "root"
 		tokenFetchConnArgs.Proxy = &remote.ProxyConnectionArgs{
 			Host:       bastionComponent.PublicIP,
 			User:       pulumi.String("root"),
@@ -266,14 +289,18 @@ exit 1
 
 		ctx.Log.Info(fmt.Sprintf("📦 Installing K3s on master %d (join cluster) [PARALLEL]...", i+1), nil)
 
+		// Determine SSH user based on provider (Azure uses "azureuser", others use "root")
+		masterSSHUser := getSSHUserForProviderK3s(master.Provider)
+
 		// Build connection args with ProxyJump if bastion is enabled
 		masterConnArgs := remote.ConnectionArgs{
 			Host:           master.PublicIP,
-			User:           pulumi.String("root"),
+			User:           masterSSHUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		}
 		if bastionComponent != nil {
+			// Bastion is on Linode in this config, so it uses "root"
 			masterConnArgs.Proxy = &remote.ProxyConnectionArgs{
 				Host:       bastionComponent.PublicIP,
 				User:       pulumi.String("root"),
@@ -387,7 +414,7 @@ echo "✅ K3s master %d joined cluster"
 `, masterNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, firstMasterWgIP, myWgIP, myPublicIP, myWgIP, myWgIP, myPublicIP, masterNum)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{tokenFetch}), pulumi.Timeouts(&pulumi.CustomTimeouts{
-			Create: "20m",
+			Create: "30m", // Increased from 20m for slower Azure B1s VMs
 		}))
 		if err != nil {
 			ctx.Log.Warn(fmt.Sprintf("⚠️  Failed to install K3s on master %d: %v", i+1, err), nil)
@@ -400,14 +427,18 @@ echo "✅ K3s master %d joined cluster"
 	for i, worker := range workers {
 		ctx.Log.Info(fmt.Sprintf("📦 Installing K3s on worker %d [PARALLEL]...", i+1), nil)
 
+		// Determine SSH user based on provider (Azure uses "azureuser", others use "root")
+		workerSSHUser := getSSHUserForProviderK3s(worker.Provider)
+
 		// Build connection args with ProxyJump if bastion is enabled
 		workerConnArgs := remote.ConnectionArgs{
 			Host:           worker.PublicIP,
-			User:           pulumi.String("root"),
+			User:           workerSSHUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		}
 		if bastionComponent != nil {
+			// Bastion is on Linode in this config, so it uses "root"
 			workerConnArgs.Proxy = &remote.ProxyConnectionArgs{
 				Host:       bastionComponent.PublicIP,
 				User:       pulumi.String("root"),
@@ -502,7 +533,7 @@ echo "✅ K3s worker %d joined cluster"
 `, workerNum, myWgIP, myWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, firstMasterWgIP, token, myWgIP, myPublicIP, workerNum)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{tokenFetch}), pulumi.Timeouts(&pulumi.CustomTimeouts{
-			Create: "20m",
+			Create: "30m", // Increased from 20m for slower Azure B1s VMs
 		}))
 		if err != nil {
 			ctx.Log.Warn(fmt.Sprintf("⚠️  Failed to install K3s on worker %d: %v", i+1, err), nil)

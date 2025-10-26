@@ -4,6 +4,9 @@ import (
 	"fmt"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
+	"github.com/pulumi/pulumi-azure-native-sdk/network/v2"
+	"github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
@@ -73,8 +76,10 @@ func NewBastionComponent(
 		err = createDigitalOceanBastion(ctx, name, bastionConfig, sshKeyOutput, doToken, component)
 	case "linode":
 		err = createLinodeBastion(ctx, name, bastionConfig, sshKeyOutput, linodeToken, component)
+	case "azure":
+		err = createAzureBastion(ctx, name, bastionConfig, sshKeyOutput, component)
 	default:
-		return nil, fmt.Errorf("unsupported bastion provider: %s", bastionConfig.Provider)
+		return nil, fmt.Errorf("unsupported bastion provider: %s (only digitalocean, linode, and azure are supported)", bastionConfig.Provider)
 	}
 
 	if err != nil {
@@ -194,6 +199,228 @@ func createLinodeBastion(
 	return nil
 }
 
+func createAzureBastion(
+	ctx *pulumi.Context,
+	name string,
+	bastionConfig *config.BastionConfig,
+	sshKeyOutput pulumi.StringOutput,
+	component *BastionComponent,
+) error {
+	// Azure bastion configuration
+	resourceGroupName := fmt.Sprintf("%s-bastion-rg", ctx.Stack())
+	location := bastionConfig.Region
+	if location == "" {
+		location = "eastus"
+	}
+
+	// Create Resource Group
+	rg, err := resources.NewResourceGroup(ctx, fmt.Sprintf("%s-rg", name), &resources.ResourceGroupArgs{
+		ResourceGroupName: pulumi.String(resourceGroupName),
+		Location:          pulumi.String(location),
+		Tags: pulumi.StringMap{
+			"Environment": pulumi.String("production"),
+			"Role":        pulumi.String("bastion"),
+			"ManagedBy":   pulumi.String("sloth-kubernetes"),
+		},
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create resource group: %w", err)
+	}
+
+	// Create Virtual Network
+	vnetName := fmt.Sprintf("%s-vnet", name)
+	vnet, err := network.NewVirtualNetwork(ctx, vnetName, &network.VirtualNetworkArgs{
+		ResourceGroupName: rg.Name,
+		VirtualNetworkName: pulumi.String(vnetName),
+		Location:          rg.Location,
+		AddressSpace: &network.AddressSpaceArgs{
+			AddressPrefixes: pulumi.StringArray{
+				pulumi.String("10.100.0.0/16"),
+			},
+		},
+		Tags: pulumi.StringMap{
+			"Role": pulumi.String("bastion"),
+		},
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create virtual network: %w", err)
+	}
+
+	// Create Subnet
+	subnetName := fmt.Sprintf("%s-subnet", name)
+	subnet, err := network.NewSubnet(ctx, subnetName, &network.SubnetArgs{
+		ResourceGroupName:  rg.Name,
+		VirtualNetworkName: vnet.Name,
+		SubnetName:         pulumi.String(subnetName),
+		AddressPrefix:      pulumi.String("10.100.1.0/24"),
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create subnet: %w", err)
+	}
+
+	// Create Network Security Group
+	nsgName := fmt.Sprintf("%s-nsg", name)
+	nsg, err := network.NewNetworkSecurityGroup(ctx, nsgName, &network.NetworkSecurityGroupArgs{
+		ResourceGroupName:        rg.Name,
+		NetworkSecurityGroupName: pulumi.String(nsgName),
+		Location:                 rg.Location,
+		SecurityRules: network.SecurityRuleTypeArray{
+			&network.SecurityRuleTypeArgs{
+				Name:                     pulumi.String("allow-ssh"),
+				Priority:                 pulumi.Int(100),
+				Direction:                pulumi.String("Inbound"),
+				Access:                   pulumi.String("Allow"),
+				Protocol:                 pulumi.String("Tcp"),
+				SourcePortRange:          pulumi.String("*"),
+				DestinationPortRange:     pulumi.String("22"),
+				SourceAddressPrefix:      pulumi.String("*"),
+				DestinationAddressPrefix: pulumi.String("*"),
+			},
+			&network.SecurityRuleTypeArgs{
+				Name:                     pulumi.String("allow-wireguard"),
+				Priority:                 pulumi.Int(110),
+				Direction:                pulumi.String("Inbound"),
+				Access:                   pulumi.String("Allow"),
+				Protocol:                 pulumi.String("Udp"),
+				SourcePortRange:          pulumi.String("*"),
+				DestinationPortRange:     pulumi.String("51820"),
+				SourceAddressPrefix:      pulumi.String("*"),
+				DestinationAddressPrefix: pulumi.String("*"),
+			},
+		},
+		Tags: pulumi.StringMap{
+			"Role": pulumi.String("bastion"),
+		},
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create network security group: %w", err)
+	}
+
+	// Create Public IP
+	publicIPName := fmt.Sprintf("%s-ip", name)
+	publicIP, err := network.NewPublicIPAddress(ctx, publicIPName, &network.PublicIPAddressArgs{
+		ResourceGroupName:         rg.Name,
+		PublicIpAddressName:       pulumi.String(publicIPName),
+		Location:                  rg.Location,
+		PublicIPAllocationMethod:  pulumi.String("Static"),
+		Sku: &network.PublicIPAddressSkuArgs{
+			Name: pulumi.String("Standard"),
+		},
+		Tags: pulumi.StringMap{
+			"Role": pulumi.String("bastion"),
+		},
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create public IP: %w", err)
+	}
+
+	// Create Network Interface
+	nicName := fmt.Sprintf("%s-nic", name)
+	nic, err := network.NewNetworkInterface(ctx, nicName, &network.NetworkInterfaceArgs{
+		ResourceGroupName:    rg.Name,
+		NetworkInterfaceName: pulumi.String(nicName),
+		Location:             rg.Location,
+		IpConfigurations: network.NetworkInterfaceIPConfigurationArray{
+			&network.NetworkInterfaceIPConfigurationArgs{
+				Name:                      pulumi.String("ipconfig1"),
+				PrivateIPAllocationMethod: pulumi.String("Dynamic"),
+				Subnet: &network.SubnetTypeArgs{
+					Id: subnet.ID(),
+				},
+				PublicIPAddress: &network.PublicIPAddressTypeArgs{
+					Id: publicIP.ID(),
+				},
+			},
+		},
+		NetworkSecurityGroup: &network.NetworkSecurityGroupTypeArgs{
+			Id: nsg.ID(),
+		},
+		Tags: pulumi.StringMap{
+			"Role": pulumi.String("bastion"),
+		},
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create network interface: %w", err)
+	}
+
+	// Create Virtual Machine
+	vmName := bastionConfig.Name
+	if vmName == "" {
+		vmName = "bastion-azure"
+	}
+
+	// Use size from config or default
+	vmSize := bastionConfig.Size
+	if vmSize == "" {
+		vmSize = "Standard_B1s" // Free tier eligible
+	}
+
+	vm, err := compute.NewVirtualMachine(ctx, vmName, &compute.VirtualMachineArgs{
+		ResourceGroupName: rg.Name,
+		VmName:            pulumi.String(vmName),
+		Location:          rg.Location,
+		HardwareProfile: &compute.HardwareProfileArgs{
+			VmSize: pulumi.String(vmSize),
+		},
+		StorageProfile: &compute.StorageProfileArgs{
+			ImageReference: &compute.ImageReferenceArgs{
+				Publisher: pulumi.String("Canonical"),
+				Offer:     pulumi.String("0001-com-ubuntu-server-jammy"),
+				Sku:       pulumi.String("22_04-lts-gen2"),
+				Version:   pulumi.String("latest"),
+			},
+			OsDisk: &compute.OSDiskArgs{
+				Name:         pulumi.String(fmt.Sprintf("%s-osdisk", vmName)),
+				CreateOption: pulumi.String("FromImage"),
+				ManagedDisk: &compute.ManagedDiskParametersArgs{
+					StorageAccountType: pulumi.String("Standard_LRS"),
+				},
+			},
+		},
+		OsProfile: &compute.OSProfileArgs{
+			ComputerName:  pulumi.String(vmName),
+			AdminUsername: pulumi.String("azureuser"),
+			LinuxConfiguration: &compute.LinuxConfigurationArgs{
+				DisablePasswordAuthentication: pulumi.Bool(true),
+				Ssh: &compute.SshConfigurationArgs{
+					PublicKeys: compute.SshPublicKeyTypeArray{
+						&compute.SshPublicKeyTypeArgs{
+							KeyData: sshKeyOutput,
+							Path:    pulumi.String("/home/azureuser/.ssh/authorized_keys"),
+						},
+					},
+				},
+			},
+		},
+		NetworkProfile: &compute.NetworkProfileArgs{
+			NetworkInterfaces: compute.NetworkInterfaceReferenceArray{
+				&compute.NetworkInterfaceReferenceArgs{
+					Id:      nic.ID(),
+					Primary: pulumi.Bool(true),
+				},
+			},
+		},
+		Tags: pulumi.StringMap{
+			"Environment": pulumi.String("production"),
+			"Role":        pulumi.String("bastion"),
+			"ManagedBy":   pulumi.String("sloth-kubernetes"),
+		},
+	}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{nic}))
+	if err != nil {
+		return fmt.Errorf("failed to create virtual machine: %w", err)
+	}
+
+	// Set component outputs
+	component.PublicIP = publicIP.IpAddress.Elem()
+	component.PrivateIP = nic.IpConfigurations.Index(pulumi.Int(0)).PrivateIPAddress().Elem()
+
+	ctx.Log.Info(fmt.Sprintf("✅ Azure bastion VM '%s' created in %s", vmName, location), nil)
+
+	_ = vm // Use vm to avoid unused variable warning
+
+	return nil
+}
+
 // BastionProvisioningComponent handles bastion host provisioning and hardening
 type BastionProvisioningComponent struct {
 	pulumi.ResourceState
@@ -218,8 +445,17 @@ func NewBastionProvisioningComponent(
 
 	ctx.Log.Info("🔧 Provisioning bastion with security hardening...", nil)
 
+	// Determine SSH user based on provider
+	sshUser := "root"
+	sudoPrefix := ""
+	if bastionConfig.Provider == "azure" {
+		sshUser = "azureuser"
+		sudoPrefix = "sudo "
+		ctx.Log.Info("🔧 Using Azure-specific configuration (user: azureuser, sudo required)", nil)
+	}
+
 	// Build provisioning script with security hardening
-	provisionScript := buildBastionProvisionScript(bastionConfig)
+	provisionScript := buildBastionProvisionScript(bastionConfig, sudoPrefix)
 
 	// Execute provisioning script via pulumi-command
 	ctx.Log.Info("📋 Bastion will be provisioned with:", nil)
@@ -246,7 +482,7 @@ func NewBastionProvisioningComponent(
 	provisionCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-provision-script", name), &remote.CommandArgs{
 		Connection: remote.ConnectionArgs{
 			Host:           bastionIP,
-			User:           pulumi.String("root"),
+			User:           pulumi.String(sshUser),
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		},
@@ -266,11 +502,11 @@ func NewBastionProvisioningComponent(
 	validateSSHCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-validate-ssh", name), &remote.CommandArgs{
 		Connection: remote.ConnectionArgs{
 			Host:           bastionIP,
-			User:           pulumi.String("root"),
+			User:           pulumi.String(sshUser),
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(10),
 		},
-		Create: pulumi.String(`#!/bin/bash
+		Create: pulumi.String(fmt.Sprintf(`#!/bin/bash
 echo "=========================================="
 echo "🔍 BASTION SSH VALIDATION TEST"
 echo "=========================================="
@@ -278,13 +514,13 @@ echo "✅ SSH connection successful!"
 echo "📋 Bastion details:"
 echo "  • Hostname: $(hostname)"
 echo "  • Uptime: $(uptime -p)"
-echo "  • SSH service: $(systemctl is-active sshd)"
-echo "  • UFW status: $(ufw status | head -1)"
-echo "  • fail2ban status: $(systemctl is-active fail2ban)"
+echo "  • SSH service: $(%ssystemctl is-active sshd)"
+echo "  • UFW status: $(%sufw status | head -1)"
+echo "  • fail2ban status: $(%ssystemctl is-active fail2ban)"
 echo ""
 echo "✅ Bastion is fully operational and ready!"
 echo "=========================================="
-`),
+`, sudoPrefix, sudoPrefix, sudoPrefix)),
 	}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{provisionCmd}), pulumi.Timeouts(&pulumi.CustomTimeouts{
 		Create: "2m",
 	}))
@@ -324,8 +560,9 @@ echo "=========================================="
 }
 
 // buildBastionProvisionScript creates the provisioning script for bastion security hardening
-func buildBastionProvisionScript(cfg *config.BastionConfig) string {
-	script := `#!/bin/bash
+func buildBastionProvisionScript(cfg *config.BastionConfig, sudoPrefix string) string {
+	// If sudoPrefix is needed, wrap the entire script with sudo bash -c
+	scriptHeader := `#!/bin/bash
 set -e
 
 echo "=========================================="
@@ -333,7 +570,24 @@ echo "🏰 BASTION PROVISIONING STARTED"
 echo "=========================================="
 echo "Time: $(date)"
 echo ""
+`
 
+	// If using Azure (sudoPrefix), we need to run the entire provisioning script as root
+	if sudoPrefix != "" {
+		scriptHeader = `#!/bin/bash
+# This script runs the provisioning as root via sudo
+sudo bash -c '
+set -e
+
+echo "=========================================="
+echo "🏰 BASTION PROVISIONING STARTED"
+echo "=========================================="
+echo "Time: $(date)"
+echo ""
+`
+	}
+
+	script := scriptHeader + `
 # Function to wait for apt-get lock
 wait_for_apt_lock() {
     local MAX_WAIT=300  # 5 minutes max
@@ -441,11 +695,16 @@ ufw default allow outgoing
 	// Add allowed CIDRs
 	if len(cfg.AllowedCIDRs) > 0 {
 		for _, cidr := range cfg.AllowedCIDRs {
-			script += fmt.Sprintf("ufw allow from %s to any port %d proto tcp\n", cidr, cfg.SSHPort)
+			// Special handling for 0.0.0.0/0 - UFW doesn't handle "from 0.0.0.0/0" correctly
+			if cidr == "0.0.0.0/0" {
+				script += fmt.Sprintf("ufw allow %d/tcp comment 'SSH from anywhere'\n", cfg.SSHPort)
+			} else {
+				script += fmt.Sprintf("ufw allow from %s to any port %d proto tcp comment 'SSH from %s'\n", cidr, cfg.SSHPort, cidr)
+			}
 		}
 	} else {
 		// If no CIDRs specified, allow from anywhere (not recommended for production)
-		script += fmt.Sprintf("ufw allow %d/tcp\n", cfg.SSHPort)
+		script += fmt.Sprintf("ufw allow %d/tcp comment 'SSH (no CIDR restriction)'\n", cfg.SSHPort)
 	}
 
 	script += `
@@ -546,10 +805,85 @@ echo "[$(date +%H:%M:%S)] ✅ Audit logging configured"
 	}
 
 	script += `
+# Install Salt Master with Salt API
+echo ""
+echo "[$(date +%H:%M:%S)] =========================================="
+echo "[$(date +%H:%M:%S)] STEP 8: Installing Salt Master with API"
+echo "[$(date +%H:%M:%S)] =========================================="
+echo "[$(date +%H:%M:%S)] Downloading Salt Bootstrap script..."
+curl -o /tmp/bootstrap-salt.sh -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh
+chmod +x /tmp/bootstrap-salt.sh
+
+echo "[$(date +%H:%M:%S)] Installing Salt Master and Salt API..."
+sh /tmp/bootstrap-salt.sh -M -W stable
+
+echo "[$(date +%H:%M:%S)] ✅ Salt Master and API installed successfully"
+
+# Configure Salt API
+echo "[$(date +%H:%M:%S)] Configuring Salt API..."
+mkdir -p /etc/salt/master.d
+
+cat > /etc/salt/master.d/api.conf <<'SALTEOF'
+# Salt API Configuration
+rest_cherrypy:
+  port: 8000
+  host: 0.0.0.0
+  ssl_crt: /etc/pki/tls/certs/localhost.crt
+  ssl_key: /etc/pki/tls/certs/localhost.key
+
+external_auth:
+  pam:
+    saltapi:
+      - .*
+      - '@wheel'
+      - '@runner'
+      - '@jobs'
+SALTEOF
+
+# Create Salt API user
+echo "[$(date +%H:%M:%S)] Creating Salt API user..."
+useradd -M -s /sbin/nologin saltapi || true
+echo 'saltapi:saltapi123' | chpasswd
+
+# Generate self-signed SSL certificate for Salt API
+echo "[$(date +%H:%M:%S)] Generating SSL certificates for Salt API..."
+mkdir -p /etc/pki/tls/certs
+openssl req -new -x509 -days 365 -nodes \
+  -out /etc/pki/tls/certs/localhost.crt \
+  -keyout /etc/pki/tls/certs/localhost.key \
+  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
+chmod 600 /etc/pki/tls/certs/localhost.key
+
+# Allow Salt API port in firewall
+echo "[$(date +%H:%M:%S)] Configuring firewall for Salt API..."
+ufw allow 8000/tcp comment 'Salt API'
+ufw allow 4505/tcp comment 'Salt Publisher'
+ufw allow 4506/tcp comment 'Salt Request Server'
+
+# Restart Salt Master and start Salt API
+echo "[$(date +%H:%M:%S)] Starting Salt Master and API services..."
+systemctl restart salt-master
+systemctl enable salt-api
+systemctl start salt-api
+
+echo "[$(date +%H:%M:%S)] ✅ Salt Master and API configured and running"
+
+# Configure Salt to auto-accept minion keys
+echo "[$(date +%H:%M:%S)] Configuring Salt Master to auto-accept minion keys..."
+cat >> /etc/salt/master.d/auto-accept.conf <<'SALTEOF'
+# Auto-accept minion keys (for automated deployments)
+auto_accept: True
+SALTEOF
+
+# Restart Salt Master to apply auto-accept configuration
+systemctl restart salt-master
+
+echo "[$(date +%H:%M:%S)] ✅ Salt Master configured to auto-accept minion keys"
+
 # Install WireGuard
 echo ""
 echo "[$(date +%H:%M:%S)] =========================================="
-echo "[$(date +%H:%M:%S)] STEP 8: Finalizing configuration"
+echo "[$(date +%H:%M:%S)] STEP 9: Finalizing configuration"
 echo "[$(date +%H:%M:%S)] =========================================="
 echo "[$(date +%H:%M:%S)] WireGuard tools already installed"
 
@@ -585,6 +919,12 @@ echo "[$(date +%H:%M:%S)] 🏰 Bastion is ready for secure cluster access"
 echo "[$(date +%H:%M:%S)] Finished at: $(date)"
 echo ""
 `
+
+	// Close the sudo bash -c if we're using Azure
+	if sudoPrefix != "" {
+		script += `'  # End of sudo bash -c
+`
+	}
 
 	return script
 }

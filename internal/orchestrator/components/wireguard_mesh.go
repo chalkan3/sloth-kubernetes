@@ -7,6 +7,35 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// getSSHUserForProvider returns the correct SSH username for the given cloud provider
+// Azure uses "azureuser", while other providers use "root" or "ubuntu"
+func getSSHUserForWireGuard(provider pulumi.StringOutput) pulumi.StringOutput {
+	return provider.ApplyT(func(p string) string {
+		switch p {
+		case "azure":
+			return "azureuser"
+		case "aws":
+			return "ubuntu" // AWS Ubuntu AMIs use "ubuntu"
+		case "gcp":
+			return "ubuntu" // GCP uses "ubuntu" for Ubuntu images
+		default:
+			return "root" // DigitalOcean, Linode, and others use "root"
+		}
+	}).(pulumi.StringOutput)
+}
+
+// getSudoPrefixForUser returns "sudo " if user needs sudo, empty string if root
+func getSudoPrefixForUser(provider pulumi.StringOutput) pulumi.StringOutput {
+	return provider.ApplyT(func(p string) string {
+		switch p {
+		case "azure", "aws", "gcp":
+			return "sudo " // Non-root users need sudo
+		default:
+			return "" // root doesn't need sudo
+		}
+	}).(pulumi.StringOutput)
+}
+
 // WireGuardMeshComponent configures full mesh WireGuard VPN
 type WireGuardMeshComponent struct {
 	pulumi.ResourceState
@@ -105,9 +134,13 @@ cat publickey
 
 		// Generate keys on each node
 		// When bastion is present, use ProxyJump to connect through it
+		// Use provider-specific SSH user (azureuser for Azure, root for others)
+		sshUser := getSSHUserForWireGuard(node.Provider)
+		sudoPrefix := getSudoPrefixForUser(node.Provider)
+
 		connectionArgs := remote.ConnectionArgs{
 			Host:           node.PublicIP,
-			User:           pulumi.String("root"),
+			User:           sshUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		}
@@ -121,16 +154,25 @@ cat publickey
 			}
 		}
 
-		keyCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-keygen-%d", name, i), &remote.CommandArgs{
-			Connection: connectionArgs,
-			Create: pulumi.String(`#!/bin/bash
+		// Build keygen script with sudo if needed
+		keygenScript := pulumi.All(sudoPrefix).ApplyT(func(args []interface{}) string {
+			sudo := args[0].(string)
+			if sudo != "" {
+				// For non-root users, wrap entire script in sudo bash -c
+				return fmt.Sprintf(`%sbash -c 'set -e && umask 077 && mkdir -p /etc/wireguard && wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey && cat /etc/wireguard/publickey'`, sudo)
+			}
+			// For root users, execute commands directly
+			return `#!/bin/bash
 set -e
 umask 077
 mkdir -p /etc/wireguard
-cd /etc/wireguard
-wg genkey | tee privatekey | wg pubkey > publickey
-cat publickey
-`),
+wg genkey | tee /etc/wireguard/privatekey | wg pubkey > /etc/wireguard/publickey
+cat /etc/wireguard/publickey`
+		}).(pulumi.StringOutput)
+
+		keyCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-keygen-%d", name, i), &remote.CommandArgs{
+			Connection: connectionArgs,
+			Create:     keygenScript,
 		}, pulumi.Parent(component), pulumi.Timeouts(&pulumi.CustomTimeouts{
 			Create: "10m",
 		}))
@@ -287,6 +329,9 @@ wg show
 		myIdx := nodeOffset + i
 		myWgIP := allNodeKeys[myIdx].wgIP
 
+		// Get sudo prefix for this node (Azure/AWS/GCP need sudo, others don't)
+		sudoPrefix := getSudoPrefixForUser(node.Provider)
+
 		// Build peer list dynamically by combining all peer outputs (including bastion)
 		peerConfigs := []pulumi.StringOutput{}
 
@@ -346,8 +391,10 @@ PostDown = iptables -D FORWARD -i wg0 -j ACCEPT; iptables -t nat -D POSTROUTING 
 			return interfaceSection + peerSection
 		}).(pulumi.StringOutput)
 
-		// Deploy configuration to node
-		deployScript := fullConfig.ApplyT(func(config string) string {
+		// Deploy configuration to node - build script with sudo if needed
+		deployScript := pulumi.All(fullConfig, sudoPrefix).ApplyT(func(args []interface{}) string {
+			config := args[0].(string)
+			sudo := args[1].(string)
 			return fmt.Sprintf(`#!/bin/bash
 set -e
 
@@ -357,34 +404,37 @@ cat > /tmp/wg0.conf.template << 'WGEOF'
 WGEOF
 
 # Expand the privatekey variable
-export PRIVKEY=$(cat /etc/wireguard/privatekey)
-sed "s|\$(cat /etc/wireguard/privatekey)|$PRIVKEY|g" /tmp/wg0.conf.template > /etc/wireguard/wg0.conf
-chmod 600 /etc/wireguard/wg0.conf
+export PRIVKEY=$(%scat /etc/wireguard/privatekey)
+sed "s|\$(cat /etc/wireguard/privatekey)|$PRIVKEY|g" /tmp/wg0.conf.template | %stee /etc/wireguard/wg0.conf > /dev/null
+%schmod 600 /etc/wireguard/wg0.conf
 
 # Enable IP forwarding permanently
-echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-sysctl -w net.ipv4.ip_forward=1
+echo "net.ipv4.ip_forward=1" | %stee -a /etc/sysctl.conf > /dev/null
+%ssysctl -w net.ipv4.ip_forward=1
 
 # Stop any existing WireGuard interface
-wg-quick down wg0 2>/dev/null || true
+%swg-quick down wg0 2>/dev/null || true
 sleep 2
 
 # Start WireGuard
-wg-quick up wg0
+%swg-quick up wg0
 
 # Enable on boot
-systemctl enable wg-quick@wg0 2>/dev/null || true
+%ssystemctl enable wg-quick@wg0 2>/dev/null || true
 
 echo "✅ WireGuard mesh configured"
-wg show
-`, config)
+%swg show
+`, config, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo)
 		}).(pulumi.StringOutput)
 
 		// Execute deployment
 		// When bastion is present, use ProxyJump to connect through it
+		// Use provider-specific SSH user (azureuser for Azure, root for others)
+		deploySSHUser := getSSHUserForWireGuard(node.Provider)
+
 		deployConnectionArgs := remote.ConnectionArgs{
 			Host:           node.PublicIP,
-			User:           pulumi.String("root"),
+			User:           deploySSHUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		}

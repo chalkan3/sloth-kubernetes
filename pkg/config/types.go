@@ -125,7 +125,9 @@ type AzureProvider struct {
 	ClientSecret   string                 `yaml:"clientSecret" json:"clientSecret"`
 	ResourceGroup  string                 `yaml:"resourceGroup" json:"resourceGroup"`
 	Location       string                 `yaml:"location" json:"location"`
-	VirtualNetwork *VPCConfig             `yaml:"virtualNetwork,omitempty" json:"virtualNetwork,omitempty"`
+	VirtualNetwork *AzureVirtualNetwork   `yaml:"virtualNetwork,omitempty" json:"virtualNetwork,omitempty"`
+	SSHPublicKey   string                 `yaml:"-" json:"-"` // Set programmatically
+	UserData       string                 `yaml:"userData" json:"userData"`
 	Custom         map[string]interface{} `yaml:"custom" json:"custom"`
 }
 
@@ -706,4 +708,12 @@ type LinodeVPCConfig struct {
 type LinodeSubnetConfig struct {
 	Label string `yaml:"label" json:"label"` // Subnet label
 	IPv4  string `yaml:"ipv4" json:"ipv4"`   // IPv4 CIDR
+}
+
+// AzureVirtualNetwork - Azure VNet configuration
+type AzureVirtualNetwork struct {
+	Create      bool   `yaml:"create" json:"create"`           // Auto-create VNet
+	Name        string `yaml:"name" json:"name"`               // VNet name
+	CIDR        string `yaml:"cidr" json:"cidr"`               // VNet CIDR block
+	Description string `yaml:"description" json:"description"` // VNet description
 }

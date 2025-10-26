@@ -5,6 +5,12 @@ import "fmt"
 // GenerateUserDataWithHostname generates cloud-init user data with hostname configuration
 // K3s installation is handled by remote commands AFTER WireGuard is configured
 func GenerateUserDataWithHostname(hostname string) string {
+	return GenerateUserDataWithHostnameAndSalt(hostname, "")
+}
+
+// GenerateUserDataWithHostnameAndSalt generates cloud-init user data with hostname and Salt Minion
+// If saltMasterIP is provided, Salt Minion will be installed and configured to connect to that master
+func GenerateUserDataWithHostnameAndSalt(hostname string, saltMasterIP string) string {
 	// Add hostname configuration if provided
 	hostnameConfig := ""
 	if hostname != "" {
@@ -14,6 +20,33 @@ hostname: %s
 fqdn: %s.cluster.local
 manage_etc_hosts: true
 `, hostname, hostname)
+	}
+
+	// Build runcmd section
+	runcmds := `# Enable IP forwarding for Kubernetes networking
+runcmd:
+  - sysctl -w net.ipv4.ip_forward=1
+  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
+  - sysctl -w net.ipv6.conf.all.forwarding=1
+  - echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf`
+
+	// Add Salt Minion installation if master IP is provided
+	if saltMasterIP != "" {
+		runcmds += fmt.Sprintf(`
+  # Install Salt Minion
+  - echo "Installing Salt Minion..."
+  - curl -o /tmp/bootstrap-salt.sh -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh
+  - chmod +x /tmp/bootstrap-salt.sh
+  - sh /tmp/bootstrap-salt.sh stable
+  # Configure Salt Minion to connect to master
+  - mkdir -p /etc/salt/minion.d
+  - echo "master:%s" > /etc/salt/minion.d/master.conf
+  - echo "id:%s" > /etc/salt/minion.d/minion_id.conf
+  # Restart Salt Minion to apply configuration
+  - systemctl restart salt-minion
+  - systemctl enable salt-minion
+  - echo "Salt Minion installed and configured"
+`, saltMasterIP, hostname)
 	}
 
 	cloudConfig := fmt.Sprintf(`#cloud-config
@@ -28,13 +61,8 @@ packages:
   - wireguard-tools
   - net-tools
 
-# Enable IP forwarding for Kubernetes networking
-runcmd:
-  - sysctl -w net.ipv4.ip_forward=1
-  - echo "net.ipv4.ip_forward=1" >> /etc/sysctl.conf
-  - sysctl -w net.ipv6.conf.all.forwarding=1
-  - echo "net.ipv6.conf.all.forwarding=1" >> /etc/sysctl.conf
-`, hostnameConfig)
+%s
+`, hostnameConfig, runcmds)
 
 	return cloudConfig
 }

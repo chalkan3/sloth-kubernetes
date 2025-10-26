@@ -42,6 +42,20 @@ func LoadFromYAML(filePath string) (*ClusterConfig, error) {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
+	// DEBUG: Check how many pools were parsed from legacy YAML
+	fmt.Printf("🔍 DEBUG [yaml_loader.go LEGACY]: Parsed %d node pools from YAML\n", len(cfg.NodePools))
+	for poolName, pool := range cfg.NodePools {
+		fmt.Printf("🔍 DEBUG [yaml_loader.go LEGACY]: Pool '%s' - provider=%s, count=%d\n", poolName, pool.Provider, pool.Count)
+	}
+
+	// DEBUG: Check bastion configuration
+	if cfg.Security.Bastion == nil {
+		fmt.Printf("🔍 DEBUG [yaml_loader.go LEGACY]: cfg.Security.Bastion is NIL after parsing\n")
+	} else {
+		fmt.Printf("🔍 DEBUG [yaml_loader.go LEGACY]: cfg.Security.Bastion.Enabled = %v\n", cfg.Security.Bastion.Enabled)
+		fmt.Printf("🔍 DEBUG [yaml_loader.go LEGACY]: cfg.Security.Bastion.Provider = %s\n", cfg.Security.Bastion.Provider)
+	}
+
 	// Apply defaults
 	applyDefaults(&cfg)
 
@@ -157,6 +171,11 @@ func ValidateConfig(cfg *ClusterConfig) error {
 		}
 		providersEnabled = true
 	}
+	if cfg.Providers.Azure != nil && cfg.Providers.Azure.Enabled {
+		// Azure credentials are validated via Azure CLI or environment variables
+		// No token validation needed here
+		providersEnabled = true
+	}
 	if !providersEnabled {
 		return fmt.Errorf("at least one cloud provider must be enabled")
 	}
@@ -190,14 +209,15 @@ func ValidateConfig(cfg *ClusterConfig) error {
 	}
 
 	// Validate WireGuard if enabled
-	if cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Enabled {
-		if cfg.Network.WireGuard.ServerEndpoint == "" {
-			return fmt.Errorf("wireguard.serverEndpoint is required when WireGuard is enabled")
-		}
-		if cfg.Network.WireGuard.ServerPublicKey == "" {
-			return fmt.Errorf("wireguard.serverPublicKey is required when WireGuard is enabled")
-		}
-	}
+	// NOTE: This validation is now handled by deployment_validator.go which considers the Create field
+	// if cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Enabled {
+	// 	if cfg.Network.WireGuard.ServerEndpoint == "" {
+	// 		return fmt.Errorf("wireguard.serverEndpoint is required when WireGuard is enabled")
+	// 	}
+	// 	if cfg.Network.WireGuard.ServerPublicKey == "" {
+	// 		return fmt.Errorf("wireguard.serverPublicKey is required when WireGuard is enabled")
+	// 	}
+	// }
 
 	// Validate Kubernetes
 	if cfg.Kubernetes.Distribution == "" {

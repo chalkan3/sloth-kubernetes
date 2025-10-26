@@ -43,6 +43,15 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 	var vpcComponent *components.VPCComponent
 	var nodeDependencies []pulumi.Resource
 
+	// DEBUG: Check bastion configuration
+	if cfg.Security.Bastion == nil {
+		ctx.Log.Info("🔍 DEBUG: cfg.Security.Bastion is NIL", nil)
+	} else {
+		ctx.Log.Info(fmt.Sprintf("🔍 DEBUG: cfg.Security.Bastion.Enabled = %v", cfg.Security.Bastion.Enabled), nil)
+		ctx.Log.Info(fmt.Sprintf("🔍 DEBUG: cfg.Security.Bastion.Provider = %s", cfg.Security.Bastion.Provider), nil)
+		ctx.Log.Info(fmt.Sprintf("🔍 DEBUG: cfg.Security.Bastion.Name = %s", cfg.Security.Bastion.Name), nil)
+	}
+
 	if cfg.Security.Bastion != nil && cfg.Security.Bastion.Enabled {
 		ctx.Log.Info("", nil)
 		ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
