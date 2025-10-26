@@ -148,6 +148,7 @@ func (o *Orchestrator) generateSSHKeys() error {
 	if o.config.Providers.Linode != nil {
 		o.config.Providers.Linode.SSHPublicKey = publicKey
 	}
+	// Note: Azure SSH key is handled directly in node_deployment.go via sshKeyOutput parameter
 
 	return nil
 }
@@ -163,6 +164,7 @@ func (o *Orchestrator) initializeProviders() error {
 			return fmt.Errorf("failed to initialize DigitalOcean provider: %w", err)
 		}
 		o.providerRegistry.Register("digitalocean", doProvider)
+		o.ctx.Log.Info("✓ DigitalOcean provider initialized", nil)
 	}
 
 	// Initialize Linode provider
@@ -172,6 +174,37 @@ func (o *Orchestrator) initializeProviders() error {
 			return fmt.Errorf("failed to initialize Linode provider: %w", err)
 		}
 		o.providerRegistry.Register("linode", linodeProvider)
+		o.ctx.Log.Info("✓ Linode provider initialized", nil)
+	}
+
+	// Initialize Azure provider
+	if o.config.Providers.Azure != nil && o.config.Providers.Azure.Enabled {
+		azureProvider := providers.NewAzureProvider()
+		if err := azureProvider.Initialize(o.ctx, o.config); err != nil {
+			return fmt.Errorf("failed to initialize Azure provider: %w", err)
+		}
+		o.providerRegistry.Register("azure", azureProvider)
+		o.ctx.Log.Info("✓ Azure provider initialized", nil)
+	}
+
+	// Initialize AWS provider
+	if o.config.Providers.AWS != nil && o.config.Providers.AWS.Enabled {
+		awsProvider := providers.NewAWSProvider()
+		if err := awsProvider.Initialize(o.ctx, o.config); err != nil {
+			return fmt.Errorf("failed to initialize AWS provider: %w", err)
+		}
+		o.providerRegistry.Register("aws", awsProvider)
+		o.ctx.Log.Info("✓ AWS provider initialized", nil)
+	}
+
+	// Initialize GCP provider
+	if o.config.Providers.GCP != nil && o.config.Providers.GCP.Enabled {
+		gcpProvider := providers.NewGCPProvider()
+		if err := gcpProvider.Initialize(o.ctx, o.config); err != nil {
+			return fmt.Errorf("failed to initialize GCP provider: %w", err)
+		}
+		o.providerRegistry.Register("gcp", gcpProvider)
+		o.ctx.Log.Info("✓ GCP provider initialized", nil)
 	}
 
 	// Verify at least one provider is enabled
@@ -331,20 +364,36 @@ func (o *Orchestrator) verifyNodeDistribution() error {
 		}
 	}
 
+	// Calculate expected nodes from configuration
+	expectedTotal := 0
+	expectedMasters := 0
+	expectedWorkers := 0
+
+	for _, pool := range o.config.NodePools {
+		expectedTotal += pool.Count
+		for _, role := range pool.Roles {
+			if role == "master" || role == "controlplane" {
+				expectedMasters += pool.Count
+			} else if role == "worker" {
+				expectedWorkers += pool.Count
+			}
+		}
+	}
+
 	// Verify distribution
-	if totalNodes != 6 {
-		return fmt.Errorf("expected 6 nodes, got %d", totalNodes)
+	if totalNodes != expectedTotal {
+		return fmt.Errorf("expected %d nodes, got %d", expectedTotal, totalNodes)
 	}
 
-	if masterNodes != 3 {
-		return fmt.Errorf("expected 3 master nodes, got %d", masterNodes)
+	if masterNodes != expectedMasters {
+		return fmt.Errorf("expected %d master nodes, got %d", expectedMasters, masterNodes)
 	}
 
-	if workerNodes != 3 {
-		return fmt.Errorf("expected 3 worker nodes, got %d", workerNodes)
+	if workerNodes != expectedWorkers {
+		return fmt.Errorf("expected %d worker nodes, got %d", expectedWorkers, workerNodes)
 	}
 
-	o.ctx.Log.Info("Node distribution verified", nil)
+	o.ctx.Log.Info(fmt.Sprintf("Node distribution verified: %d total (%d masters, %d workers)", totalNodes, masterNodes, workerNodes), nil)
 
 	return nil
 }

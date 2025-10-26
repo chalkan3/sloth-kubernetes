@@ -500,28 +500,28 @@ kubectl uncordon worker-1
 cd ~/.projects/do-droplet-create
 
 # List all outputs
-pulumi stack output
+sloth-kubernetes pulumi stack output
 
 # Get kubeconfig
-pulumi stack output kubeConfig --show-secrets
+sloth-kubernetes pulumi stack output kubeConfig --show-secrets
 
 # Get SSH key
-pulumi stack output ssh_private_key --show-secrets
+sloth-kubernetes pulumi stack output ssh_private_key --show-secrets
 
 # Get connection instructions
-pulumi stack output connectionInstructions
+sloth-kubernetes pulumi stack output connectionInstructions
 ```
 
 #### Update Infrastructure
 ```bash
 # Preview changes
-pulumi preview
+sloth-kubernetes pulumi preview
 
 # Apply changes
-pulumi up
+sloth-kubernetes deploy
 
 # Destroy entire cluster (⚠️ DANGEROUS)
-pulumi destroy
+sloth-kubernetes destroy
 ```
 
 ### Backup & Recovery
@@ -544,7 +544,7 @@ sudo rke2 etcd-snapshot list
 cp ~/.kube/config ~/.kube/config.backup-$(date +%Y%m%d)
 
 # From Pulumi
-pulumi stack output kubeConfig --show-secrets > ~/kubeconfig-backup-$(date +%Y%m%d).yaml
+sloth-kubernetes pulumi stack output kubeConfig --show-secrets > ~/kubeconfig-backup-$(date +%Y%m%d).yaml
 ```
 
 ### Monitoring & Logs

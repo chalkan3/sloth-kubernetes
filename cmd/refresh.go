@@ -32,7 +32,7 @@ Use this when:
   • Resources were modified outside of Pulumi (manual changes)
   • You suspect drift between state and reality
   • After recovering from a failed deployment
-  • Before running 'pulumi up' to ensure state accuracy`,
+  • Before running 'sloth-kubernetes deploy' to ensure state accuracy`,
 	Example: `  # Refresh a specific stack
   sloth-kubernetes refresh production
 
@@ -52,7 +52,8 @@ Use this when:
 }
 
 func init() {
-	rootCmd.AddCommand(refreshCmd)
+	// MOVED TO pulumi.go - refresh is now under 'pulumi refresh' subcommand
+	// rootCmd.AddCommand(refreshCmd)
 	refreshCmd.Flags().BoolVar(&expectNoChanges, "expect-no-changes", false, "Return error if any changes are detected")
 	refreshCmd.Flags().BoolVar(&showSecrets, "show-secrets", false, "Show secret values in output")
 	refreshCmd.Flags().BoolVar(&skipPreview, "skip-preview", false, "Skip preview and refresh directly")

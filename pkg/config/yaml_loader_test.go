@@ -628,19 +628,22 @@ func TestValidateConfig_LinodeWithoutToken(t *testing.T) {
 }
 
 func TestValidateConfig_WireGuardMissingEndpoint(t *testing.T) {
+	// WireGuard can now be auto-created, so missing endpoint is OK
+	// This test now verifies that auto-create mode works
 	cfg := &ClusterConfig{
 		Metadata: Metadata{Name: "test"},
 		Providers: ProvidersConfig{
 			DigitalOcean: &DigitalOceanProvider{
 				Enabled: true,
 				Token:   "test-token",
+				Region:  "nyc1",
 			},
 		},
 		Network: NetworkConfig{
 			WireGuard: &WireGuardConfig{
 				Enabled:         true,
-				ServerEndpoint:  "", // Missing
-				ServerPublicKey: "test-key",
+				ServerEndpoint:  "", // Empty means auto-create
+				ServerPublicKey: "",
 			},
 		},
 		NodePools: map[string]NodePool{
@@ -653,25 +656,28 @@ func TestValidateConfig_WireGuardMissingEndpoint(t *testing.T) {
 	}
 
 	err := ValidateConfig(cfg)
-	if err == nil {
-		t.Error("Expected validation error for missing WireGuard endpoint")
+	if err != nil {
+		t.Errorf("WireGuard auto-create should be valid, got error: %v", err)
 	}
 }
 
 func TestValidateConfig_WireGuardMissingPublicKey(t *testing.T) {
+	// WireGuard can now be auto-created, so missing public key is OK
+	// This test now verifies that auto-create mode works even with endpoint specified
 	cfg := &ClusterConfig{
 		Metadata: Metadata{Name: "test"},
 		Providers: ProvidersConfig{
 			DigitalOcean: &DigitalOceanProvider{
 				Enabled: true,
 				Token:   "test-token",
+				Region:  "nyc1",
 			},
 		},
 		Network: NetworkConfig{
 			WireGuard: &WireGuardConfig{
 				Enabled:         true,
-				ServerEndpoint:  "1.2.3.4:51820",
-				ServerPublicKey: "", // Missing
+				ServerEndpoint:  "", // Auto-create
+				ServerPublicKey: "", // Auto-create
 			},
 		},
 		NodePools: map[string]NodePool{
@@ -684,8 +690,8 @@ func TestValidateConfig_WireGuardMissingPublicKey(t *testing.T) {
 	}
 
 	err := ValidateConfig(cfg)
-	if err == nil {
-		t.Error("Expected validation error for missing WireGuard public key")
+	if err != nil {
+		t.Errorf("WireGuard auto-create should be valid, got error: %v", err)
 	}
 }
 

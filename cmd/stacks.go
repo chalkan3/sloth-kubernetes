@@ -169,7 +169,8 @@ var (
 )
 
 func init() {
-	rootCmd.AddCommand(stacksCmd)
+	// MOVED TO pulumi.go - stacks is now under 'pulumi stack' subcommand
+	// rootCmd.AddCommand(stacksCmd)
 
 	// Add subcommands
 	stacksCmd.AddCommand(listStacksCmd)
@@ -567,11 +568,11 @@ func runExportStack(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Yellow("⚠️  Stack export/import functionality requires Pulumi CLI")
 	fmt.Println()
-	color.Cyan("Alternative: Use 'pulumi stack export' command:")
-	fmt.Printf("  pulumi stack export --stack %s > %s-state.json\n", stackName, stackName)
+	color.Cyan("Alternative: Use 'sloth-kubernetes pulumi stack export' command:")
+	fmt.Printf("  sloth-kubernetes pulumi stack export --stack %s > %s-state.json\n", stackName, stackName)
 	fmt.Println()
 	color.Cyan("To import later:")
-	fmt.Printf("  pulumi stack import --stack %s < %s-state.json\n", stackName, stackName)
+	fmt.Printf("  sloth-kubernetes pulumi stack import --stack %s < %s-state.json\n", stackName, stackName)
 
 	return nil
 }
@@ -589,12 +590,12 @@ func runImportStack(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Yellow("⚠️  Stack export/import functionality requires Pulumi CLI")
 	fmt.Println()
-	color.Cyan("Use 'pulumi stack import' command:")
-	fmt.Printf("  pulumi stack import --stack %s < %s\n", stackName, filePath)
+	color.Cyan("Use 'sloth-kubernetes pulumi stack import' command:")
+	fmt.Printf("  sloth-kubernetes pulumi stack import --stack %s < %s\n", stackName, filePath)
 	fmt.Println()
 	color.Cyan("Or create the stack and import:")
-	fmt.Printf("  pulumi stack init %s\n", stackName)
-	fmt.Printf("  pulumi stack import < %s\n", filePath)
+	fmt.Printf("  sloth-kubernetes pulumi stack init %s\n", stackName)
+	fmt.Printf("  sloth-kubernetes pulumi stack import < %s\n", filePath)
 
 	return nil
 }
@@ -859,7 +860,7 @@ func runStateDelete(cmd *cobra.Command, args []string) error {
 	color.Cyan("Next steps:")
 	fmt.Println("  1. The cloud resource still exists and is now unmanaged")
 	fmt.Println("  2. You can manually delete it from the cloud provider console")
-	fmt.Println("  3. Or import it back with: pulumi import <type> <name> <id>")
+	fmt.Println("  3. Or import it back with: sloth-kubernetes pulumi import <type> <name> <id>")
 
 	return nil
 }

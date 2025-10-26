@@ -1,11 +1,16 @@
 package components
 
 import (
+	"crypto/rand"
 	"encoding/base64"
 	"fmt"
+	"strings"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/cloudinit"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	azurecompute "github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
+	azurenetwork "github.com/pulumi/pulumi-azure-native-sdk/network/v2"
+	azureresources "github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -76,7 +81,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 
 	// Create individual nodes
 	for _, nodeConfig := range clusterConfig.Nodes {
-		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, component)
+		nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s", name, nodeConfig.Name), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionComponent, component)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -89,14 +94,42 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 	// master/worker roles incorrectly. Process pools in explicit order: masters first!
 	nodeIndex := len(realNodeComponents)
 
-	// Define deterministic pool order: ALL masters first, then ALL workers
-	poolOrder := []string{"do-masters", "linode-masters", "do-workers", "linode-workers"}
+	// Build deterministic pool order: ALL masters first, then ALL workers
+	// This allows for dynamic providers (DigitalOcean, Linode, Azure, AWS, GCP)
+	poolOrder := []string{}
+
+	// DEBUG: Log all node pools
+	ctx.Log.Info(fmt.Sprintf("🔍 DEBUG: Total node pools in config: %d", len(clusterConfig.NodePools)), nil)
+	for poolName, pool := range clusterConfig.NodePools {
+		ctx.Log.Info(fmt.Sprintf("🔍 DEBUG: Pool '%s' - provider=%s, count=%d", poolName, pool.Provider, pool.Count), nil)
+	}
+
+	// First pass: add all master pools
+	for poolName, pool := range clusterConfig.NodePools {
+		for _, role := range pool.Roles {
+			if role == "master" || role == "controlplane" {
+				poolOrder = append(poolOrder, poolName)
+				break
+			}
+		}
+	}
+
+	// Second pass: add all worker pools
+	for poolName, pool := range clusterConfig.NodePools {
+		isMaster := false
+		for _, role := range pool.Roles {
+			if role == "master" || role == "controlplane" {
+				isMaster = true
+				break
+			}
+		}
+		if !isMaster {
+			poolOrder = append(poolOrder, poolName)
+		}
+	}
 
 	for _, poolName := range poolOrder {
-		poolConfig, exists := clusterConfig.NodePools[poolName]
-		if !exists {
-			continue // Skip if pool not defined
-		}
+		poolConfig := clusterConfig.NodePools[poolName]
 
 		for i := 0; i < poolConfig.Count; i++ {
 			nodeName := fmt.Sprintf("%s-%d", poolName, i+1)
@@ -114,7 +147,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 				WireGuardIP: fmt.Sprintf("10.8.0.%d", 10+nodeIndex),
 			}
 
-			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionEnabled, component)
+			nodeComp, err := newRealNodeComponent(ctx, fmt.Sprintf("%s-%s-%s", name, poolName, nodeName), &nodeConfig, sshKeyOutput, sshPrivateKey, sharedDOSshKey, nil, doToken, linodeToken, vpcComponent, bastionComponent, component)
 			if err != nil {
 				return nil, nil, err
 			}
@@ -162,7 +195,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 }
 
 // newRealNodeComponent creates a real DigitalOcean Droplet or Linode Instance AND provisions it
-func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, sharedLinodeStackscript *linode.StackScript, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, parent pulumi.Resource) (*RealNodeComponent, error) {
+func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sshPrivateKey pulumi.StringOutput, sharedDOSshKey *digitalocean.SshKey, sharedLinodeStackscript *linode.StackScript, doToken pulumi.StringInput, linodeToken pulumi.StringInput, vpcComponent *VPCComponent, bastionComponent *BastionComponent, parent pulumi.Resource) (*RealNodeComponent, error) {
 	component := &RealNodeComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:compute:RealNode", name, component, pulumi.Parent(parent))
 	if err != nil {
@@ -182,11 +215,21 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 	}
 	component.Roles = pulumi.ToArrayOutput(rolesArray)
 
+	// Determine if bastion is enabled and get Salt Master IP
+	bastionEnabled := bastionComponent != nil && bastionComponent.BastionName.ToStringOutput() != pulumi.String("").ToStringOutput()
+	saltMasterIP := ""
+	if bastionEnabled {
+		// Use the fixed WireGuard IP of the bastion (10.8.0.5)
+		saltMasterIP = "10.8.0.5"
+	}
+
 	// Create real cloud resource based on provider
 	if nodeConfig.Provider == "digitalocean" {
-		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, component)
+		err = createDigitalOceanDroplet(ctx, name, nodeConfig, sharedDOSshKey, doToken, vpcComponent, bastionEnabled, saltMasterIP, component)
 	} else if nodeConfig.Provider == "linode" {
-		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, sharedLinodeStackscript, linodeToken, bastionEnabled, component)
+		err = createLinodeInstance(ctx, name, nodeConfig, sshKeyOutput, sharedLinodeStackscript, linodeToken, bastionEnabled, saltMasterIP, component)
+	} else if nodeConfig.Provider == "azure" {
+		err = createAzureVM(ctx, name, nodeConfig, sshKeyOutput, bastionEnabled, saltMasterIP, component)
 	} else {
 		return nil, fmt.Errorf("unknown provider: %s", nodeConfig.Provider)
 	}
@@ -219,7 +262,7 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 }
 
 // createDigitalOceanDroplet creates a real DigitalOcean Droplet
-func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, component *RealNodeComponent) error {
+func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sharedSshKey *digitalocean.SshKey, doToken pulumi.StringInput, vpcComponent *VPCComponent, bastionEnabled bool, saltMasterIP string, component *RealNodeComponent) error {
 	// Use the shared SSH key (already created, no duplication)
 
 	// Build droplet args
@@ -233,14 +276,15 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 		},
 		Tags: pulumi.StringArray{
 			pulumi.String("kubernetes"),
-			pulumi.String(ctx.Stack()),
+			pulumi.String(strings.ReplaceAll(ctx.Stack(), ".", "-")),
 		},
 		Ipv6:       pulumi.Bool(true),
 		Monitoring: pulumi.Bool(true),
-		// Cloud-init user-data: Install prerequisites (WireGuard, packages) during VM boot
+		// Cloud-init user-data: Install prerequisites (WireGuard, packages, Salt Minion) during VM boot
 		// K3s installation is handled by remote commands AFTER WireGuard is configured
 		// Set unique hostname to avoid etcd "duplicate node name" errors
-		UserData: pulumi.String(cloudinit.GenerateUserDataWithHostname(nodeConfig.Name)),
+		// If Salt Master IP is provided, Salt Minion will be installed and configured
+		UserData: pulumi.String(cloudinit.GenerateUserDataWithHostnameAndSalt(nodeConfig.Name, saltMasterIP)),
 	}
 
 	// If bastion is enabled, attach to VPC and configure for bastion-only SSH access
@@ -279,7 +323,7 @@ func createDigitalOceanDroplet(ctx *pulumi.Context, name string, nodeConfig *con
 }
 
 // createLinodeInstance creates a real Linode Instance
-func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sharedStackscript *linode.StackScript, linodeToken pulumi.StringInput, bastionEnabled bool, component *RealNodeComponent) error {
+func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, sharedStackscript *linode.StackScript, linodeToken pulumi.StringInput, bastionEnabled bool, saltMasterIP string, component *RealNodeComponent) error {
 	// Use the SSH key directly - it's already normalized in sshkeys.go
 	// The key is in format: "ssh-rsa AAAAB3..." (type + key-data only, no comment)
 
@@ -310,7 +354,7 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 		},
 		Tags: pulumi.StringArray{
 			pulumi.String("kubernetes"),
-			pulumi.String(ctx.Stack()),
+			pulumi.String(strings.ReplaceAll(ctx.Stack(), ".", "-")),
 		},
 		PrivateIp: pulumi.Bool(true),
 		// CRITICAL: Linode supports cloud-init via Metadatas.UserData field
@@ -319,9 +363,10 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 		// UserData must be base64-encoded
 		// Set unique hostname to avoid etcd "duplicate node name" errors
 		// K3s installation is handled by remote commands AFTER WireGuard is configured
+		// If Salt Master IP is provided, Salt Minion will be installed and configured
 		Metadatas: linode.InstanceMetadataArray{
 			&linode.InstanceMetadataArgs{
-				UserData: pulumi.String(base64.StdEncoding.EncodeToString([]byte(cloudinit.GenerateUserDataWithHostname(nodeConfig.Name)))),
+				UserData: pulumi.String(base64.StdEncoding.EncodeToString([]byte(cloudinit.GenerateUserDataWithHostnameAndSalt(nodeConfig.Name, saltMasterIP)))),
 			},
 		},
 	}, pulumi.Parent(component))
@@ -344,4 +389,250 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 	component.PrivateIP = instance.PrivateIpAddress
 
 	return nil
+}
+
+// Global Azure shared resources (created once, reused by all VMs)
+var (
+	azureResourceGroup *azureresources.ResourceGroup
+	azureVNet          *azurenetwork.VirtualNetwork
+	azureSubnet        *azurenetwork.Subnet
+	azureNSG           *azurenetwork.NetworkSecurityGroup
+)
+
+// createAzureVM creates a real Azure VM with all required infrastructure
+func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, bastionEnabled bool, saltMasterIP string, component *RealNodeComponent) error {
+	location := nodeConfig.Region
+	if location == "" {
+		location = "eastus"
+	}
+
+	if bastionEnabled {
+		ctx.Log.Info(fmt.Sprintf("🔒 Creating Azure VM %s (SSH restricted to bastion only)", nodeConfig.Name), nil)
+	} else {
+		ctx.Log.Info(fmt.Sprintf("🌍 Creating PUBLIC Azure VM %s", nodeConfig.Name), nil)
+	}
+
+	// Create shared Azure infrastructure (only once for all VMs)
+	if azureResourceGroup == nil {
+		rgName := "sloth-k8s-rg"
+		rg, err := azureresources.NewResourceGroup(ctx, rgName, &azureresources.ResourceGroupArgs{
+			ResourceGroupName: pulumi.String(rgName),
+			Location:          pulumi.String(location),
+			Tags: pulumi.StringMap{
+				"Environment": pulumi.String("production"),
+				"ManagedBy":   pulumi.String("sloth-kubernetes"),
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Azure resource group: %w", err)
+		}
+		azureResourceGroup = rg
+
+		// Create VNet
+		vnetName := "sloth-k8s-azure-vnet"
+		vnet, err := azurenetwork.NewVirtualNetwork(ctx, vnetName, &azurenetwork.VirtualNetworkArgs{
+			ResourceGroupName:  rg.Name,
+			Location:           pulumi.String(location),
+			VirtualNetworkName: pulumi.String(vnetName),
+			AddressSpace: &azurenetwork.AddressSpaceArgs{
+				AddressPrefixes: pulumi.StringArray{pulumi.String("10.14.0.0/16")},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Azure VNet: %w", err)
+		}
+		azureVNet = vnet
+
+		// Create Subnet
+		subnetName := "sloth-k8s-subnet"
+		subnet, err := azurenetwork.NewSubnet(ctx, subnetName, &azurenetwork.SubnetArgs{
+			ResourceGroupName:  rg.Name,
+			VirtualNetworkName: vnet.Name,
+			SubnetName:         pulumi.String(subnetName),
+			AddressPrefix:      pulumi.String("10.14.1.0/24"),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Azure subnet: %w", err)
+		}
+		azureSubnet = subnet
+
+		// Create NSG
+		nsgName := "sloth-k8s-nsg"
+		nsg, err := azurenetwork.NewNetworkSecurityGroup(ctx, nsgName, &azurenetwork.NetworkSecurityGroupArgs{
+			ResourceGroupName:        rg.Name,
+			Location:                 pulumi.String(location),
+			NetworkSecurityGroupName: pulumi.String(nsgName),
+			SecurityRules: azurenetwork.SecurityRuleTypeArray{
+				&azurenetwork.SecurityRuleTypeArgs{
+					Name:                     pulumi.String("AllowSSH"),
+					Priority:                 pulumi.Int(1000),
+					Direction:                pulumi.String("Inbound"),
+					Access:                   pulumi.String("Allow"),
+					Protocol:                 pulumi.String("Tcp"),
+					SourcePortRange:          pulumi.String("*"),
+					DestinationPortRange:     pulumi.String("22"),
+					SourceAddressPrefix:      pulumi.String("*"),
+					DestinationAddressPrefix: pulumi.String("*"),
+				},
+				&azurenetwork.SecurityRuleTypeArgs{
+					Name:                     pulumi.String("AllowWireGuard"),
+					Priority:                 pulumi.Int(1010),
+					Direction:                pulumi.String("Inbound"),
+					Access:                   pulumi.String("Allow"),
+					Protocol:                 pulumi.String("Udp"),
+					SourcePortRange:          pulumi.String("*"),
+					DestinationPortRange:     pulumi.String("51820"),
+					SourceAddressPrefix:      pulumi.String("*"),
+					DestinationAddressPrefix: pulumi.String("*"),
+				},
+				&azurenetwork.SecurityRuleTypeArgs{
+					Name:                     pulumi.String("AllowKubernetesAPI"),
+					Priority:                 pulumi.Int(1020),
+					Direction:                pulumi.String("Inbound"),
+					Access:                   pulumi.String("Allow"),
+					Protocol:                 pulumi.String("Tcp"),
+					SourcePortRange:          pulumi.String("*"),
+					DestinationPortRange:     pulumi.String("6443"),
+					SourceAddressPrefix:      pulumi.String("*"),
+					DestinationAddressPrefix: pulumi.String("*"),
+				},
+			},
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Azure NSG: %w", err)
+		}
+		azureNSG = nsg
+	}
+
+	// Create Public IP for this VM
+	publicIPName := fmt.Sprintf("%s-pip", nodeConfig.Name)
+	publicIP, err := azurenetwork.NewPublicIPAddress(ctx, publicIPName, &azurenetwork.PublicIPAddressArgs{
+		ResourceGroupName:        azureResourceGroup.Name,
+		Location:                 pulumi.String(location),
+		PublicIpAddressName:      pulumi.String(publicIPName),
+		PublicIPAllocationMethod: pulumi.String("Static"),
+		Sku: &azurenetwork.PublicIPAddressSkuArgs{
+			Name: pulumi.String("Standard"),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create public IP: %w", err)
+	}
+
+	// Create Network Interface
+	nicName := fmt.Sprintf("%s-nic", nodeConfig.Name)
+	nic, err := azurenetwork.NewNetworkInterface(ctx, nicName, &azurenetwork.NetworkInterfaceArgs{
+		ResourceGroupName:    azureResourceGroup.Name,
+		Location:             pulumi.String(location),
+		NetworkInterfaceName: pulumi.String(nicName),
+		IpConfigurations: azurenetwork.NetworkInterfaceIPConfigurationArray{
+			&azurenetwork.NetworkInterfaceIPConfigurationArgs{
+				Name:                      pulumi.String("ipconfig1"),
+				PrivateIPAllocationMethod: pulumi.String("Dynamic"),
+				Subnet: &azurenetwork.SubnetTypeArgs{
+					Id: azureSubnet.ID(),
+				},
+				PublicIPAddress: &azurenetwork.PublicIPAddressTypeArgs{
+					Id: publicIP.ID(),
+				},
+			},
+		},
+		NetworkSecurityGroup: &azurenetwork.NetworkSecurityGroupTypeArgs{
+			Id: azureNSG.ID(),
+		},
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create network interface: %w", err)
+	}
+
+	// Generate cloud-init user data with Salt Minion if master IP is provided
+	userData := cloudinit.GenerateUserDataWithHostnameAndSalt(nodeConfig.Name, saltMasterIP)
+	userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userData))
+
+	// Map image name to Azure image reference
+	imageReference := &azurecompute.ImageReferenceArgs{
+		Publisher: pulumi.String("Canonical"),
+		Offer:     pulumi.String("0001-com-ubuntu-server-jammy"),
+		Sku:       pulumi.String("22_04-lts-gen2"),
+		Version:   pulumi.String("latest"),
+	}
+
+	// Generate a secure password (required by Azure but we use SSH keys)
+	adminPassword := generateSecurePassword()
+
+	// Create Virtual Machine
+	vmArgs := &azurecompute.VirtualMachineArgs{
+		ResourceGroupName: azureResourceGroup.Name,
+		Location:          pulumi.String(location),
+		VmName:            pulumi.String(nodeConfig.Name),
+		NetworkProfile: &azurecompute.NetworkProfileArgs{
+			NetworkInterfaces: azurecompute.NetworkInterfaceReferenceArray{
+				&azurecompute.NetworkInterfaceReferenceArgs{
+					Id:      nic.ID(),
+					Primary: pulumi.Bool(true),
+				},
+			},
+		},
+		HardwareProfile: &azurecompute.HardwareProfileArgs{
+			VmSize: pulumi.String(nodeConfig.Size),
+		},
+		OsProfile: &azurecompute.OSProfileArgs{
+			ComputerName:  pulumi.String(nodeConfig.Name),
+			AdminUsername: pulumi.String("azureuser"),
+			AdminPassword: pulumi.String(adminPassword),
+			CustomData:    pulumi.String(userDataEncoded),
+			LinuxConfiguration: &azurecompute.LinuxConfigurationArgs{
+				DisablePasswordAuthentication: pulumi.Bool(true),
+				Ssh: &azurecompute.SshConfigurationArgs{
+					PublicKeys: azurecompute.SshPublicKeyTypeArray{
+						&azurecompute.SshPublicKeyTypeArgs{
+							KeyData: sshKeyOutput,
+							Path:    pulumi.String("/home/azureuser/.ssh/authorized_keys"),
+						},
+					},
+				},
+			},
+		},
+		StorageProfile: &azurecompute.StorageProfileArgs{
+			ImageReference: imageReference,
+			OsDisk: &azurecompute.OSDiskArgs{
+				Name:         pulumi.String(fmt.Sprintf("%s-osdisk", nodeConfig.Name)),
+				CreateOption: pulumi.String("FromImage"),
+				ManagedDisk: &azurecompute.ManagedDiskParametersArgs{
+					StorageAccountType: pulumi.String("Premium_LRS"),
+				},
+				DiskSizeGB: pulumi.Int(30),
+			},
+		},
+	}
+
+	vm, err := azurecompute.NewVirtualMachine(ctx, nodeConfig.Name, vmArgs)
+	if err != nil {
+		return fmt.Errorf("failed to create VM: %w", err)
+	}
+
+	// Set component outputs
+	component.PublicIP = publicIP.IpAddress.Elem()
+	component.PrivateIP = nic.IpConfigurations.Index(pulumi.Int(0)).PrivateIPAddress().Elem()
+	component.DropletID = vm.ID()
+
+	ctx.Log.Info(fmt.Sprintf("   ✅ Azure VM %s created successfully", nodeConfig.Name), nil)
+
+	return nil
+}
+
+// generateSecurePassword generates a secure random password for Azure VMs
+func generateSecurePassword() string {
+	const charset = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*()"
+	const length = 16
+
+	password := make([]byte, length)
+	randomBytes := make([]byte, length)
+	rand.Read(randomBytes)
+
+	for i := 0; i < length; i++ {
+		password[i] = charset[int(randomBytes[i])%len(charset)]
+	}
+
+	return string(password)
 }

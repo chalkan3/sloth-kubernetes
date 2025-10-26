@@ -1139,47 +1139,84 @@ func runVPNJoin(cmd *cobra.Command, args []string) error {
 		nodeTarget := node.PublicIP
 		peerAddScript := generatePeerAddScript(vpnJoinIP, publicKey, vpnJoinLabel)
 
-		// Build SSH command based on bastion mode
-		var sshCmd *exec.Cmd
-		if bastionEnabled && bastionIP != "" {
-			// Use ProxyJump through bastion
-			printInfo(fmt.Sprintf("  [%d/%d] Adding peer to %s (via bastion)...", i+1, len(nodes), node.Name))
-			// Use WireGuard VPN IP for bastion ProxyJump (all nodes in VPN mesh)
-			targetIP := node.WireGuardIP
-			if targetIP == "" {
-				// Fallback to PrivateIP, then PublicIP
-				targetIP = node.PrivateIP
-				if targetIP == "" {
-					targetIP = node.PublicIP
+		// Try up to 3 times to handle transient SSH connection issues
+		maxRetries := 3
+		var output []byte
+		var err error
+		var attemptSucceeded bool
+
+		for attempt := 1; attempt <= maxRetries; attempt++ {
+			// Build SSH command based on bastion mode
+			var sshCmd *exec.Cmd
+			if bastionEnabled && bastionIP != "" {
+				// Use ProxyJump through bastion
+				if attempt == 1 {
+					printInfo(fmt.Sprintf("  [%d/%d] Adding peer to %s (via bastion)...", i+1, len(nodes), node.Name))
 				}
+				// Use WireGuard VPN IP for bastion ProxyJump (all nodes in VPN mesh)
+				targetIP := node.WireGuardIP
+				if targetIP == "" {
+					// Fallback to PrivateIP, then PublicIP
+					targetIP = node.PrivateIP
+					if targetIP == "" {
+						targetIP = node.PublicIP
+					}
+				}
+
+				sshUser := getSSHUserForNode(node.Provider)
+				sshCmd = exec.Command("ssh",
+					"-i", sshKeyPath,
+					"-o", "StrictHostKeyChecking=accept-new",
+					"-o", "UserKnownHostsFile=/dev/null",
+					"-o", "ConnectTimeout=10",
+					"-o", fmt.Sprintf("ProxyCommand=ssh -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+					fmt.Sprintf("%s@%s", sshUser, targetIP),
+					"bash", "-s",
+				)
+				// Pipe the script via stdin
+				sshCmd.Stdin = strings.NewReader(peerAddScript)
+			} else {
+				// Direct SSH
+				if attempt == 1 {
+					printInfo(fmt.Sprintf("  [%d/%d] Adding peer to %s...", i+1, len(nodes), node.Name))
+				}
+				sshUser := getSSHUserForNode(node.Provider)
+				sshCmd = exec.Command("ssh",
+					"-i", sshKeyPath,
+					"-o", "StrictHostKeyChecking=accept-new",
+					"-o", "UserKnownHostsFile=/dev/null",
+					"-o", "ConnectTimeout=10",
+					fmt.Sprintf("%s@%s", sshUser, nodeTarget),
+					"bash", "-s",
+				)
+				// Pipe the script via stdin
+				sshCmd.Stdin = strings.NewReader(peerAddScript)
 			}
 
-			sshCmd = exec.Command("ssh",
-				"-i", sshKeyPath,
-				"-o", "StrictHostKeyChecking=accept-new",
-				"-o", "UserKnownHostsFile=/dev/null",
-				"-o", fmt.Sprintf("ProxyCommand=ssh -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
-				fmt.Sprintf("root@%s", targetIP),
-				peerAddScript,
-			)
-		} else {
-			// Direct SSH
-			printInfo(fmt.Sprintf("  [%d/%d] Adding peer to %s...", i+1, len(nodes), node.Name))
-			sshCmd = exec.Command("ssh",
-				"-i", sshKeyPath,
-				"-o", "StrictHostKeyChecking=accept-new",
-				"-o", "UserKnownHostsFile=/dev/null",
-				fmt.Sprintf("root@%s", nodeTarget),
-				peerAddScript,
-			)
+			output, err = sshCmd.CombinedOutput()
+			if err == nil {
+				attemptSucceeded = true
+				break // Success
+			}
+
+			// If this was the last attempt, log the failure
+			if attempt == maxRetries {
+				color.Yellow(fmt.Sprintf("  ⚠️  Failed to add peer to %s after %d attempts: %v (output: %s)", node.Name, maxRetries, err, string(output)))
+				continue
+			}
+
+			// Wait before retrying (exponential backoff)
+			time.Sleep(time.Duration(attempt) * time.Second)
 		}
 
-		output, err := sshCmd.CombinedOutput()
-		if err != nil {
-			color.Yellow(fmt.Sprintf("  ⚠️  Failed to add peer to %s: %v (output: %s)", node.Name, err, string(output)))
-			continue
+		if attemptSucceeded {
+			printSuccess(fmt.Sprintf("  ✓ Added peer to %s", node.Name))
 		}
-		printSuccess(fmt.Sprintf("  ✓ Added peer to %s", node.Name))
+
+		// Small delay to avoid overwhelming bastion with simultaneous connections
+		if bastionEnabled && i < len(nodes)-1 {
+			time.Sleep(2 * time.Second)
+		}
 	}
 
 	// STEP 5: Add new peer to all existing VPN clients (including local machine if on VPN)
@@ -1810,6 +1847,21 @@ AllowedIPs = 10.8.0.11/32
 	return nil
 }
 
+// getSSHUserForNode returns the correct SSH username based on node provider
+// Azure uses "azureuser", AWS/GCP use "ubuntu", others use "root"
+func getSSHUserForNode(provider string) string {
+	switch provider {
+	case "azure":
+		return "azureuser"
+	case "aws":
+		return "ubuntu"
+	case "gcp":
+		return "ubuntu"
+	default:
+		return "root" // DigitalOcean, Linode, and others use "root"
+	}
+}
+
 // generateWireGuardKeypair generates a WireGuard private/public keypair
 func generateWireGuardKeypair() (privateKey string, publicKey string, err error) {
 	// Generate 32 random bytes for private key
@@ -1835,27 +1887,72 @@ func generateWireGuardKeypair() (privateKey string, publicKey string, err error)
 }
 
 // generatePeerAddScript creates a bash script to add a peer to WireGuard config
+// It uses escaped echo commands to write the configuration safely
 func generatePeerAddScript(peerIP string, peerPublicKey string, peerLabel string) string {
 	comment := "Client joined via CLI"
 	if peerLabel != "" {
 		comment = fmt.Sprintf("Peer: %s", peerLabel)
 	}
 
+	// Escape any single quotes in the values to prevent shell injection
+	comment = strings.ReplaceAll(comment, "'", "'\\''")
+	peerPublicKey = strings.ReplaceAll(peerPublicKey, "'", "'\\''")
+	peerIP = strings.ReplaceAll(peerIP, "'", "'\\''")
+
+	// Use escaped echo commands with single quotes to write configuration safely
+	// Single quotes prevent any shell expansion, and we escape any single quotes in the values
 	return fmt.Sprintf(`
 set -e
-# Add new peer to WireGuard configuration
-cat >> /etc/wireguard/wg0.conf <<EOF
 
-[Peer]
-# %s
-PublicKey = %s
-AllowedIPs = %s/32
-PersistentKeepalive = 25
-EOF
+# Step 1: AUTO-CLEANUP - Remove corrupted entries and existing client peers
+echo "Cleaning up corrupted WireGuard config entries..."
+sudo cp /etc/wireguard/wg0.conf /etc/wireguard/wg0.conf.backup-$(date +%%Y%%m%%d-%%H%%M%%S) 2>/dev/null || true
 
-# Reload WireGuard configuration
-wg syncconf wg0 <(wg-quick strip wg0)
-echo "Peer added and WireGuard reloaded"
+# Remove ANY lines containing literal \n (backslash followed by n) - these are corrupted
+# This catches all variations: \n, \\n, \[Peer]\n, etc.
+sudo sed -i '/\\n/d' /etc/wireguard/wg0.conf 2>/dev/null || true
+sudo sed -i '/\\\\n/d' /etc/wireguard/wg0.conf 2>/dev/null || true
+
+# Also remove any malformed [Peer] sections that might exist
+sudo sed -i '/\[Peer\][^]]*\\n/d' /etc/wireguard/wg0.conf 2>/dev/null || true
+
+# Remove existing client peers (10.8.0.100+) using awk
+sudo awk '
+BEGIN { in_peer=0; skip=0; buffer="" }
+/^\[Peer\]/ {
+    if (buffer != "" && skip == 0) print buffer
+    buffer=$0"\n"
+    in_peer=1
+    skip=0
+    next
+}
+in_peer && /^AllowedIPs = 10\.8\.0\.(10[0-9]|1[1-9][0-9]|[2-9][0-9]{2})/ {
+    skip=1
+    buffer=""
+    in_peer=0
+    next
+}
+in_peer { buffer=buffer$0"\n"; next }
+!in_peer && skip == 0 { print }
+END { if (buffer != "" && skip == 0) print buffer }
+' /etc/wireguard/wg0.conf | sudo tee /etc/wireguard/wg0.conf.clean > /dev/null
+sudo mv /etc/wireguard/wg0.conf.clean /etc/wireguard/wg0.conf
+
+# Step 2: Add new peer configuration
+echo "Adding new peer..."
+
+# Write peer config using tee (most reliable method)
+echo "" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+echo "[Peer]" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+echo "# %s" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+echo "PublicKey = %s" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+echo "AllowedIPs = %s/32" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+echo "PersistentKeepalive = 25" | sudo tee -a /etc/wireguard/wg0.conf >/dev/null
+
+# Step 3: Reload WireGuard configuration
+echo "Reloading WireGuard..."
+sudo wg-quick strip wg0 | sudo wg syncconf wg0 /dev/stdin
+echo "Peer added and WireGuard reloaded successfully!"
 `, comment, peerPublicKey, peerIP)
 }
 
@@ -1870,34 +1967,53 @@ func fetchNodePublicKey(node NodeInfo, sshKeyPath string, bastionEnabled bool, b
 		}
 	}
 
-	// Build SSH command
-	var sshCmd *exec.Cmd
-	if bastionEnabled && bastionIP != "" {
-		// Use ProxyCommand through bastion (use -q to suppress SSH warnings)
-		sshCmd = exec.Command("ssh",
-			"-q",
-			"-i", sshKeyPath,
-			"-o", "StrictHostKeyChecking=accept-new",
-			"-o", "UserKnownHostsFile=/dev/null",
-			"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
-			fmt.Sprintf("root@%s", targetIP),
-			"cat /etc/wireguard/publickey",
-		)
-	} else {
-		// Direct SSH (use -q to suppress SSH warnings)
-		sshCmd = exec.Command("ssh",
-			"-q",
-			"-i", sshKeyPath,
-			"-o", "StrictHostKeyChecking=accept-new",
-			"-o", "UserKnownHostsFile=/dev/null",
-			fmt.Sprintf("root@%s", node.PublicIP),
-			"cat /etc/wireguard/publickey",
-		)
-	}
+	// Build SSH command with sudo for permission and retry for connection issues
+	sshUser := getSSHUserForNode(node.Provider)
 
-	output, err := sshCmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("failed to fetch public key: %w (output: %s)", err, string(output))
+	// Try up to 3 times to handle transient SSH connection issues
+	var output []byte
+	var err error
+	maxRetries := 3
+
+	for attempt := 1; attempt <= maxRetries; attempt++ {
+		var sshCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			// Use ProxyCommand through bastion (use -q to suppress SSH warnings)
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("%s@%s", sshUser, targetIP),
+				"sudo cat /etc/wireguard/publickey",
+			)
+		} else {
+			// Direct SSH (use -q to suppress SSH warnings)
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				fmt.Sprintf("%s@%s", sshUser, node.PublicIP),
+				"sudo cat /etc/wireguard/publickey",
+			)
+		}
+
+		output, err = sshCmd.CombinedOutput()
+		if err == nil {
+			break // Success
+		}
+
+		// If this was the last attempt, return the error
+		if attempt == maxRetries {
+			return "", fmt.Errorf("failed to fetch public key after %d attempts: %w (output: %s)", maxRetries, err, string(output))
+		}
+
+		// Wait before retrying (exponential backoff)
+		time.Sleep(time.Duration(attempt) * time.Second)
 	}
 
 	// Trim whitespace and newlines

@@ -7,6 +7,23 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// getSSHUserForProvider returns the correct SSH username for the given cloud provider
+// Azure uses "azureuser", while other providers use "root" or "ubuntu"
+func getSSHUserForProvider(provider pulumi.StringOutput) pulumi.StringOutput {
+	return provider.ApplyT(func(p string) string {
+		switch p {
+		case "azure":
+			return "azureuser"
+		case "aws":
+			return "ubuntu" // AWS Ubuntu AMIs use "ubuntu"
+		case "gcp":
+			return "ubuntu" // GCP uses "ubuntu" for Ubuntu images
+		default:
+			return "root" // DigitalOcean, Linode, and others use "root"
+		}
+	}).(pulumi.StringOutput)
+}
+
 // CloudInitValidatorComponent validates cloud-init completion before proceeding
 type CloudInitValidatorComponent struct {
 	pulumi.ResourceState
@@ -36,17 +53,23 @@ func NewCloudInitValidatorComponent(ctx *pulumi.Context, name string, nodes []*R
 	// Run validation on all nodes in parallel
 	var validationResults []pulumi.Resource
 	for i, node := range nodes {
+		// Determine SSH user based on provider using helper function
+		sshUser := getSSHUserForProvider(node.Provider)
+
+		// Bastion is on Linode in this config, so it uses "root"
+		bastionUser := pulumi.String("root")
+
 		// Build connection args with ProxyJump if bastion is enabled
 		connArgs := remote.ConnectionArgs{
 			Host:           node.PublicIP,
-			User:           pulumi.String("root"),
+			User:           sshUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 		}
 		if bastionComponent != nil {
 			connArgs.Proxy = &remote.ProxyConnectionArgs{
 				Host:       bastionComponent.PublicIP,
-				User:       pulumi.String("root"),
+				User:       bastionUser,
 				PrivateKey: sshPrivateKey,
 			}
 		}

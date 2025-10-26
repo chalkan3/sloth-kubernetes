@@ -104,15 +104,106 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 	s.Stop()
 	printSuccess("Configuration loaded")
 
-	// Validate configuration
-	s.Suffix = " Validating configuration..."
+	// Comprehensive validation before deployment
+	fmt.Println()
+	printHeader("🔍 Pre-Deployment Validation")
+	fmt.Println()
+
+	// Step 1: Basic configuration validation
+	s.Suffix = " Validating configuration structure..."
 	s.Start()
 	if err := validation.ValidateClusterConfig(cfg); err != nil {
 		s.Stop()
+		color.Red("❌ Configuration validation failed")
+		fmt.Println()
 		return fmt.Errorf("configuration validation failed: %w", err)
 	}
 	s.Stop()
-	printSuccess("Configuration validated")
+	color.Green("✅ Configuration structure is valid")
+
+	// Step 2: Validate API tokens presence
+	s.Suffix = " Validating API tokens..."
+	s.Start()
+	if err := validation.ValidateAPITokensPresence(cfg); err != nil {
+		s.Stop()
+		color.Red("❌ API token validation failed")
+		fmt.Println()
+		return fmt.Errorf("API token validation failed: %w", err)
+	}
+	s.Stop()
+	color.Green("✅ API tokens are configured")
+
+	// Step 3: Validate with actual provider APIs (optional but recommended)
+	if !dryRun {
+		s.Suffix = " Validating API tokens with cloud providers..."
+		s.Start()
+		if err := validation.ValidateAPITokensWithProviders(cfg); err != nil {
+			s.Stop()
+			color.Yellow("⚠️  Warning: API token verification failed")
+			color.Yellow("   %v", err)
+			fmt.Println()
+			if !autoApprove {
+				if !confirm("Continue anyway?") {
+					return fmt.Errorf("deployment cancelled due to API validation failure")
+				}
+			}
+		} else {
+			s.Stop()
+			color.Green("✅ API tokens verified with providers")
+		}
+	}
+
+	// Step 4: Validate node pools
+	s.Suffix = " Validating node pools..."
+	s.Start()
+	if err := validation.ValidateNodePools(cfg); err != nil {
+		s.Stop()
+		color.Red("❌ Node pool validation failed")
+		fmt.Println()
+		return fmt.Errorf("node pool validation failed: %w", err)
+	}
+	s.Stop()
+	color.Green("✅ Node pools are valid")
+
+	// Step 5: Validate networking
+	s.Suffix = " Validating network configuration..."
+	s.Start()
+	if err := validation.ValidateNetworkingConfig(cfg); err != nil {
+		s.Stop()
+		color.Red("❌ Network validation failed")
+		fmt.Println()
+		return fmt.Errorf("network validation failed: %w", err)
+	}
+	s.Stop()
+	color.Green("✅ Network configuration is valid")
+
+	// Step 6: Validate SSH configuration
+	s.Suffix = " Validating SSH configuration..."
+	s.Start()
+	if err := validation.ValidateSSHConfig(cfg); err != nil {
+		s.Stop()
+		color.Red("❌ SSH configuration validation failed")
+		fmt.Println()
+		return fmt.Errorf("SSH configuration validation failed: %w", err)
+	}
+	s.Stop()
+	color.Green("✅ SSH configuration is valid")
+
+	// Step 7: Validate resource sizes
+	s.Suffix = " Validating resource sizes..."
+	s.Start()
+	if err := validation.ValidateResourceSizes(cfg); err != nil {
+		s.Stop()
+		color.Red("❌ Resource validation failed")
+		fmt.Println()
+		return fmt.Errorf("resource validation failed: %w", err)
+	}
+	s.Stop()
+	color.Green("✅ Resource sizes validated")
+
+	fmt.Println()
+	color.Green("✅ All pre-deployment validations passed!")
+	fmt.Println()
 
 	// Print summary
 	printDeploymentSummary(cfg)
@@ -287,11 +378,26 @@ func loadConfiguration() (*config.ClusterConfig, error) {
 
 	// Try to load from config file first
 	if cfgFile != "" {
+		fmt.Printf("🔍 DEBUG [cmd/deploy.go]: Loading config from file: %s\n", cfgFile)
 		cfg, err = config.LoadFromYAML(cfgFile)
 		if err != nil {
 			return nil, fmt.Errorf("failed to load config file: %w", err)
 		}
+
+		// DEBUG: Log pools immediately after loading
+		fmt.Printf("🔍 DEBUG [cmd/deploy.go]: Loaded %d node pools from YAML\n", len(cfg.NodePools))
+		for poolName, pool := range cfg.NodePools {
+			fmt.Printf("🔍 DEBUG [cmd/deploy.go]: Pool '%s' - provider=%s, count=%d\n", poolName, pool.Provider, pool.Count)
+		}
+
+		// DEBUG: Check bastion configuration
+		if cfg.Security.Bastion == nil {
+			fmt.Printf("🔍 DEBUG [cmd/deploy.go]: cfg.Security.Bastion is NIL after LoadFromYAML\n")
+		} else {
+			fmt.Printf("🔍 DEBUG [cmd/deploy.go]: cfg.Security.Bastion.Enabled = %v\n", cfg.Security.Bastion.Enabled)
+		}
 	} else {
+		fmt.Printf("🔍 DEBUG [cmd/deploy.go]: No config file, using default config\n")
 		// Use default configuration with flag overrides
 		cfg = &config.ClusterConfig{
 			Metadata: config.Metadata{
@@ -476,6 +582,9 @@ func printDeploymentSummary(cfg *config.ClusterConfig) {
 	}
 	if cfg.Providers.Linode != nil && cfg.Providers.Linode.Enabled {
 		providers = append(providers, "Linode")
+	}
+	if cfg.Providers.Azure != nil && cfg.Providers.Azure.Enabled {
+		providers = append(providers, "Azure")
 	}
 	if len(providers) > 0 {
 		fmt.Printf("  • Providers: %s\n", joinStrings(providers, " + "))

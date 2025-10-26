@@ -8,6 +8,23 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// getSSHUserForVPNValidator returns the correct SSH username for the given cloud provider
+// Azure uses "azureuser", while other providers use "root" or "ubuntu"
+func getSSHUserForVPNValidator(provider pulumi.StringOutput) pulumi.StringOutput {
+	return provider.ApplyT(func(p string) string {
+		switch p {
+		case "azure":
+			return "azureuser"
+		case "aws":
+			return "ubuntu" // AWS Ubuntu AMIs use "ubuntu"
+		case "gcp":
+			return "ubuntu" // GCP uses "ubuntu" for Ubuntu images
+		default:
+			return "root" // DigitalOcean, Linode, and others use "root"
+		}
+	}).(pulumi.StringOutput)
+}
+
 // VPNValidatorComponent validates VPN connectivity before RKE2 installation
 type VPNValidatorComponent struct {
 	pulumi.ResourceState
@@ -147,6 +164,9 @@ fi
 	// If this passes, mesh is configured correctly
 	firstNode := nodes[0]
 
+	// Determine SSH user based on provider (Azure uses "azureuser", others use "root")
+	firstNodeSSHUser := getSSHUserForVPNValidator(firstNode.Provider)
+
 	// Collect all IPs and names as pulumi.All inputs
 	var allInputs []interface{}
 	allInputs = append(allInputs, firstNode.WireGuardIP)
@@ -159,11 +179,12 @@ fi
 	validationCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-validate", name), &remote.CommandArgs{
 		Connection: remote.ConnectionArgs{
 			Host:           firstNode.PublicIP,
-			User:           pulumi.String("root"),
+			User:           firstNodeSSHUser,
 			PrivateKey:     sshPrivateKey,
 			DialErrorLimit: pulumi.Int(30),
 			Proxy: func() *remote.ProxyConnectionArgs {
 				if bastionComponent != nil {
+					// Bastion is on Linode in this config, so it uses "root"
 					return &remote.ProxyConnectionArgs{
 						Host:       bastionComponent.PublicIP,
 						User:       pulumi.String("root"),

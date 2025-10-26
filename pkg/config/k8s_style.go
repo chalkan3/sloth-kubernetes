@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // KubernetesStyleConfig represents a Kubernetes-style configuration file
@@ -38,6 +38,9 @@ type ClusterSpec2 struct {
 type ProvidersSpec struct {
 	DigitalOcean *DigitalOceanSpec `yaml:"digitalocean,omitempty" json:"digitalocean,omitempty"`
 	Linode       *LinodeSpec       `yaml:"linode,omitempty" json:"linode,omitempty"`
+	AWS          *AWSSpec          `yaml:"aws,omitempty" json:"aws,omitempty"`
+	GCP          *GCPSpec          `yaml:"gcp,omitempty" json:"gcp,omitempty"`
+	Azure        *AzureSpec        `yaml:"azure,omitempty" json:"azure,omitempty"`
 }
 
 // DigitalOceanSpec provider configuration
@@ -55,6 +58,36 @@ type LinodeSpec struct {
 	Region       string   `yaml:"region" json:"region"`
 	RootPassword string   `yaml:"rootPassword,omitempty" json:"rootPassword,omitempty"`
 	Tags         []string `yaml:"tags,omitempty" json:"tags,omitempty"`
+}
+
+// AWSSpec provider configuration
+type AWSSpec struct {
+	Enabled         bool   `yaml:"enabled" json:"enabled"`
+	AccessKeyID     string `yaml:"accessKeyId,omitempty" json:"accessKeyId,omitempty"`
+	SecretAccessKey string `yaml:"secretAccessKey,omitempty" json:"secretAccessKey,omitempty"`
+	Region          string `yaml:"region" json:"region"`
+	KeyPair         string `yaml:"keyPair,omitempty" json:"keyPair,omitempty"`
+	IAMRole         string `yaml:"iamRole,omitempty" json:"iamRole,omitempty"`
+}
+
+// GCPSpec provider configuration
+type GCPSpec struct {
+	Enabled     bool   `yaml:"enabled" json:"enabled"`
+	ProjectID   string `yaml:"projectId,omitempty" json:"projectId,omitempty"`
+	Credentials string `yaml:"credentials,omitempty" json:"credentials,omitempty"`
+	Region      string `yaml:"region" json:"region"`
+	Zone        string `yaml:"zone,omitempty" json:"zone,omitempty"`
+}
+
+// AzureSpec provider configuration
+type AzureSpec struct {
+	Enabled        bool   `yaml:"enabled" json:"enabled"`
+	SubscriptionID string `yaml:"subscriptionId,omitempty" json:"subscriptionId,omitempty"`
+	TenantID       string `yaml:"tenantId,omitempty" json:"tenantId,omitempty"`
+	ClientID       string `yaml:"clientId,omitempty" json:"clientId,omitempty"`
+	ClientSecret   string `yaml:"clientSecret,omitempty" json:"clientSecret,omitempty"`
+	ResourceGroup  string `yaml:"resourceGroup,omitempty" json:"resourceGroup,omitempty"`
+	Location       string `yaml:"location" json:"location"`
 }
 
 // NetworkSpec defines network configuration
@@ -143,6 +176,12 @@ func LoadFromK8sYAML(filePath string) (*ClusterConfig, error) {
 		return nil, fmt.Errorf("failed to parse YAML: %w", err)
 	}
 
+	// DEBUG: Check how many pools were parsed
+	fmt.Printf("🔍 DEBUG [k8s_style.go]: Parsed %d node pools from YAML\n", len(k8sConfig.Spec.NodePools))
+	for i, pool := range k8sConfig.Spec.NodePools {
+		fmt.Printf("🔍 DEBUG [k8s_style.go]: Pool[%d] = name=%s, provider=%s, count=%d\n", i, pool.Name, pool.Provider, pool.Count)
+	}
+
 	// Validate API version and kind
 	if k8sConfig.APIVersion != "kubernetes-create.io/v1" && k8sConfig.APIVersion != "sloth-kubernetes.io/v1" && k8sConfig.APIVersion != "v1" {
 		return nil, fmt.Errorf("unsupported apiVersion: %s (expected: sloth-kubernetes.io/v1 or kubernetes-create.io/v1)", k8sConfig.APIVersion)
@@ -153,6 +192,12 @@ func LoadFromK8sYAML(filePath string) (*ClusterConfig, error) {
 
 	// Convert to internal ClusterConfig
 	cfg := convertFromK8sStyle(&k8sConfig)
+
+	// DEBUG: Check how many pools after conversion
+	fmt.Printf("🔍 DEBUG [k8s_style.go]: After conversion: %d node pools\n", len(cfg.NodePools))
+	for poolName, pool := range cfg.NodePools {
+		fmt.Printf("🔍 DEBUG [k8s_style.go]: Converted pool '%s' - provider=%s, count=%d\n", poolName, pool.Provider, pool.Count)
+	}
 
 	// Apply defaults
 	applyDefaults(cfg)
@@ -190,6 +235,36 @@ func convertFromK8sStyle(k8s *KubernetesStyleConfig) *ClusterConfig {
 			Region:       k8s.Spec.Providers.Linode.Region,
 			RootPassword: k8s.Spec.Providers.Linode.RootPassword,
 			Tags:         k8s.Spec.Providers.Linode.Tags,
+		}
+	}
+	if k8s.Spec.Providers.AWS != nil {
+		cfg.Providers.AWS = &AWSProvider{
+			Enabled:         k8s.Spec.Providers.AWS.Enabled,
+			AccessKeyID:     k8s.Spec.Providers.AWS.AccessKeyID,
+			SecretAccessKey: k8s.Spec.Providers.AWS.SecretAccessKey,
+			Region:          k8s.Spec.Providers.AWS.Region,
+			KeyPair:         k8s.Spec.Providers.AWS.KeyPair,
+			IAMRole:         k8s.Spec.Providers.AWS.IAMRole,
+		}
+	}
+	if k8s.Spec.Providers.GCP != nil {
+		cfg.Providers.GCP = &GCPProvider{
+			Enabled:     k8s.Spec.Providers.GCP.Enabled,
+			ProjectID:   k8s.Spec.Providers.GCP.ProjectID,
+			Credentials: k8s.Spec.Providers.GCP.Credentials,
+			Region:      k8s.Spec.Providers.GCP.Region,
+			Zone:        k8s.Spec.Providers.GCP.Zone,
+		}
+	}
+	if k8s.Spec.Providers.Azure != nil {
+		cfg.Providers.Azure = &AzureProvider{
+			Enabled:        k8s.Spec.Providers.Azure.Enabled,
+			SubscriptionID: k8s.Spec.Providers.Azure.SubscriptionID,
+			TenantID:       k8s.Spec.Providers.Azure.TenantID,
+			ClientID:       k8s.Spec.Providers.Azure.ClientID,
+			ClientSecret:   k8s.Spec.Providers.Azure.ClientSecret,
+			ResourceGroup:  k8s.Spec.Providers.Azure.ResourceGroup,
+			Location:       k8s.Spec.Providers.Azure.Location,
 		}
 	}
 
