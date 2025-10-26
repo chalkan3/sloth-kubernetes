@@ -214,7 +214,7 @@ func createAzureBastion(
 	}
 
 	// Create Resource Group
-	rg, err := resources.NewResourceGroup(ctx, fmt.Sprintf("%s-rg", name), &resources.ResourceGroupArgs{
+	rg, err := azureresources.NewResourceGroup(ctx, fmt.Sprintf("%s-rg", name), &azureresources.ResourceGroupArgs{
 		ResourceGroupName: pulumi.String(resourceGroupName),
 		Location:          pulumi.String(location),
 		Tags: pulumi.StringMap{
@@ -229,11 +229,11 @@ func createAzureBastion(
 
 	// Create Virtual Network
 	vnetName := fmt.Sprintf("%s-vnet", name)
-	vnet, err := network.NewVirtualNetwork(ctx, vnetName, &network.VirtualNetworkArgs{
+	vnet, err := azurenetwork.NewVirtualNetwork(ctx, vnetName, &azurenetwork.VirtualNetworkArgs{
 		ResourceGroupName: rg.Name,
 		VirtualNetworkName: pulumi.String(vnetName),
 		Location:          rg.Location,
-		AddressSpace: &network.AddressSpaceArgs{
+		AddressSpace: &azurenetwork.AddressSpaceArgs{
 			AddressPrefixes: pulumi.StringArray{
 				pulumi.String("10.100.0.0/16"),
 			},
@@ -248,7 +248,7 @@ func createAzureBastion(
 
 	// Create Subnet
 	subnetName := fmt.Sprintf("%s-subnet", name)
-	subnet, err := network.NewSubnet(ctx, subnetName, &network.SubnetArgs{
+	subnet, err := azurenetwork.NewSubnet(ctx, subnetName, &azurenetwork.SubnetArgs{
 		ResourceGroupName:  rg.Name,
 		VirtualNetworkName: vnet.Name,
 		SubnetName:         pulumi.String(subnetName),
@@ -260,12 +260,12 @@ func createAzureBastion(
 
 	// Create Network Security Group
 	nsgName := fmt.Sprintf("%s-nsg", name)
-	nsg, err := network.NewNetworkSecurityGroup(ctx, nsgName, &network.NetworkSecurityGroupArgs{
+	nsg, err := azurenetwork.NewNetworkSecurityGroup(ctx, nsgName, &azurenetwork.NetworkSecurityGroupArgs{
 		ResourceGroupName:        rg.Name,
 		NetworkSecurityGroupName: pulumi.String(nsgName),
 		Location:                 rg.Location,
-		SecurityRules: network.SecurityRuleTypeArray{
-			&network.SecurityRuleTypeArgs{
+		SecurityRules: azurenetwork.SecurityRuleTypeArray{
+			&azurenetwork.SecurityRuleTypeArgs{
 				Name:                     pulumi.String("allow-ssh"),
 				Priority:                 pulumi.Int(100),
 				Direction:                pulumi.String("Inbound"),
@@ -276,7 +276,7 @@ func createAzureBastion(
 				SourceAddressPrefix:      pulumi.String("*"),
 				DestinationAddressPrefix: pulumi.String("*"),
 			},
-			&network.SecurityRuleTypeArgs{
+			&azurenetwork.SecurityRuleTypeArgs{
 				Name:                     pulumi.String("allow-wireguard"),
 				Priority:                 pulumi.Int(110),
 				Direction:                pulumi.String("Inbound"),
@@ -298,12 +298,12 @@ func createAzureBastion(
 
 	// Create Public IP
 	publicIPName := fmt.Sprintf("%s-ip", name)
-	publicIP, err := network.NewPublicIPAddress(ctx, publicIPName, &network.PublicIPAddressArgs{
+	publicIP, err := azurenetwork.NewPublicIPAddress(ctx, publicIPName, &azurenetwork.PublicIPAddressArgs{
 		ResourceGroupName:         rg.Name,
 		PublicIpAddressName:       pulumi.String(publicIPName),
 		Location:                  rg.Location,
 		PublicIPAllocationMethod:  pulumi.String("Static"),
-		Sku: &network.PublicIPAddressSkuArgs{
+		Sku: &azurenetwork.PublicIPAddressSkuArgs{
 			Name: pulumi.String("Standard"),
 		},
 		Tags: pulumi.StringMap{
@@ -316,23 +316,23 @@ func createAzureBastion(
 
 	// Create Network Interface
 	nicName := fmt.Sprintf("%s-nic", name)
-	nic, err := network.NewNetworkInterface(ctx, nicName, &network.NetworkInterfaceArgs{
+	nic, err := azurenetwork.NewNetworkInterface(ctx, nicName, &azurenetwork.NetworkInterfaceArgs{
 		ResourceGroupName:    rg.Name,
 		NetworkInterfaceName: pulumi.String(nicName),
 		Location:             rg.Location,
-		IpConfigurations: network.NetworkInterfaceIPConfigurationArray{
-			&network.NetworkInterfaceIPConfigurationArgs{
+		IpConfigurations: azurenetwork.NetworkInterfaceIPConfigurationArray{
+			&azurenetwork.NetworkInterfaceIPConfigurationArgs{
 				Name:                      pulumi.String("ipconfig1"),
 				PrivateIPAllocationMethod: pulumi.String("Dynamic"),
-				Subnet: &network.SubnetTypeArgs{
+				Subnet: &azurenetwork.SubnetTypeArgs{
 					Id: subnet.ID(),
 				},
-				PublicIPAddress: &network.PublicIPAddressTypeArgs{
+				PublicIPAddress: &azurenetwork.PublicIPAddressTypeArgs{
 					Id: publicIP.ID(),
 				},
 			},
 		},
-		NetworkSecurityGroup: &network.NetworkSecurityGroupTypeArgs{
+		NetworkSecurityGroup: &azurenetwork.NetworkSecurityGroupTypeArgs{
 			Id: nsg.ID(),
 		},
 		Tags: pulumi.StringMap{
@@ -355,36 +355,36 @@ func createAzureBastion(
 		vmSize = "Standard_B1s" // Free tier eligible
 	}
 
-	vm, err := compute.NewVirtualMachine(ctx, vmName, &compute.VirtualMachineArgs{
+	vm, err := azurecompute.NewVirtualMachine(ctx, vmName, &azurecompute.VirtualMachineArgs{
 		ResourceGroupName: rg.Name,
 		VmName:            pulumi.String(vmName),
 		Location:          rg.Location,
-		HardwareProfile: &compute.HardwareProfileArgs{
+		HardwareProfile: &azurecompute.HardwareProfileArgs{
 			VmSize: pulumi.String(vmSize),
 		},
-		StorageProfile: &compute.StorageProfileArgs{
-			ImageReference: &compute.ImageReferenceArgs{
+		StorageProfile: &azurecompute.StorageProfileArgs{
+			ImageReference: &azurecompute.ImageReferenceArgs{
 				Publisher: pulumi.String("Canonical"),
 				Offer:     pulumi.String("0001-com-ubuntu-server-jammy"),
 				Sku:       pulumi.String("22_04-lts-gen2"),
 				Version:   pulumi.String("latest"),
 			},
-			OsDisk: &compute.OSDiskArgs{
+			OsDisk: &azurecompute.OSDiskArgs{
 				Name:         pulumi.String(fmt.Sprintf("%s-osdisk", vmName)),
 				CreateOption: pulumi.String("FromImage"),
-				ManagedDisk: &compute.ManagedDiskParametersArgs{
+				ManagedDisk: &azurecompute.ManagedDiskParametersArgs{
 					StorageAccountType: pulumi.String("Standard_LRS"),
 				},
 			},
 		},
-		OsProfile: &compute.OSProfileArgs{
+		OsProfile: &azurecompute.OSProfileArgs{
 			ComputerName:  pulumi.String(vmName),
 			AdminUsername: pulumi.String("azureuser"),
-			LinuxConfiguration: &compute.LinuxConfigurationArgs{
+			LinuxConfiguration: &azurecompute.LinuxConfigurationArgs{
 				DisablePasswordAuthentication: pulumi.Bool(true),
-				Ssh: &compute.SshConfigurationArgs{
-					PublicKeys: compute.SshPublicKeyTypeArray{
-						&compute.SshPublicKeyTypeArgs{
+				Ssh: &azurecompute.SshConfigurationArgs{
+					PublicKeys: azurecompute.SshPublicKeyTypeArray{
+						&azurecompute.SshPublicKeyTypeArgs{
 							KeyData: sshKeyOutput,
 							Path:    pulumi.String("/home/azureuser/.ssh/authorized_keys"),
 						},
@@ -392,9 +392,9 @@ func createAzureBastion(
 				},
 			},
 		},
-		NetworkProfile: &compute.NetworkProfileArgs{
-			NetworkInterfaces: compute.NetworkInterfaceReferenceArray{
-				&compute.NetworkInterfaceReferenceArgs{
+		NetworkProfile: &azurecompute.NetworkProfileArgs{
+			NetworkInterfaces: azurecompute.NetworkInterfaceReferenceArray{
+				&azurecompute.NetworkInterfaceReferenceArgs{
 					Id:      nic.ID(),
 					Primary: pulumi.Bool(true),
 				},

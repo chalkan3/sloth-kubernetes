@@ -424,7 +424,22 @@ sleep 2
 
 echo "✅ WireGuard mesh configured"
 %swg show
-`, config, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo)
+
+# Restart Salt Minion if installed (so it connects to master via WireGuard VPN)
+if %ssystemctl is-active --quiet salt-minion 2>/dev/null || %ssystemctl status salt-minion 2>/dev/null | grep -q "loaded"; then
+    echo "🔄 Restarting Salt Minion to connect via WireGuard VPN..."
+    %ssystemctl restart salt-minion 2>/dev/null || true
+    %ssystemctl enable salt-minion 2>/dev/null || true
+    sleep 2
+    if %ssystemctl is-active --quiet salt-minion; then
+        echo "✅ Salt Minion restarted and connected to master"
+    else
+        echo "⚠️  Salt Minion restart attempted (may still be initializing)"
+    fi
+else
+    echo "ℹ️  Salt Minion not installed on this node"
+fi
+`, config, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo)
 		}).(pulumi.StringOutput)
 
 		// Execute deployment
