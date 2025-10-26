@@ -6,7 +6,7 @@ import (
 	"os"
 
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // NodeInfo represents a single node's information parsed from outputs

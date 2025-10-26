@@ -8,9 +8,9 @@ import (
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/cloudinit"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
-	"github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
-	aznetwork "github.com/pulumi/pulumi-azure-native-sdk/network/v2"
-	"github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
+	azurecompute "github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
+	azurenetwork "github.com/pulumi/pulumi-azure-native-sdk/network/v2"
+	azureresources "github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -393,10 +393,10 @@ func createLinodeInstance(ctx *pulumi.Context, name string, nodeConfig *config.N
 
 // Global Azure shared resources (created once, reused by all VMs)
 var (
-	azureResourceGroup *resources.ResourceGroup
-	azureVNet          *aznetwork.VirtualNetwork
-	azureSubnet        *aznetwork.Subnet
-	azureNSG           *aznetwork.NetworkSecurityGroup
+	azureResourceGroup *azureresources.ResourceGroup
+	azureVNet          *azurenetwork.VirtualNetwork
+	azureSubnet        *azurenetwork.Subnet
+	azureNSG           *azurenetwork.NetworkSecurityGroup
 )
 
 // createAzureVM creates a real Azure VM with all required infrastructure
@@ -415,7 +415,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 	// Create shared Azure infrastructure (only once for all VMs)
 	if azureResourceGroup == nil {
 		rgName := "sloth-k8s-rg"
-		rg, err := resources.NewResourceGroup(ctx, rgName, &resources.ResourceGroupArgs{
+		rg, err := azureresources.NewResourceGroup(ctx, rgName, &azureresources.ResourceGroupArgs{
 			ResourceGroupName: pulumi.String(rgName),
 			Location:          pulumi.String(location),
 			Tags: pulumi.StringMap{
@@ -430,11 +430,11 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 
 		// Create VNet
 		vnetName := "sloth-k8s-azure-vnet"
-		vnet, err := aznetwork.NewVirtualNetwork(ctx, vnetName, &aznetwork.VirtualNetworkArgs{
+		vnet, err := azurenetwork.NewVirtualNetwork(ctx, vnetName, &azurenetwork.VirtualNetworkArgs{
 			ResourceGroupName:  rg.Name,
 			Location:           pulumi.String(location),
 			VirtualNetworkName: pulumi.String(vnetName),
-			AddressSpace: &aznetwork.AddressSpaceArgs{
+			AddressSpace: &azurenetwork.AddressSpaceArgs{
 				AddressPrefixes: pulumi.StringArray{pulumi.String("10.14.0.0/16")},
 			},
 		})
@@ -445,7 +445,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 
 		// Create Subnet
 		subnetName := "sloth-k8s-subnet"
-		subnet, err := aznetwork.NewSubnet(ctx, subnetName, &aznetwork.SubnetArgs{
+		subnet, err := azurenetwork.NewSubnet(ctx, subnetName, &azurenetwork.SubnetArgs{
 			ResourceGroupName:  rg.Name,
 			VirtualNetworkName: vnet.Name,
 			SubnetName:         pulumi.String(subnetName),
@@ -458,12 +458,12 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 
 		// Create NSG
 		nsgName := "sloth-k8s-nsg"
-		nsg, err := aznetwork.NewNetworkSecurityGroup(ctx, nsgName, &aznetwork.NetworkSecurityGroupArgs{
+		nsg, err := azurenetwork.NewNetworkSecurityGroup(ctx, nsgName, &azurenetwork.NetworkSecurityGroupArgs{
 			ResourceGroupName:        rg.Name,
 			Location:                 pulumi.String(location),
 			NetworkSecurityGroupName: pulumi.String(nsgName),
-			SecurityRules: aznetwork.SecurityRuleTypeArray{
-				&aznetwork.SecurityRuleTypeArgs{
+			SecurityRules: azurenetwork.SecurityRuleTypeArray{
+				&azurenetwork.SecurityRuleTypeArgs{
 					Name:                     pulumi.String("AllowSSH"),
 					Priority:                 pulumi.Int(1000),
 					Direction:                pulumi.String("Inbound"),
@@ -474,7 +474,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 					SourceAddressPrefix:      pulumi.String("*"),
 					DestinationAddressPrefix: pulumi.String("*"),
 				},
-				&aznetwork.SecurityRuleTypeArgs{
+				&azurenetwork.SecurityRuleTypeArgs{
 					Name:                     pulumi.String("AllowWireGuard"),
 					Priority:                 pulumi.Int(1010),
 					Direction:                pulumi.String("Inbound"),
@@ -485,7 +485,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 					SourceAddressPrefix:      pulumi.String("*"),
 					DestinationAddressPrefix: pulumi.String("*"),
 				},
-				&aznetwork.SecurityRuleTypeArgs{
+				&azurenetwork.SecurityRuleTypeArgs{
 					Name:                     pulumi.String("AllowKubernetesAPI"),
 					Priority:                 pulumi.Int(1020),
 					Direction:                pulumi.String("Inbound"),
@@ -506,12 +506,12 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 
 	// Create Public IP for this VM
 	publicIPName := fmt.Sprintf("%s-pip", nodeConfig.Name)
-	publicIP, err := aznetwork.NewPublicIPAddress(ctx, publicIPName, &aznetwork.PublicIPAddressArgs{
+	publicIP, err := azurenetwork.NewPublicIPAddress(ctx, publicIPName, &azurenetwork.PublicIPAddressArgs{
 		ResourceGroupName:        azureResourceGroup.Name,
 		Location:                 pulumi.String(location),
 		PublicIpAddressName:      pulumi.String(publicIPName),
 		PublicIPAllocationMethod: pulumi.String("Static"),
-		Sku: &aznetwork.PublicIPAddressSkuArgs{
+		Sku: &azurenetwork.PublicIPAddressSkuArgs{
 			Name: pulumi.String("Standard"),
 		},
 	})
@@ -521,23 +521,23 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 
 	// Create Network Interface
 	nicName := fmt.Sprintf("%s-nic", nodeConfig.Name)
-	nic, err := aznetwork.NewNetworkInterface(ctx, nicName, &aznetwork.NetworkInterfaceArgs{
+	nic, err := azurenetwork.NewNetworkInterface(ctx, nicName, &azurenetwork.NetworkInterfaceArgs{
 		ResourceGroupName:   azureResourceGroup.Name,
 		Location:            pulumi.String(location),
 		NetworkInterfaceName: pulumi.String(nicName),
-		IpConfigurations: aznetwork.NetworkInterfaceIPConfigurationArray{
-			&aznetwork.NetworkInterfaceIPConfigurationArgs{
+		IpConfigurations: azurenetwork.NetworkInterfaceIPConfigurationArray{
+			&azurenetwork.NetworkInterfaceIPConfigurationArgs{
 				Name:                      pulumi.String("ipconfig1"),
 				PrivateIPAllocationMethod: pulumi.String("Dynamic"),
-				Subnet: &aznetwork.SubnetTypeArgs{
+				Subnet: &azurenetwork.SubnetTypeArgs{
 					Id: azureSubnet.ID(),
 				},
-				PublicIPAddress: &aznetwork.PublicIPAddressTypeArgs{
+				PublicIPAddress: &azurenetwork.PublicIPAddressTypeArgs{
 					Id: publicIP.ID(),
 				},
 			},
 		},
-		NetworkSecurityGroup: &aznetwork.NetworkSecurityGroupTypeArgs{
+		NetworkSecurityGroup: &azurenetwork.NetworkSecurityGroupTypeArgs{
 			Id: azureNSG.ID(),
 		},
 	})
@@ -550,7 +550,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 	userDataEncoded := base64.StdEncoding.EncodeToString([]byte(userData))
 
 	// Map image name to Azure image reference
-	imageReference := &compute.ImageReferenceArgs{
+	imageReference := &azurecompute.ImageReferenceArgs{
 		Publisher: pulumi.String("Canonical"),
 		Offer:     pulumi.String("0001-com-ubuntu-server-jammy"),
 		Sku:       pulumi.String("22_04-lts-gen2"),
@@ -561,31 +561,31 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 	adminPassword := generateSecurePassword()
 
 	// Create Virtual Machine
-	vmArgs := &compute.VirtualMachineArgs{
+	vmArgs := &azurecompute.VirtualMachineArgs{
 		ResourceGroupName: azureResourceGroup.Name,
 		Location:          pulumi.String(location),
 		VmName:            pulumi.String(nodeConfig.Name),
-		NetworkProfile: &compute.NetworkProfileArgs{
-			NetworkInterfaces: compute.NetworkInterfaceReferenceArray{
-				&compute.NetworkInterfaceReferenceArgs{
+		NetworkProfile: &azurecompute.NetworkProfileArgs{
+			NetworkInterfaces: azurecompute.NetworkInterfaceReferenceArray{
+				&azurecompute.NetworkInterfaceReferenceArgs{
 					Id:      nic.ID(),
 					Primary: pulumi.Bool(true),
 				},
 			},
 		},
-		HardwareProfile: &compute.HardwareProfileArgs{
+		HardwareProfile: &azurecompute.HardwareProfileArgs{
 			VmSize: pulumi.String(nodeConfig.Size),
 		},
-		OsProfile: &compute.OSProfileArgs{
+		OsProfile: &azurecompute.OSProfileArgs{
 			ComputerName:  pulumi.String(nodeConfig.Name),
 			AdminUsername: pulumi.String("azureuser"),
 			AdminPassword: pulumi.String(adminPassword),
 			CustomData:    pulumi.String(userDataEncoded),
-			LinuxConfiguration: &compute.LinuxConfigurationArgs{
+			LinuxConfiguration: &azurecompute.LinuxConfigurationArgs{
 				DisablePasswordAuthentication: pulumi.Bool(true),
-				Ssh: &compute.SshConfigurationArgs{
-					PublicKeys: compute.SshPublicKeyTypeArray{
-						&compute.SshPublicKeyTypeArgs{
+				Ssh: &azurecompute.SshConfigurationArgs{
+					PublicKeys: azurecompute.SshPublicKeyTypeArray{
+						&azurecompute.SshPublicKeyTypeArgs{
 							KeyData: sshKeyOutput,
 							Path:    pulumi.String("/home/azureuser/.ssh/authorized_keys"),
 						},
@@ -593,12 +593,12 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 				},
 			},
 		},
-		StorageProfile: &compute.StorageProfileArgs{
+		StorageProfile: &azurecompute.StorageProfileArgs{
 			ImageReference: imageReference,
-			OsDisk: &compute.OSDiskArgs{
+			OsDisk: &azurecompute.OSDiskArgs{
 				Name:         pulumi.String(fmt.Sprintf("%s-osdisk", nodeConfig.Name)),
 				CreateOption: pulumi.String("FromImage"),
-				ManagedDisk: &compute.ManagedDiskParametersArgs{
+				ManagedDisk: &azurecompute.ManagedDiskParametersArgs{
 					StorageAccountType: pulumi.String("Premium_LRS"),
 				},
 				DiskSizeGB: pulumi.Int(30),
@@ -606,7 +606,7 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 		},
 	}
 
-	vm, err := compute.NewVirtualMachine(ctx, nodeConfig.Name, vmArgs)
+	vm, err := azurecompute.NewVirtualMachine(ctx, nodeConfig.Name, vmArgs)
 	if err != nil {
 		return fmt.Errorf("failed to create VM: %w", err)
 	}

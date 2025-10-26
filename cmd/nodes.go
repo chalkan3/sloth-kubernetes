@@ -10,7 +10,7 @@ import (
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 var nodesCmd = &cobra.Command{

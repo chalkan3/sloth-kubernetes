@@ -6,7 +6,7 @@ import (
 	"regexp"
 	"strings"
 
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // KubernetesStyleConfig represents a Kubernetes-style configuration file

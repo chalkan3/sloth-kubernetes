@@ -10,7 +10,7 @@ import (
 
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	pulumiconfig "github.com/pulumi/pulumi/sdk/v3/go/pulumi/config"
-	"gopkg.in/yaml.v3"
+	yaml "gopkg.in/yaml.v3"
 )
 
 // Loader handles configuration loading and validation
