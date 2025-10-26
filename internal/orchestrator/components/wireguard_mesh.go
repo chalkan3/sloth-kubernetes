@@ -439,7 +439,7 @@ if %ssystemctl is-active --quiet salt-minion 2>/dev/null || %ssystemctl status s
 else
     echo "ℹ️  Salt Minion not installed on this node"
 fi
-`, config, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo)
+`, config, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo, sudo)
 		}).(pulumi.StringOutput)
 
 		// Execute deployment
