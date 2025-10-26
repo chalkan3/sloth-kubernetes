@@ -39,8 +39,8 @@ func (p *StubAWSProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.F
 func (p *StubAWSProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.LoadBalancerConfig) (*LoadBalancerOutput, error) {
 	return nil, fmt.Errorf("AWS provider not available")
 }
-func (p *StubAWSProvider) GetRegions() []string { return []string{} }
-func (p *StubAWSProvider) GetSizes() []string   { return []string{} }
+func (p *StubAWSProvider) GetRegions() []string              { return []string{} }
+func (p *StubAWSProvider) GetSizes() []string                { return []string{} }
 func (p *StubAWSProvider) Cleanup(ctx *pulumi.Context) error { return nil }
 
 // Note: Azure provider is now fully implemented in azure.go
@@ -71,6 +71,6 @@ func (p *StubGCPProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.F
 func (p *StubGCPProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.LoadBalancerConfig) (*LoadBalancerOutput, error) {
 	return nil, fmt.Errorf("GCP provider not available")
 }
-func (p *StubGCPProvider) GetRegions() []string { return []string{} }
-func (p *StubGCPProvider) GetSizes() []string   { return []string{} }
+func (p *StubGCPProvider) GetRegions() []string              { return []string{} }
+func (p *StubGCPProvider) GetSizes() []string                { return []string{} }
 func (p *StubGCPProvider) Cleanup(ctx *pulumi.Context) error { return nil }

@@ -263,37 +263,37 @@ func ValidateNetworkingConfig(cfg *config.ClusterConfig) error {
 	// TODO: Fix this properly
 	_ = cfg.Network.WireGuard // silence unused warning
 	/*
-	if cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Enabled {
-		// If auto-creating, validate creation parameters
-		if cfg.Network.WireGuard.Create {
-			if cfg.Network.WireGuard.Provider == "" {
-				errors = append(errors, "WireGuard auto-create requires provider to be specified")
-			}
-			if cfg.Network.WireGuard.Region == "" {
-				errors = append(errors, "WireGuard auto-create requires region to be specified")
-			}
-			if cfg.Network.WireGuard.Size == "" {
-				// Use default size
-				cfg.Network.WireGuard.Size = "s-1vcpu-1gb" // Default for DigitalOcean
-			}
-		} else {
-			// Using existing VPN, validate endpoint and key
-			if cfg.Network.WireGuard.ServerEndpoint == "" {
-				errors = append(errors, "WireGuard requires server endpoint when not auto-creating")
-			}
-			if cfg.Network.WireGuard.ServerPublicKey == "" {
-				errors = append(errors, "WireGuard requires server public key when not auto-creating")
-			}
+		if cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Enabled {
+			// If auto-creating, validate creation parameters
+			if cfg.Network.WireGuard.Create {
+				if cfg.Network.WireGuard.Provider == "" {
+					errors = append(errors, "WireGuard auto-create requires provider to be specified")
+				}
+				if cfg.Network.WireGuard.Region == "" {
+					errors = append(errors, "WireGuard auto-create requires region to be specified")
+				}
+				if cfg.Network.WireGuard.Size == "" {
+					// Use default size
+					cfg.Network.WireGuard.Size = "s-1vcpu-1gb" // Default for DigitalOcean
+				}
+			} else {
+				// Using existing VPN, validate endpoint and key
+				if cfg.Network.WireGuard.ServerEndpoint == "" {
+					errors = append(errors, "WireGuard requires server endpoint when not auto-creating")
+				}
+				if cfg.Network.WireGuard.ServerPublicKey == "" {
+					errors = append(errors, "WireGuard requires server public key when not auto-creating")
+				}
 
-			// Validate endpoint format (IP:PORT)
-			if cfg.Network.WireGuard.ServerEndpoint != "" {
-				endpointRegex := regexp.MustCompile(`^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$`)
-				if !endpointRegex.MatchString(cfg.Network.WireGuard.ServerEndpoint) {
-					errors = append(errors, "WireGuard endpoint must be in format IP:PORT (e.g., 1.2.3.4:51820)")
+				// Validate endpoint format (IP:PORT)
+				if cfg.Network.WireGuard.ServerEndpoint != "" {
+					endpointRegex := regexp.MustCompile(`^(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}):(\d{1,5})$`)
+					if !endpointRegex.MatchString(cfg.Network.WireGuard.ServerEndpoint) {
+						errors = append(errors, "WireGuard endpoint must be in format IP:PORT (e.g., 1.2.3.4:51820)")
+					}
 				}
 			}
 		}
-	}
 	*/
 
 	// Validate DNS configuration if provided
@@ -368,12 +368,12 @@ func ValidateResourceSizes(cfg *config.ClusterConfig) error {
 		if isMaster {
 			// Warn about small master nodes
 			smallSizes := map[string]bool{
-				"s-1vcpu-1gb":       true,
-				"s-1vcpu-2gb":       true,
-				"g6-nanode-1":       true,
-				"g6-standard-1":     true,
-				"Standard_B1s":      true,
-				"Standard_B1ms":     true,
+				"s-1vcpu-1gb":   true,
+				"s-1vcpu-2gb":   true,
+				"g6-nanode-1":   true,
+				"g6-standard-1": true,
+				"Standard_B1s":  true,
+				"Standard_B1ms": true,
 			}
 
 			if smallSizes[pool.Size] {

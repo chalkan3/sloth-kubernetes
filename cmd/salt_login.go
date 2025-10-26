@@ -24,12 +24,12 @@ var (
 
 // SaltConfig stores the Salt API connection information
 type SaltConfig struct {
-	APIURL      string `json:"api_url"`
-	Username    string `json:"username"`
-	Password    string `json:"password"`
-	BastionIP   string `json:"bastion_ip"`
-	StackName   string `json:"stack_name"`
-	ConfigFile  string `json:"config_file"`
+	APIURL     string `json:"api_url"`
+	Username   string `json:"username"`
+	Password   string `json:"password"`
+	BastionIP  string `json:"bastion_ip"`
+	StackName  string `json:"stack_name"`
+	ConfigFile string `json:"config_file"`
 }
 
 var saltLoginCmd = &cobra.Command{

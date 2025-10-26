@@ -142,8 +142,8 @@ var fileExistsCmd = &cobra.Command{
 }
 
 var fileChmodCmd = &cobra.Command{
-	Use:   "chmod <path> <mode>",
-	Short: "Change file permissions",
+	Use:     "chmod <path> <mode>",
+	Short:   "Change file permissions",
 	Example: `  sloth-kubernetes salt file chmod /tmp/test.sh 755`,
 	Args:    cobra.ExactArgs(2),
 	RunE:    runFileChmod,

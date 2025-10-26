@@ -13,11 +13,11 @@ import (
 )
 
 var (
-	saltAPIURL      string
-	saltUsername    string
-	saltPassword    string
-	saltTarget      string
-	saltOutputJSON  bool
+	saltAPIURL     string
+	saltUsername   string
+	saltPassword   string
+	saltTarget     string
+	saltOutputJSON bool
 )
 
 var saltCmd = &cobra.Command{

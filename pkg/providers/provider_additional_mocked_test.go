@@ -264,7 +264,7 @@ apt-get install -y postgresql-client
 					"node-role.kubernetes.io/master":       "",
 					"node-role.kubernetes.io/controlplane": "",
 					"node-role.kubernetes.io/etcd":         "",
-					"tier": "control",
+					"tier":                                 "control",
 				},
 				Taints: []config.TaintConfig{
 					{
@@ -465,11 +465,11 @@ func TestWireGuardConfiguration_Mocked(t *testing.T) {
 		{
 			name: "WireGuard with existing server",
 			wgConfig: &config.WireGuardConfig{
-				Enabled:        true,
-				ServerEndpoint: "203.0.113.1:51820",
+				Enabled:         true,
+				ServerEndpoint:  "203.0.113.1:51820",
 				ServerPublicKey: "base64encodedkey==",
-				Port:           51820,
-				SubnetCIDR:     "10.8.0.0/24",
+				Port:            51820,
+				SubnetCIDR:      "10.8.0.0/24",
 			},
 			valid:     true,
 			nodeCount: 0,

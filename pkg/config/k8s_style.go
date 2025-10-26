@@ -62,12 +62,12 @@ type LinodeSpec struct {
 
 // AWSSpec provider configuration
 type AWSSpec struct {
-	Enabled         bool     `yaml:"enabled" json:"enabled"`
-	AccessKeyID     string   `yaml:"accessKeyId,omitempty" json:"accessKeyId,omitempty"`
-	SecretAccessKey string   `yaml:"secretAccessKey,omitempty" json:"secretAccessKey,omitempty"`
-	Region          string   `yaml:"region" json:"region"`
-	KeyPair         string   `yaml:"keyPair,omitempty" json:"keyPair,omitempty"`
-	IAMRole         string   `yaml:"iamRole,omitempty" json:"iamRole,omitempty"`
+	Enabled         bool   `yaml:"enabled" json:"enabled"`
+	AccessKeyID     string `yaml:"accessKeyId,omitempty" json:"accessKeyId,omitempty"`
+	SecretAccessKey string `yaml:"secretAccessKey,omitempty" json:"secretAccessKey,omitempty"`
+	Region          string `yaml:"region" json:"region"`
+	KeyPair         string `yaml:"keyPair,omitempty" json:"keyPair,omitempty"`
+	IAMRole         string `yaml:"iamRole,omitempty" json:"iamRole,omitempty"`
 }
 
 // GCPSpec provider configuration

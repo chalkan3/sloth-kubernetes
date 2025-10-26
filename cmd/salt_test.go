@@ -68,14 +68,14 @@ func setupMockSaltServer() *httptest.Server {
 					response["return"] = []map[string]interface{}{
 						{
 							"minion-1": map[string]interface{}{
-								"os":       "Ubuntu",
+								"os":        "Ubuntu",
 								"osrelease": "22.04",
-								"kernel":   "5.15.0",
+								"kernel":    "5.15.0",
 							},
 							"minion-2": map[string]interface{}{
-								"os":       "Ubuntu",
+								"os":        "Ubuntu",
 								"osrelease": "22.04",
-								"kernel":   "5.15.0",
+								"kernel":    "5.15.0",
 							},
 						},
 					}
@@ -83,7 +83,7 @@ func setupMockSaltServer() *httptest.Server {
 					response["return"] = []map[string]interface{}{
 						{
 							"minion-1": map[string]interface{}{
-								"result": true,
+								"result":  true,
 								"comment": "State applied successfully",
 							},
 						},
@@ -91,11 +91,11 @@ func setupMockSaltServer() *httptest.Server {
 				case "key.list_all":
 					response["return"] = []map[string]interface{}{
 						{
-							"local": []string{"master.pem", "master.pub"},
-							"minions": []string{"minion-1", "minion-2", "minion-3"},
-							"minions_pre": []string{"pending-minion"},
+							"local":            []string{"master.pem", "master.pub"},
+							"minions":          []string{"minion-1", "minion-2", "minion-3"},
+							"minions_pre":      []string{"pending-minion"},
 							"minions_rejected": []string{},
-							"minions_denied": []string{},
+							"minions_denied":   []string{},
 						},
 					}
 				case "key.accept":
@@ -644,14 +644,14 @@ func BenchmarkSaltCommand(b *testing.B) {
 func BenchmarkJSONMarshal(b *testing.B) {
 	data := map[string]interface{}{
 		"minion-1": map[string]interface{}{
-			"os":       "Ubuntu",
+			"os":        "Ubuntu",
 			"osrelease": "22.04",
-			"kernel":   "5.15.0",
+			"kernel":    "5.15.0",
 		},
 		"minion-2": map[string]interface{}{
-			"os":       "Ubuntu",
+			"os":        "Ubuntu",
 			"osrelease": "22.04",
-			"kernel":   "5.15.0",
+			"kernel":    "5.15.0",
 		},
 	}
 

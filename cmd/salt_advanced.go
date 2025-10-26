@@ -133,8 +133,8 @@ var archiveCmd = &cobra.Command{
 }
 
 var archiveTarCmd = &cobra.Command{
-	Use:   "tar <source> <destination>",
-	Short: "Create tar.gz archive",
+	Use:     "tar <source> <destination>",
+	Short:   "Create tar.gz archive",
 	Example: `  sloth-kubernetes salt archive tar /var/log /tmp/logs.tar.gz`,
 	Args:    cobra.ExactArgs(2),
 	RunE:    runArchiveTar,
@@ -233,8 +233,8 @@ var gitCmd = &cobra.Command{
 }
 
 var gitCloneCmd = &cobra.Command{
-	Use:   "clone <repo> <destination>",
-	Short: "Clone a git repository",
+	Use:     "clone <repo> <destination>",
+	Short:   "Clone a git repository",
 	Example: `  sloth-kubernetes salt git clone https://github.com/user/repo.git /opt/repo`,
 	Args:    cobra.ExactArgs(2),
 	RunE:    runGitClone,
@@ -316,8 +316,8 @@ var mountListCmd = &cobra.Command{
 }
 
 var mountMountCmd = &cobra.Command{
-	Use:   "mount <device> <mountpoint> <fstype>",
-	Short: "Mount a filesystem",
+	Use:     "mount <device> <mountpoint> <fstype>",
+	Short:   "Mount a filesystem",
 	Example: `  sloth-kubernetes salt mount mount /dev/sdb1 /mnt/data ext4`,
 	Args:    cobra.ExactArgs(3),
 	RunE:    runMountMount,

@@ -93,8 +93,8 @@ func (p *AzureProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig)
 	// Create Network Interface
 	nicName := fmt.Sprintf("%s-nic", node.Name)
 	nic, err := azurenetwork.NewNetworkInterface(ctx, nicName, &azurenetwork.NetworkInterfaceArgs{
-		ResourceGroupName:   p.resourceGroup.Name,
-		Location:            pulumi.String(location),
+		ResourceGroupName:    p.resourceGroup.Name,
+		Location:             pulumi.String(location),
 		NetworkInterfaceName: pulumi.String(nicName),
 		IpConfigurations: azurenetwork.NetworkInterfaceIPConfigurationArray{
 			&azurenetwork.NetworkInterfaceIPConfigurationArgs{
@@ -237,7 +237,7 @@ func (p *AzureProvider) getImageReference(imageName string) *azurecompute.ImageR
 	// Map common image names
 	imageMap := map[string]*azurecompute.ImageReferenceArgs{
 		"Ubuntu 22.04 LTS": defaultImage,
-		"ubuntu-22.04": defaultImage,
+		"ubuntu-22.04":     defaultImage,
 		"Ubuntu 24.04 LTS": {
 			Publisher: pulumi.String("Canonical"),
 			Offer:     pulumi.String("ubuntu-24_04-lts"),

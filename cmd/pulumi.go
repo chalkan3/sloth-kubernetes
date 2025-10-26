@@ -99,7 +99,7 @@ func init() {
 
 	// Add top-level Pulumi operations
 	pulumiCmd.AddCommand(previewPulumiCmd)
-	pulumiCmd.AddCommand(refreshCmd)  // Use the comprehensive refresh from refresh.go
+	pulumiCmd.AddCommand(refreshCmd) // Use the comprehensive refresh from refresh.go
 
 	// Flags for Pulumi operations (preview only, refresh uses its own flags from refresh.go)
 	previewPulumiCmd.Flags().StringVar(&pulumiStackName, "stack", "", "Stack name")

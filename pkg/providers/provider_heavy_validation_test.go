@@ -197,14 +197,14 @@ func TestEndToEndDeploymentSequence_Heavy(t *testing.T) {
 	for _, scenario := range scenarios {
 		t.Run(scenario.name, func(t *testing.T) {
 			deploymentState := &DeploymentState{
-				Providers:        make(map[string]bool),
-				Networks:         make(map[string]bool),
-				Nodes:            make([]string, 0),
-				Firewalls:        make(map[string]bool),
-				LoadBalancers:    make([]string, 0),
-				VPNConfigured:    false,
-				ExecutionOrder:   make([]string, 0),
-				ResourceCount:    0,
+				Providers:      make(map[string]bool),
+				Networks:       make(map[string]bool),
+				Nodes:          make([]string, 0),
+				Firewalls:      make(map[string]bool),
+				LoadBalancers:  make([]string, 0),
+				VPNConfigured:  false,
+				ExecutionOrder: make([]string, 0),
+				ResourceCount:  0,
 			}
 
 			// Phase 1: Initialize providers
@@ -351,7 +351,6 @@ func TestStressTestManyResources_Heavy(t *testing.T) {
 					poolName := fmt.Sprintf("provider-%d-pool-%d", provIdx, poolIdx)
 					resourceTracker.Pools = append(resourceTracker.Pools, poolName)
 
-
 					// Calculate nodes for this pool (base + 1 extra if we have remaining)
 					nodesInThisPool := nodesPerPool
 					if poolIndex < remainingNodes {
@@ -362,7 +361,7 @@ func TestStressTestManyResources_Heavy(t *testing.T) {
 						nodeName := fmt.Sprintf("%s-node-%d", poolName, nodeIdx)
 						resourceTracker.Nodes = append(resourceTracker.Nodes, nodeName)
 					}
-				poolIndex++
+					poolIndex++
 				}
 			}
 
@@ -380,9 +379,9 @@ func TestStressTestManyResources_Heavy(t *testing.T) {
 			t.Logf("Firewalls created: %d", len(resourceTracker.Firewalls))
 			t.Logf("Total resources: %d",
 				len(resourceTracker.Nodes)+
-				len(resourceTracker.Pools)+
-				len(resourceTracker.Networks)+
-				len(resourceTracker.Firewalls))
+					len(resourceTracker.Pools)+
+					len(resourceTracker.Networks)+
+					len(resourceTracker.Firewalls))
 
 			// Validate
 			if len(resourceTracker.Nodes) < tt.nodeCount {
@@ -620,9 +619,9 @@ func TestConcurrentNodeCreation_Heavy(t *testing.T) {
 			t.Logf("Creating %d nodes with concurrency level %d", tt.nodeCount, tt.concurrency)
 
 			results := &ConcurrentResults{
-				Created:  make([]string, 0),
-				Failed:   make([]string, 0),
-				mu:       sync.Mutex{},
+				Created: make([]string, 0),
+				Failed:  make([]string, 0),
+				mu:      sync.Mutex{},
 			}
 
 			// Use semaphore pattern for concurrency control
@@ -777,14 +776,14 @@ func TestComplexConfigurationValidation_Heavy(t *testing.T) {
 // Helper types and functions
 
 type DeploymentState struct {
-	Providers        map[string]bool
-	Networks         map[string]bool
-	Nodes            []string
-	Firewalls        map[string]bool
-	LoadBalancers    []string
-	VPNConfigured    bool
-	ExecutionOrder   []string
-	ResourceCount    int
+	Providers      map[string]bool
+	Networks       map[string]bool
+	Nodes          []string
+	Firewalls      map[string]bool
+	LoadBalancers  []string
+	VPNConfigured  bool
+	ExecutionOrder []string
+	ResourceCount  int
 }
 
 type ResourceTracker struct {

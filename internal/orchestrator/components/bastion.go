@@ -230,9 +230,9 @@ func createAzureBastion(
 	// Create Virtual Network
 	vnetName := fmt.Sprintf("%s-vnet", name)
 	vnet, err := azurenetwork.NewVirtualNetwork(ctx, vnetName, &azurenetwork.VirtualNetworkArgs{
-		ResourceGroupName: rg.Name,
+		ResourceGroupName:  rg.Name,
 		VirtualNetworkName: pulumi.String(vnetName),
-		Location:          rg.Location,
+		Location:           rg.Location,
 		AddressSpace: &azurenetwork.AddressSpaceArgs{
 			AddressPrefixes: pulumi.StringArray{
 				pulumi.String("10.100.0.0/16"),
@@ -299,10 +299,10 @@ func createAzureBastion(
 	// Create Public IP
 	publicIPName := fmt.Sprintf("%s-ip", name)
 	publicIP, err := azurenetwork.NewPublicIPAddress(ctx, publicIPName, &azurenetwork.PublicIPAddressArgs{
-		ResourceGroupName:         rg.Name,
-		PublicIpAddressName:       pulumi.String(publicIPName),
-		Location:                  rg.Location,
-		PublicIPAllocationMethod:  pulumi.String("Static"),
+		ResourceGroupName:        rg.Name,
+		PublicIpAddressName:      pulumi.String(publicIPName),
+		Location:                 rg.Location,
+		PublicIPAllocationMethod: pulumi.String("Static"),
 		Sku: &azurenetwork.PublicIPAddressSkuArgs{
 			Name: pulumi.String("Standard"),
 		},

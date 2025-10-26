@@ -522,8 +522,8 @@ func createAzureVM(ctx *pulumi.Context, name string, nodeConfig *config.NodeConf
 	// Create Network Interface
 	nicName := fmt.Sprintf("%s-nic", nodeConfig.Name)
 	nic, err := azurenetwork.NewNetworkInterface(ctx, nicName, &azurenetwork.NetworkInterfaceArgs{
-		ResourceGroupName:   azureResourceGroup.Name,
-		Location:            pulumi.String(location),
+		ResourceGroupName:    azureResourceGroup.Name,
+		Location:             pulumi.String(location),
 		NetworkInterfaceName: pulumi.String(nicName),
 		IpConfigurations: azurenetwork.NetworkInterfaceIPConfigurationArray{
 			&azurenetwork.NetworkInterfaceIPConfigurationArgs{

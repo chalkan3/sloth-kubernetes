@@ -44,11 +44,11 @@ type LoginRequest struct {
 // LoginResponse represents the login response
 type LoginResponse struct {
 	Return []struct {
-		Token  string  `json:"token"`
-		Expire float64 `json:"expire"`
-		Start  float64 `json:"start"`
-		User   string  `json:"user"`
-		Eauth  string  `json:"eauth"`
+		Token  string   `json:"token"`
+		Expire float64  `json:"expire"`
+		Start  float64  `json:"start"`
+		User   string   `json:"user"`
+		Eauth  string   `json:"eauth"`
 		Perms  []string `json:"perms"`
 	} `json:"return"`
 }
@@ -100,13 +100,13 @@ func (c *Client) Login() error {
 
 // CommandRequest represents a Salt command request
 type CommandRequest struct {
-	Client   string   `json:"client"`
-	Tgt      string   `json:"tgt"`
-	Fun      string   `json:"fun"`
-	Arg      []string `json:"arg,omitempty"`
-	KWarg    map[string]interface{} `json:"kwarg,omitempty"`
-	TgtType  string   `json:"tgt_type,omitempty"`
-	Timeout  int      `json:"timeout,omitempty"`
+	Client  string                 `json:"client"`
+	Tgt     string                 `json:"tgt"`
+	Fun     string                 `json:"fun"`
+	Arg     []string               `json:"arg,omitempty"`
+	KWarg   map[string]interface{} `json:"kwarg,omitempty"`
+	TgtType string                 `json:"tgt_type,omitempty"`
+	Timeout int                    `json:"timeout,omitempty"`
 }
 
 // CommandResponse represents a Salt command response
@@ -678,7 +678,7 @@ func (c *Client) EnvList(target string) (*CommandResponse, error) {
 
 // HTTPQuery makes HTTP request
 func (c *Client) HTTPQuery(target, url, method string) (*CommandResponse, error) {
-	return c.RunCommand(target, "http.query", []string{url, "method="+method})
+	return c.RunCommand(target, "http.query", []string{url, "method=" + method})
 }
 
 // Modules and Grain Management

@@ -12,14 +12,14 @@ import (
 
 // MockPulumiContext provides a mock implementation of pulumi.Context for testing
 type MockPulumiContext struct {
-	stack      string
-	project    string
-	exports    map[string]interface{}
-	logs       []string
-	resources  []resource.State
-	dryRun     bool
-	stackName  string
-	orgName    string
+	stack     string
+	project   string
+	exports   map[string]interface{}
+	logs      []string
+	resources []resource.State
+	dryRun    bool
+	stackName string
+	orgName   string
 }
 
 // NewMockPulumiContext creates a new mock Pulumi context
@@ -637,14 +637,19 @@ func TestProviderRegistry_Mocked(t *testing.T) {
 		}
 	})
 }
+
 // mockProvider is a simple mock implementation of Provider interface
 type mockProvider struct {
 	name string
 }
 
-func (m *mockProvider) GetName() string                                                              { return m.name }
-func (m *mockProvider) Initialize(ctx *pulumi.Context, config *config.ClusterConfig) error          { return nil }
-func (m *mockProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig) (*NodeOutput, error) { return nil, nil }
+func (m *mockProvider) GetName() string { return m.name }
+func (m *mockProvider) Initialize(ctx *pulumi.Context, config *config.ClusterConfig) error {
+	return nil
+}
+func (m *mockProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig) (*NodeOutput, error) {
+	return nil, nil
+}
 func (m *mockProvider) CreateNodePool(ctx *pulumi.Context, pool *config.NodePool) ([]*NodeOutput, error) {
 	return nil, nil
 }
@@ -657,9 +662,9 @@ func (m *mockProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.Fire
 func (m *mockProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.LoadBalancerConfig) (*LoadBalancerOutput, error) {
 	return nil, nil
 }
-func (m *mockProvider) GetRegions() []string               { return []string{} }
-func (m *mockProvider) GetSizes() []string                 { return []string{} }
-func (m *mockProvider) Cleanup(ctx *pulumi.Context) error  { return nil }
+func (m *mockProvider) GetRegions() []string              { return []string{} }
+func (m *mockProvider) GetSizes() []string                { return []string{} }
+func (m *mockProvider) Cleanup(ctx *pulumi.Context) error { return nil }
 
 // TestNodePoolCreation_Mocked tests node pool creation validation
 func TestNodePoolCreation_Mocked(t *testing.T) {
