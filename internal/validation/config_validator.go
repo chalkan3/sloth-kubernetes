@@ -33,34 +33,28 @@ func ValidateWireGuardConfig(cfg *config.ClusterConfig) error {
 		return fmt.Errorf("WireGuard must be enabled for private cluster deployment")
 	}
 
-	// TEMPORARY: Skip additional validation - auto-create mode will be validated during deployment
-	// TODO: Fix config loading to properly parse Create field from YAML
-	return nil
-
 	// If auto-creating VPN, validate creation parameters
-	/*
-		if cfg.Network.WireGuard.Create {
-			if cfg.Network.WireGuard.Provider == "" {
-				return fmt.Errorf("WireGuard provider is required when auto-creating VPN server")
-			}
-			if cfg.Network.WireGuard.Region == "" {
-				return fmt.Errorf("WireGuard region is required when auto-creating VPN server")
-			}
-			// Endpoint and public key will be generated during deployment
-			return nil
+	if cfg.Network.WireGuard.Create {
+		if cfg.Network.WireGuard.Provider == "" {
+			return fmt.Errorf("WireGuard provider is required when auto-creating VPN server")
 		}
-
-		// If using existing VPN, validate endpoint and key
-		if cfg.Network.WireGuard.ServerEndpoint == "" {
-			return fmt.Errorf("WireGuard server endpoint is required when using existing VPN server")
+		if cfg.Network.WireGuard.Region == "" {
+			return fmt.Errorf("WireGuard region is required when auto-creating VPN server")
 		}
-
-		if cfg.Network.WireGuard.ServerPublicKey == "" {
-			return fmt.Errorf("WireGuard server public key is required when using existing VPN server")
-		}
-
+		// Endpoint and public key will be generated during deployment
 		return nil
-	*/
+	}
+
+	// If using existing VPN, validate endpoint and key
+	if cfg.Network.WireGuard.ServerEndpoint == "" {
+		return fmt.Errorf("WireGuard server endpoint is required when using existing VPN server")
+	}
+
+	if cfg.Network.WireGuard.ServerPublicKey == "" {
+		return fmt.Errorf("WireGuard server public key is required when using existing VPN server")
+	}
+
+	return nil
 }
 
 // ValidateProviders validates cloud provider configuration
