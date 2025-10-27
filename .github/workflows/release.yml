@@ -12,6 +12,7 @@ jobs:
   test:
     name: Run Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 15
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -20,7 +21,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache: true
+          cache: false
 
       - name: Download dependencies
         run: go mod download
@@ -43,6 +44,7 @@ jobs:
   goreleaser:
     needs: test
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -56,7 +58,7 @@ jobs:
         uses: actions/setup-go@v5
         with:
           go-version: '1.23'
-          cache: true
+          cache: false
 
       - name: Run GoReleaser
         uses: goreleaser/goreleaser-action@v6
