@@ -1,235 +1,133 @@
-# 🦥 Installation
-
-Get Sloth Kubernetes up and running. Slowly, but surely!
-
+---
+layout: default
+title: Installation
+parent: Getting Started
+nav_order: 1
 ---
 
-## Prerequisites
+# Installation
 
-!!! tip "The Sloth Way 🦥"
-    We keep dependencies minimal. You only need API tokens from your cloud providers!
+sloth-kubernetes is distributed as a single binary with no external dependencies (except for Helm and Kustomize if you want to use those features).
 
-Before you start, make sure you have:
+## Download Pre-built Binary
 
-- ✅ **Cloud Provider Account** - DigitalOcean and/or Linode
-- ✅ **API Tokens** - From your cloud provider(s)
-- ✅ **SSH Access** - For node management (optional but recommended)
+### Linux
 
-That's it! No kubectl, no Pulumi CLI, no Terraform. Just one lazy sloth binary! 🦥
+```bash
+# AMD64
+curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-amd64 -o sloth-kubernetes
 
----
+# ARM64
+curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-arm64 -o sloth-kubernetes
 
-## Download Binary
+# Make executable and install
+chmod +x sloth-kubernetes
+sudo mv sloth-kubernetes /usr/local/bin/
+```
 
-### Option 1: Latest Release (Recommended)
+### macOS
 
-Download the pre-compiled binary for your platform:
+```bash
+# AMD64 (Intel)
+curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-amd64 -o sloth-kubernetes
 
-=== "Linux (x64)"
+# ARM64 (Apple Silicon)
+curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-arm64 -o sloth-kubernetes
 
-    ```bash
-    # Download latest release
-    curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-amd64 -o sloth-kubernetes
+# Make executable and install
+chmod +x sloth-kubernetes
+sudo mv sloth-kubernetes /usr/local/bin/
+```
 
-    # Make executable
-    chmod +x sloth-kubernetes
+### Windows
 
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
+Download from [GitHub Releases](https://github.com/chalkan3/sloth-kubernetes/releases/latest):
+- `sloth-kubernetes-windows-amd64.exe`
+- `sloth-kubernetes-windows-arm64.exe`
 
-    # Verify installation 🦥
-    sloth-kubernetes version
-    ```
+Add the binary to your PATH.
 
-=== "macOS (Intel)"
+## Build from Source
 
-    ```bash
-    # Download latest release
-    curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-amd64 -o sloth-kubernetes
+### Prerequisites
 
-    # Make executable
-    chmod +x sloth-kubernetes
+- Go 1.23 or later
+- Git
 
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
-
-    # Verify installation 🦥
-    sloth-kubernetes version
-    ```
-
-=== "macOS (Apple Silicon)"
-
-    ```bash
-    # Download latest release
-    curl -L https://github.com/yourusername/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-arm64 -o sloth-kubernetes
-
-    # Make executable
-    chmod +x sloth-kubernetes
-
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
-
-    # Verify installation 🦥
-    sloth-kubernetes version
-    ```
-
-### Option 2: Build from Source
-
-For the adventurous sloths who want the latest features! 🦥
+### Steps
 
 ```bash
 # Clone the repository
-git clone https://github.com/yourusername/sloth-kubernetes.git
+git clone https://github.com/chalkan3/sloth-kubernetes.git
 cd sloth-kubernetes
 
-# Build (requires Go 1.23+)
-go build -o sloth-kubernetes
+# Build
+go build -o sloth-kubernetes .
 
-# Move to PATH
+# Install (optional)
 sudo mv sloth-kubernetes /usr/local/bin/
-
-# Verify 🦥
-sloth-kubernetes version
 ```
-
----
-
-## Configure API Tokens
-
-Sloth Kubernetes needs API tokens to create resources in your cloud providers.
-
-### DigitalOcean
-
-1. Go to [DigitalOcean API Tokens](https://cloud.digitalocean.com/account/api/tokens)
-2. Click "Generate New Token"
-3. Name it "sloth-kubernetes" 🦥
-4. Select Read & Write scope
-5. Copy the token
-
-```bash
-# Set environment variable
-export DIGITALOCEAN_TOKEN="dop_v1_abc123..."
-
-# Or add to your shell profile (~/.bashrc, ~/.zshrc)
-echo 'export DIGITALOCEAN_TOKEN="dop_v1_abc123..."' >> ~/.bashrc
-```
-
-### Linode
-
-1. Go to [Linode API Tokens](https://cloud.linode.com/profile/tokens)
-2. Click "Create a Personal Access Token"
-3. Label it "sloth-kubernetes" 🦥
-4. Select Read/Write for Linodes, VPCs
-5. Copy the token
-
-```bash
-# Set environment variable
-export LINODE_TOKEN="abc123..."
-
-# Or add to your shell profile
-echo 'export LINODE_TOKEN="abc123..."' >> ~/.bashrc
-```
-
-!!! warning "Keep Your Tokens Safe 🦥"
-    Never commit API tokens to Git! Use environment variables or secret management tools.
-
----
 
 ## Verify Installation
 
-Let's make sure everything is working:
+```bash
+sloth-kubernetes version
+```
+
+You should see output similar to:
+
+```
+sloth-kubernetes version v1.0.0
+```
+
+## Optional Dependencies
+
+### Helm (for helm commands)
 
 ```bash
-# Check version
-sloth-kubernetes version
+# Linux/macOS
+curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
 
-# View help
-sloth-kubernetes --help
-
-# Test configuration (dry run)
-sloth-kubernetes deploy --config examples/simple-cluster.yaml --dry-run
+# Verify
+helm version
 ```
 
-You should see output like:
+### Kustomize (for kustomize commands)
 
+```bash
+# Linux
+curl -s "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+sudo mv kustomize /usr/local/bin/
+
+# macOS
+brew install kustomize
+
+# Verify
+kustomize version
 ```
-🦥 Sloth Kubernetes v1.0.0
-Slowly, but surely deploying your cluster...
+
+## Shell Completion
+
+### Bash
+
+```bash
+sloth-kubernetes completion bash > /etc/bash_completion.d/sloth-kubernetes
 ```
 
----
+### Zsh
 
-## Optional: Shell Completion
+```bash
+sloth-kubernetes completion zsh > "${fpath[1]}/_sloth-kubernetes"
+```
 
-Make your life easier with shell completion! 🦥
+### Fish
 
-=== "Bash"
+```bash
+sloth-kubernetes completion fish > ~/.config/fish/completions/sloth-kubernetes.fish
+```
 
-    ```bash
-    # Generate completion script
-    sloth-kubernetes completion bash > /tmp/sloth-completion.bash
+## Next Steps
 
-    # Install system-wide
-    sudo mv /tmp/sloth-completion.bash /etc/bash_completion.d/sloth-kubernetes
-
-    # Or just for your user
-    echo 'source <(sloth-kubernetes completion bash)' >> ~/.bashrc
-    source ~/.bashrc
-    ```
-
-=== "Zsh"
-
-    ```bash
-    # Generate completion script
-    sloth-kubernetes completion zsh > "${fpath[1]}/_sloth-kubernetes"
-
-    # Or add to .zshrc
-    echo 'source <(sloth-kubernetes completion zsh)' >> ~/.zshrc
-    source ~/.zshrc
-    ```
-
-=== "Fish"
-
-    ```bash
-    # Generate completion script
-    sloth-kubernetes completion fish > ~/.config/fish/completions/sloth-kubernetes.fish
-    ```
-
----
-
-## What's Next? 🦥
-
-Now that you're all set up, let's deploy your first cluster!
-
-<div class="grid cards" markdown>
-
--   📘 **Quick Start**
-
-    ---
-
-    Deploy your first cluster in 5 minutes! 🦥
-
-    [:octicons-arrow-right-24: Quick Start](quickstart.md)
-
--   🎯 **First Cluster**
-
-    ---
-
-    Step-by-step guide to your first production cluster 🦥
-
-    [:octicons-arrow-right-24: First Cluster](first-cluster.md)
-
--   📚 **Configuration**
-
-    ---
-
-    Learn about cluster configuration options 🦥
-
-    [:octicons-arrow-right-24: Configuration](../configuration/file-structure.md)
-
-</div>
-
----
-
-!!! quote "Sloth Wisdom 🦥"
-    *"The journey of a thousand miles begins with a single step... but take your time!"*
+- [Quick Start Guide](quickstart) - Deploy your first cluster
+- [Configuration](../user-guide/configuration) - Learn about cluster configuration
+- [CLI Reference](../cli-reference/commands) - Explore all available commands

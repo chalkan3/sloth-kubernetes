@@ -1,330 +1,200 @@
-# 🦥 Quick Start
-
-Deploy a production-ready Kubernetes cluster in 5 minutes. Slowly, but surely!
-
+---
+layout: default
+title: Quick Start
+parent: Getting Started
+nav_order: 2
 ---
 
-## Overview
+# Quick Start Guide
 
-This quick start will guide you through deploying your first multi-cloud Kubernetes cluster with:
+This guide will help you deploy your first multi-cloud Kubernetes cluster with sloth-kubernetes in under 10 minutes.
 
-- ✅ 3 master nodes for high availability
-- ✅ 2 worker nodes across multiple clouds
-- ✅ WireGuard VPN mesh (automatic)
-- ✅ RKE2 Kubernetes distribution
-- ✅ Encrypted secrets at rest
+## Prerequisites
 
-**Time:** 5-8 minutes ☕🦥
+- sloth-kubernetes installed ([Installation Guide](installation))
+- Cloud provider account(s):
+  - DigitalOcean (with API token)
+  - Linode (with API token)
+  - Azure (with credentials)
+- SSH key pair
 
----
+## Step 1: Create Configuration File
 
-## Step 1: Prerequisites
-
-Make sure you have:
-
-1. **Sloth Kubernetes binary** installed ([Installation Guide](installation.md))
-2. **API tokens** configured as environment variables:
-
-```bash
-export DIGITALOCEAN_TOKEN="dop_v1_your_token_here"
-export LINODE_TOKEN="your_linode_token_here"
-```
-
----
-
-## Step 2: Create Configuration File
-
-Create a file named `my-first-cluster.yaml`:
+Create a file named `cluster.yaml`:
 
 ```yaml
-apiVersion: kubernetes-create.io/v1
+apiVersion: v1
 kind: Cluster
 metadata:
-  name: my-first-cluster  # 🦥 Name your sloth cluster
-  labels:
-    environment: demo
-    managed-by: sloth
-
+  name: my-first-cluster
+  
 spec:
-  # Cloud providers configuration
+  # Cloud providers
   providers:
-    digitalocean:
-      enabled: true
-      token: ${DIGITALOCEAN_TOKEN}  # 🦥 From environment
+    - type: digitalocean
       region: nyc3
-      vpc:
-        create: true
-        cidr: 10.10.0.0/16
-
-    linode:
-      enabled: true
-      token: ${LINODE_TOKEN}  # 🦥 From environment
-      region: us-east
-      vpc:
-        create: true
-        cidr: 10.11.0.0/16
-
-  # Network configuration
-  network:
-    wireguard:
-      create: true  # 🦥 Auto-create VPN mesh
-      meshNetworking: true
-      subnet: 10.8.0.0/24
-
-  # Kubernetes configuration
-  kubernetes:
-    distribution: rke2
-    version: v1.28.5+rke2r1
-    rke2:
-      secretsEncryption: true  # 🦥 Secure by default
-
+      token: ${DIGITALOCEAN_TOKEN}
+    
   # Node pools
   nodePools:
-    # DigitalOcean masters
-    - name: do-masters
-      provider: digitalocean
-      count: 1
-      roles: [master]
+    - name: masters
+      role: master
+      count: 3
       size: s-2vcpu-4gb
-
-    # Linode masters (for HA)
-    - name: linode-masters
-      provider: linode
-      count: 2  # 🦥 3 total masters for quorum
-      roles: [master]
-      size: g6-standard-2
-
-    # Workers across both clouds
-    - name: do-workers
       provider: digitalocean
-      count: 1
-      roles: [worker]
+      
+    - name: workers
+      role: worker
+      count: 2
       size: s-2vcpu-4gb
-
-    - name: linode-workers
-      provider: linode
-      count: 1
-      roles: [worker]
-      size: g6-standard-2
+      provider: digitalocean
+  
+  # Networking
+  networking:
+    vpnMesh: true
+    cni: calico
+    
+  # Security
+  security:
+    bastion:
+      enabled: true
+      size: s-1vcpu-1gb
 ```
 
-!!! tip "Sloth Tip 🦥"
-    This configuration creates a **true multi-cloud HA cluster** with masters and workers across both DigitalOcean and Linode!
-
----
-
-## Step 3: Deploy! 🦥
-
-Now let's deploy your cluster:
+## Step 2: Set Environment Variables
 
 ```bash
-# Deploy the cluster
-sloth-kubernetes deploy --config my-first-cluster.yaml
-
-# The sloth will:
-# 🦥 Create VPCs on both clouds
-# 🦥 Deploy WireGuard VPN server
-# 🦥 Provision 5 nodes (3 masters, 2 workers)
-# 🦥 Install RKE2 on all nodes
-# 🦥 Configure encrypted mesh networking
-# 🦥 Generate kubeconfig
+export DIGITALOCEAN_TOKEN="your-do-token-here"
 ```
 
-You'll see output like:
-
-```
-🦥 Sloth Kubernetes Deployment
-Slowly, but surely deploying your cluster...
-
-✓ Creating DigitalOcean VPC (10.10.0.0/16)
-✓ Creating Linode VPC (10.11.0.0/16)
-✓ Deploying WireGuard VPN server
-✓ Provisioning master nodes (1/3)
-✓ Provisioning master nodes (2/3)
-✓ Provisioning master nodes (3/3)
-✓ Installing RKE2 on masters
-✓ Provisioning worker nodes (1/2)
-✓ Provisioning worker nodes (2/2)
-✓ Installing RKE2 on workers
-✓ Configuring WireGuard mesh
-✓ Generating kubeconfig
-
-🦥 Cluster deployed successfully!
-   Time elapsed: 7m 32s
-
-   Kubeconfig: ./my-first-cluster-kubeconfig.yaml
-```
-
-!!! success "Deployment Complete! 🦥"
-    Your multi-cloud Kubernetes cluster is now running! Time to relax like a sloth! 😴
-
----
-
-## Step 4: Access Your Cluster
-
-Get the kubeconfig and start using your cluster:
+## Step 3: Validate Configuration
 
 ```bash
-# Export kubeconfig
-export KUBECONFIG=$(pwd)/my-first-cluster-kubeconfig.yaml
-
-# Or copy to default location
-mkdir -p ~/.kube
-cp my-first-cluster-kubeconfig.yaml ~/.kube/config
-
-# Verify cluster access
-kubectl get nodes
-
-# You should see:
-NAME                    STATUS   ROLES                       AGE   VERSION
-do-master-1             Ready    control-plane,etcd,master   7m    v1.28.5+rke2r1
-linode-master-1         Ready    control-plane,etcd,master   7m    v1.28.5+rke2r1
-linode-master-2         Ready    control-plane,etcd,master   6m    v1.28.5+rke2r1
-do-worker-1             Ready    worker                      5m    v1.28.5+rke2r1
-linode-worker-1         Ready    worker                      5m    v1.28.5+rke2r1
+sloth-kubernetes validate --config cluster.yaml
 ```
+
+## Step 4: Deploy Cluster
 
 ```bash
-# Check cluster info
-kubectl cluster-info
-
-# View pods across all namespaces
-kubectl get pods -A
-
-# Deploy a test application 🦥
-kubectl create deployment nginx --image=nginx
-kubectl expose deployment nginx --port=80 --type=LoadBalancer
-kubectl get svc
+sloth-kubernetes deploy --config cluster.yaml
 ```
 
----
+This will:
+1. ✅ Generate and upload SSH keys
+2. ✅ Create bastion host
+3. ✅ Create VPCs in each provider
+4. ✅ Setup WireGuard VPN mesh
+5. ✅ Provision nodes
+6. ✅ Install RKE2 Kubernetes
+7. ✅ Configure VPN on nodes
+8. ✅ Setup DNS records
 
-## Step 5: What Just Happened? 🦥
+Expected time: 5-8 minutes.
 
-Let's understand what the sloth built for you:
+## Step 5: Verify Deployment
 
-### Architecture Diagram
+```bash
+# Check cluster status
+sloth-kubernetes status
 
+# Get nodes
+sloth-kubernetes kubectl get nodes
+
+# Get all pods
+sloth-kubernetes kubectl get pods -A
 ```
-        🦥 Your Multi-Cloud Cluster 🦥
 
-┌─────────────────────────┐  ┌─────────────────────────┐
-│   DigitalOcean NYC3     │  │     Linode US-East      │
-│                         │  │                         │
-│  • Master 1        🦥   │  │  • Master 2        🦥   │
-│  • Worker 1        🦥   │  │  • Master 3        🦥   │
-│                         │  │  • Worker 1        🦥   │
-│  VPC: 10.10.0.0/16      │  │  VPC: 10.11.0.0/16      │
-└───────────┬─────────────┘  └─────────┬───────────────┘
-            │                          │
-            └──────► WireGuard ◄───────┘
-                   10.8.0.0/24
-                      🔐
+## Step 6: Deploy a Test Application
+
+```bash
+# Create a namespace
+sloth-kubernetes kubectl create namespace demo
+
+# Deploy nginx
+sloth-kubernetes kubectl create deployment nginx --image=nginx -n demo
+
+# Expose it
+sloth-kubernetes kubectl expose deployment nginx --port=80 --type=LoadBalancer -n demo
+
+# Check the service
+sloth-kubernetes kubectl get svc -n demo
 ```
 
-### What Was Created
+## Step 7: Use Salt for Node Management
 
-| Component | Details |
-|-----------|---------|
-| **VPCs** | 2 VPCs (1 per cloud) with private networking |
-| **VPN** | WireGuard mesh connecting all nodes |
-| **Masters** | 3 control plane nodes across 2 clouds |
-| **Workers** | 2 worker nodes for your workloads |
-| **Kubernetes** | RKE2 v1.28.5 with encrypted secrets |
-| **Networking** | Private mesh + public access |
+```bash
+# Check node status
+sloth-kubernetes salt cmd "systemctl status kubelet" --target "worker*"
 
----
+# Update packages
+sloth-kubernetes salt pkg.upgrade --target "all"
 
-## Next Steps 🦥
+# Docker operations
+sloth-kubernetes salt docker.ps --target "worker*"
+```
 
-Now that your cluster is running, explore more features:
+## Step 8: Use Helm (Optional)
 
-<div class="grid cards" markdown>
+```bash
+# Add bitnami repo
+sloth-kubernetes helm repo add bitnami https://charts.bitnami.com/bitnami
 
--   📖 **Add More Nodes**
+# Install a chart
+sloth-kubernetes helm install myapp bitnami/nginx -n demo
 
-    ---
+# List releases
+sloth-kubernetes helm list -A
+```
 
-    Scale your cluster up! 🦥
+## Step 9: Cleanup
 
-    [:octicons-arrow-right-24: Manage Nodes](../user-guide/nodes.md)
+When you're done testing:
 
--   🔐 **Configure VPN**
+```bash
+sloth-kubernetes destroy --config cluster.yaml
+```
 
-    ---
+{: .warning }
+This will delete all resources. Make sure you've backed up any important data first.
 
-    Access your cluster securely 🦥
+## Next Steps
 
-    [:octicons-arrow-right-24: VPN Management](../user-guide/vpn.md)
-
--   🌳 **Enable GitOps**
-
-    ---
-
-    Bootstrap ArgoCD for GitOps 🦥
-
-    [:octicons-arrow-right-24: GitOps Guide](../advanced/gitops.md)
-
--   ⚙️ **Advanced Config**
-
-    ---
-
-    Customize everything 🦥
-
-    [:octicons-arrow-right-24: Configuration](../configuration/file-structure.md)
-
-</div>
-
----
+- [Configuration Guide](../user-guide/configuration) - Learn about all configuration options
+- [Architecture](../architecture/overview) - Understand how sloth-kubernetes works
+- [Examples](../examples/) - See more complex deployment scenarios
+- [CLI Reference](../cli-reference/commands) - Explore all available commands
 
 ## Troubleshooting
 
-### Common Issues
-
-??? question "Deployment stuck at 'Provisioning nodes'"
-    This is normal! Cloud providers can take 2-3 minutes to provision instances. The sloth is patient! 🦥
-
-??? question "VPN connection failed"
-    Check that:
-    - Firewalls allow UDP port 51820
-    - VPC CIDR ranges don't overlap
-    - Nodes have public IPs for initial setup
-
-??? question "kubectl connection refused"
-    Verify:
-    ```bash
-    # Check kubeconfig path
-    echo $KUBECONFIG
-
-    # Test with explicit path
-    kubectl --kubeconfig=my-first-cluster-kubeconfig.yaml get nodes
-    ```
-
-For more help, see [Troubleshooting Guide](../advanced/troubleshooting.md) 🦥
-
----
-
-## Clean Up (Optional)
-
-When you're done testing, clean up resources:
+### Deployment Failed
 
 ```bash
-# Destroy the cluster
-sloth-kubernetes destroy --config my-first-cluster.yaml
+# Check detailed logs
+sloth-kubernetes deploy --config cluster.yaml --log-level debug
 
-# The sloth will:
-# 🦥 Remove all nodes
-# 🦥 Delete VPCs
-# 🦥 Clean up VPN server
-# 🦥 Remove local state
+# Check status
+sloth-kubernetes status --verbose
 ```
 
-!!! warning "Destruction is Permanent 🦥"
-    This will permanently delete all cluster resources. Make sure you've backed up any data!
+### Can't Connect to Nodes
 
----
+```bash
+# SSH to bastion
+sloth-kubernetes nodes ssh bastion
 
-!!! quote "Ancient Sloth Wisdom 🦥"
-    *"A cluster deployed slowly is a cluster deployed correctly!"*
+# From bastion, SSH to any node
+ssh worker-1
+```
 
-**Congratulations!** You've deployed your first Sloth Kubernetes cluster! 🦥🎉
+### VPN Issues
+
+```bash
+# Check VPN status
+sloth-kubernetes vpn status
+
+# Test connectivity
+sloth-kubernetes vpn test
+
+# View peer configuration
+sloth-kubernetes vpn peers
+```
