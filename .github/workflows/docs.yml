@@ -6,6 +6,8 @@ on:
       - main
     paths:
       - 'docs/**'
+      - 'mkdocs.yml'
+      - 'requirements.txt'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -25,12 +27,14 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Setup Python
+        uses: actions/setup-python@v5
         with:
-          ruby-version: '3.2'
-          bundler-cache: true
-          working-directory: docs
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
 
       - name: Setup Pages
         id: pages
@@ -38,17 +42,13 @@ jobs:
         with:
           enablement: true
 
-      - name: Build with Jekyll
-        run: |
-          cd docs
-          bundle exec jekyll build --baseurl "${{ steps.pages.outputs.base_path }}"
-        env:
-          JEKYLL_ENV: production
+      - name: Build with MkDocs
+        run: mkdocs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: docs/_site
+          path: site
 
   deploy:
     environment:
