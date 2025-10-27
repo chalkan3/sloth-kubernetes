@@ -823,14 +823,21 @@ echo "[$(date +%H:%M:%S)] ✅ Salt Master and API installed successfully"
 echo "[$(date +%H:%M:%S)] Configuring Salt API..."
 mkdir -p /etc/salt/master.d
 
-cat > /etc/salt/master.d/api.conf <<'SALTEOF'
-# Salt API Configuration
+# Configure Salt API (HTTP only - no SSL for simplicity)
+cat > /etc/salt/master.d/api-nossl.conf <<'SALTEOF'
+# Salt API Configuration - HTTP (no SSL)
 rest_cherrypy:
   port: 8000
   host: 0.0.0.0
-  ssl_crt: /etc/pki/tls/certs/localhost.crt
-  ssl_key: /etc/pki/tls/certs/localhost.key
+  disable_ssl: True
+SALTEOF
 
+# Add external_auth and netapi_enable_clients directly to /etc/salt/master
+# This is CRITICAL - these configs must be in /etc/salt/master, not just /etc/salt/master.d/
+echo "[$(date +%H:%M:%S)] Adding external_auth and netapi_enable_clients to /etc/salt/master..."
+cat >> /etc/salt/master <<'SALTEOF'
+
+# External authentication for Salt API
 external_auth:
   pam:
     saltapi:
@@ -838,27 +845,29 @@ external_auth:
       - '@wheel'
       - '@runner'
       - '@jobs'
+
+# Enable Salt API clients (REQUIRED for 'local' client)
+netapi_enable_clients: ["local", "local_async", "runner", "runner_async"]
 SALTEOF
 
 # Create Salt API user
 echo "[$(date +%H:%M:%S)] Creating Salt API user..."
-useradd -M -s /sbin/nologin saltapi || true
+useradd -M -s /bin/bash saltapi || true
 echo 'saltapi:saltapi123' | chpasswd
 
-# Generate self-signed SSL certificate for Salt API
-echo "[$(date +%H:%M:%S)] Generating SSL certificates for Salt API..."
-mkdir -p /etc/pki/tls/certs
-openssl req -new -x509 -days 365 -nodes \
-  -out /etc/pki/tls/certs/localhost.crt \
-  -keyout /etc/pki/tls/certs/localhost.key \
-  -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-chmod 600 /etc/pki/tls/certs/localhost.key
+# CRITICAL: Add salt user to shadow group (required for PAM authentication)
+echo "[$(date +%H:%M:%S)] Adding salt user to shadow group for PAM authentication..."
+usermod -aG shadow salt
 
 # Allow Salt API port in firewall
 echo "[$(date +%H:%M:%S)] Configuring firewall for Salt API..."
 ufw allow 8000/tcp comment 'Salt API'
 ufw allow 4505/tcp comment 'Salt Publisher'
 ufw allow 4506/tcp comment 'Salt Request Server'
+
+# Allow WireGuard VPN port
+echo "[$(date +%H:%M:%S)] Configuring firewall for WireGuard VPN..."
+ufw allow 51820/udp comment 'WireGuard VPN'
 
 # Restart Salt Master and start Salt API
 echo "[$(date +%H:%M:%S)] Starting Salt Master and API services..."

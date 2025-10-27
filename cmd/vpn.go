@@ -2071,14 +2071,29 @@ PersistentKeepalive = 25
 	}
 
 	// Add existing VPN clients as peers for full mesh
+	// Special handling: if bastion is in existingPeers (VPN IP 10.8.0.5), add it with endpoint
 	for _, peer := range existingPeers {
-		config += fmt.Sprintf(`
+		// Check if this peer is the bastion (VPN IP 10.8.0.5)
+		if peer.VPNAddress == "10.8.0.5" && bastionEnabled && bastionIP != "" {
+			// Add bastion with endpoint for direct connectivity
+			config += fmt.Sprintf(`
+[Peer]
+# Bastion Host
+PublicKey = %s
+Endpoint = %s:51820
+AllowedIPs = %s/32, 192.168.0.0/16
+PersistentKeepalive = 25
+`, peer.PublicKey, bastionIP, peer.VPNAddress)
+		} else {
+			// Regular external VPN client without endpoint
+			config += fmt.Sprintf(`
 [Peer]
 # External VPN Client
 PublicKey = %s
 AllowedIPs = %s/32
 PersistentKeepalive = 25
 `, peer.PublicKey, peer.VPNAddress)
+		}
 	}
 
 	return config
