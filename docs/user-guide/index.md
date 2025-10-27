@@ -7,6 +7,17 @@ description: Complete reference for all sloth-kubernetes commands and features
 
 Complete guide to using **sloth-kubernetes** for deploying and managing multi-cloud Kubernetes clusters.
 
+## Overview
+
+**sloth-kubernetes** is a single binary that embeds all tools needed for multi-cloud Kubernetes:
+
+- Pulumi Automation API - No external Pulumi CLI required
+- kubectl - Full Kubernetes client embedded
+- Helm support - Package management via external helm binary
+- SaltStack - 100+ remote execution modules
+- WireGuard VPN - Secure mesh networking
+- RKE2 - CNCF-certified Kubernetes distribution
+
 ## CLI Command Categories
 
 sloth-kubernetes provides **50+ commands** organized into categories:
@@ -173,6 +184,809 @@ sloth-kubernetes login digitalocean
 sloth-kubernetes login linode
 sloth-kubernetes login aws
 ```
+
+---
+
+## Detailed Command Reference
+
+### Core Commands
+
+#### `deploy`
+
+Deploy a new Kubernetes cluster or update an existing one.
+
+**Synopsis:**
+```bash
+sloth-kubernetes deploy [stack-name] --config <file>
+```
+
+**Features:**
+- Multi-cloud deployment across DigitalOcean, Linode, AWS (in progress)
+- RKE2 Kubernetes with automatic WireGuard VPN mesh
+- 8-phase orchestrated deployment
+- Comprehensive pre-deployment validation
+- Dry-run mode for previewing changes
+
+**Flags:**
+- `--config <file>` - Configuration YAML file (required)
+- `--dry-run` - Preview changes without applying
+- `--yes` - Auto-approve without confirmation
+
+**Examples:**
+```bash
+# Deploy new cluster
+sloth-kubernetes deploy production --config prod.yaml
+
+# Update existing cluster
+sloth-kubernetes deploy production --config prod-updated.yaml
+
+# Preview changes
+sloth-kubernetes deploy staging --config staging.yaml --dry-run
+```
+
+**Deployment Phases:**
+1. SSH keys generation & upload
+2. Bastion host (if enabled)
+3. VPC networks per provider
+4. WireGuard encrypted mesh
+5. Master & worker nodes
+6. RKE2 Kubernetes bootstrap
+7. VPN routing configuration
+8. DNS service discovery
+
+---
+
+#### `destroy`
+
+Destroy an existing cluster and all associated resources.
+
+**Synopsis:**
+```bash
+sloth-kubernetes destroy [stack-name]
+```
+
+**Features:**
+- Destroys all VMs, DNS records, and configurations
+- Automatic VPN disconnect and Salt session cleanup
+- Double confirmation for safety
+- Force destroy option
+
+**Flags:**
+- `--yes` - Skip confirmation
+- `--force` - Force destroy even with dependencies
+
+**Examples:**
+```bash
+# Destroy with confirmation
+sloth-kubernetes destroy production
+
+# Force destroy without confirmation
+sloth-kubernetes destroy staging --yes --force
+```
+
+**Warning:** This action cannot be undone!
+
+---
+
+#### `validate`
+
+Validate cluster configuration before deployment.
+
+**Synopsis:**
+```bash
+sloth-kubernetes validate --config <file>
+```
+
+**Validation Checks:**
+- YAML syntax and structure
+- Required fields and metadata
+- Node distribution (masters/workers)
+- Provider configuration and credentials
+- Network and WireGuard VPN settings
+- DNS configuration
+- Resource limits and quotas
+- SSH configuration
+
+**Examples:**
+```bash
+# Validate configuration
+sloth-kubernetes validate --config cluster.yaml
+
+# Validate with detailed output
+sloth-kubernetes validate --config production.yaml --verbose
+```
+
+---
+
+#### `status`
+
+Show current cluster status and health.
+
+**Synopsis:**
+```bash
+sloth-kubernetes status [stack-name]
+```
+
+**Displays:**
+- Cluster overview
+- Node count and distribution
+- Provider information
+- Network configuration
+- VPN status
+- Kubernetes version
+- Component health
+
+---
+
+#### `kubeconfig`
+
+Retrieve kubeconfig for kubectl access.
+
+**Synopsis:**
+```bash
+sloth-kubernetes kubeconfig [stack-name]
+```
+
+**Flags:**
+- `-o, --output <file>` - Save to file (default: stdout)
+- `--merge` - Merge with existing kubeconfig (not implemented)
+
+**Examples:**
+```bash
+# Print to stdout
+sloth-kubernetes kubeconfig
+
+# Save to default location
+sloth-kubernetes kubeconfig -o ~/.kube/config
+
+# Export and use immediately
+sloth-kubernetes kubeconfig -o ~/.kube/config
+export KUBECONFIG=~/.kube/config
+kubectl get nodes
+```
+
+---
+
+### Node Management Commands
+
+#### `nodes list`
+
+List all nodes in the cluster.
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes list [stack-name]
+```
+
+**Displays:**
+- Node name, IP address, provider
+- Role (master/worker)
+- Status, age
+- Resource allocation
+
+---
+
+#### `nodes ssh`
+
+SSH into a cluster node via bastion.
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes ssh [stack-name] [node-name]
+```
+
+**Features:**
+- Automatic bastion jump configuration
+- Uses cluster SSH keys
+- Direct access to private nodes
+
+**Examples:**
+```bash
+# SSH to specific node
+sloth-kubernetes nodes ssh production master-0
+
+# SSH to worker
+sloth-kubernetes nodes ssh production worker-2
+```
+
+---
+
+#### `nodes add`
+
+Add new nodes to an existing node pool.
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes add [stack-name] --pool <name> --count <n>
+```
+
+**Flags:**
+- `--pool <name>` - Target node pool
+- `--count <n>` - Number of nodes to add
+
+**Examples:**
+```bash
+# Add 2 workers
+sloth-kubernetes nodes add production --pool workers --count 2
+
+# Add master node
+sloth-kubernetes nodes add staging --pool masters --count 1
+```
+
+---
+
+#### `nodes remove`
+
+Remove a node from the cluster.
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes remove [stack-name] [node-name]
+```
+
+**Features:**
+- Drains node before removal
+- Updates cluster state
+- Cleans up VPN configuration
+
+---
+
+#### `nodes drain`
+
+Drain node for maintenance (evict all pods).
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes drain [stack-name] [node-name]
+```
+
+---
+
+#### `nodes cordon`
+
+Mark node as unschedulable (prevent new pods).
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes cordon [stack-name] [node-name]
+```
+
+---
+
+#### `nodes uncordon`
+
+Mark node as schedulable again.
+
+**Synopsis:**
+```bash
+sloth-kubernetes nodes uncordon [stack-name] [node-name]
+```
+
+---
+
+### SaltStack Commands
+
+SaltStack provides 100+ remote execution modules for managing cluster nodes.
+
+#### `salt ping`
+
+Test connectivity to all or specific minions.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt ping [--target <minion>]
+```
+
+---
+
+#### `salt minions`
+
+List all connected Salt minions.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt minions
+```
+
+---
+
+#### `salt cmd.run`
+
+Execute shell commands on cluster nodes.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt cmd.run "<command>" [--target <minion>]
+```
+
+**Examples:**
+```bash
+# Run on all nodes
+sloth-kubernetes salt cmd.run "uptime"
+
+# Run on specific node
+sloth-kubernetes salt cmd.run "df -h" --target master-0
+
+# Check memory usage
+sloth-kubernetes salt cmd.run "free -h"
+```
+
+---
+
+#### `salt pkg.*`
+
+Package management commands.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt pkg.install <package>
+sloth-kubernetes salt pkg.remove <package>
+sloth-kubernetes salt pkg.upgrade
+sloth-kubernetes salt pkg.list_upgrades
+```
+
+**Examples:**
+```bash
+# Install package
+sloth-kubernetes salt pkg.install htop
+
+# Remove package
+sloth-kubernetes salt pkg.remove nginx
+
+# Upgrade all packages
+sloth-kubernetes salt pkg.upgrade
+```
+
+---
+
+#### `salt service.*`
+
+Service management commands.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt service.status <service>
+sloth-kubernetes salt service.restart <service>
+sloth-kubernetes salt service.start <service>
+sloth-kubernetes salt service.stop <service>
+sloth-kubernetes salt service.enable <service>
+sloth-kubernetes salt service.disable <service>
+```
+
+**Examples:**
+```bash
+# Check kubelet status
+sloth-kubernetes salt service.status kubelet
+
+# Restart RKE2
+sloth-kubernetes salt service.restart rke2-server --target master-0
+```
+
+---
+
+#### `salt grains.*`
+
+System information commands.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt grains.items
+sloth-kubernetes salt grains.get <key>
+```
+
+**Examples:**
+```bash
+# Get all system info
+sloth-kubernetes salt grains.items
+
+# Get OS info
+sloth-kubernetes salt grains.get os
+
+# Get kernel version
+sloth-kubernetes salt grains.get kernelrelease
+```
+
+---
+
+#### `salt state.*`
+
+Configuration management.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt state.apply [state]
+sloth-kubernetes salt state.highstate
+```
+
+---
+
+#### `salt keys`
+
+Manage Salt minion keys.
+
+**Synopsis:**
+```bash
+sloth-kubernetes salt keys list
+sloth-kubernetes salt keys accept <minion-id>
+sloth-kubernetes salt keys delete <minion-id>
+sloth-kubernetes salt keys accept-all
+```
+
+---
+
+### VPN Management Commands
+
+#### `vpn status`
+
+Show VPN status and tunnel information.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn status [stack-name]
+```
+
+**Displays:**
+- VPN server status
+- Connected peers
+- Tunnel configuration
+- Traffic statistics
+
+---
+
+#### `vpn peers`
+
+List all VPN peers in the mesh.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn peers [stack-name]
+```
+
+---
+
+#### `vpn config`
+
+Get VPN configuration for a specific node.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn config [stack-name] [node-name]
+```
+
+**Output:** WireGuard configuration file
+
+---
+
+#### `vpn test`
+
+Test VPN connectivity across the mesh.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn test [stack-name]
+```
+
+**Tests:**
+- Ping all nodes via VPN
+- Latency measurements
+- Throughput tests
+
+---
+
+#### `vpn join`
+
+Join this machine or remote host to the VPN mesh.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn join [stack-name]
+```
+
+**Features:**
+- Generates client configuration
+- Configures local WireGuard interface
+- Adds routes to cluster networks
+
+---
+
+#### `vpn leave`
+
+Remove this machine from the VPN mesh.
+
+**Synopsis:**
+```bash
+sloth-kubernetes vpn leave [stack-name]
+```
+
+---
+
+### Stack Management Commands
+
+Manage multiple cluster stacks (multiple clusters).
+
+#### `stacks list`
+
+List all available stacks.
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks list
+```
+
+---
+
+#### `stacks info`
+
+Show detailed stack information.
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks info [stack-name]
+```
+
+---
+
+#### `stacks select`
+
+Select active stack.
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks select <stack-name>
+```
+
+---
+
+#### `stacks delete`
+
+Delete a stack (after destroying resources).
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks delete <stack-name>
+```
+
+---
+
+#### `stacks export`
+
+Export stack state to JSON.
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks export [stack-name]
+```
+
+**Examples:**
+```bash
+# Export to file
+sloth-kubernetes stacks export production > backup.json
+```
+
+---
+
+#### `stacks import`
+
+Import stack state from JSON.
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks import <file>
+```
+
+---
+
+#### `stacks output`
+
+Show stack outputs (IPs, endpoints, etc).
+
+**Synopsis:**
+```bash
+sloth-kubernetes stacks output [stack-name]
+```
+
+---
+
+### Kubernetes Tools
+
+#### `kubectl`
+
+Embedded kubectl client with full functionality.
+
+**Synopsis:**
+```bash
+sloth-kubernetes kubectl <kubectl-args>
+```
+
+**Features:**
+- Full kubectl functionality embedded
+- No separate kubectl installation required
+- Automatic kubeconfig detection
+
+**Examples:**
+```bash
+# Get nodes
+sloth-kubernetes kubectl get nodes
+
+# Get pods in all namespaces
+sloth-kubernetes kubectl get pods -A
+
+# Apply manifest
+sloth-kubernetes kubectl apply -f deployment.yaml
+
+# Get logs
+sloth-kubernetes kubectl logs nginx-123 -n default
+
+# Execute in pod
+sloth-kubernetes kubectl exec -it nginx-123 -- sh
+
+# Port forward
+sloth-kubernetes kubectl port-forward svc/nginx 8080:80
+```
+
+---
+
+#### `helm`
+
+Helm package manager (requires external helm binary).
+
+**Synopsis:**
+```bash
+sloth-kubernetes helm <helm-args>
+```
+
+**Prerequisites:** Helm 3.x must be installed in PATH
+
+**Examples:**
+```bash
+# List releases
+sloth-kubernetes helm list
+
+# Install chart
+sloth-kubernetes helm install nginx bitnami/nginx
+
+# Upgrade release
+sloth-kubernetes helm upgrade nginx bitnami/nginx
+
+# Add repository
+sloth-kubernetes helm repo add bitnami https://charts.bitnami.com/bitnami
+
+# Uninstall release
+sloth-kubernetes helm uninstall nginx
+```
+
+---
+
+#### `kustomize`
+
+Kustomize template rendering (requires external kustomize binary).
+
+**Synopsis:**
+```bash
+sloth-kubernetes kustomize <kustomize-args>
+```
+
+**Examples:**
+```bash
+# Build kustomization
+sloth-kubernetes kustomize build overlays/production
+
+# Apply kustomization
+sloth-kubernetes kustomize build overlays/production | kubectl apply -f -
+```
+
+---
+
+### GitOps & Addons
+
+#### `addons bootstrap`
+
+Bootstrap ArgoCD from a GitOps repository.
+
+**Synopsis:**
+```bash
+sloth-kubernetes addons bootstrap --repo <url>
+```
+
+**Flags:**
+- `--repo <url>` - Git repository URL (required)
+- `--branch <name>` - Git branch (default: main)
+- `--path <path>` - Path within repo (default: addons/)
+- `--private-key <file>` - SSH key for private repos
+
+**Features:**
+- Clones GitOps repository
+- Installs ArgoCD from repo manifests
+- Configures ArgoCD to watch repo
+- Auto-syncs all other addons
+
+**Examples:**
+```bash
+# Bootstrap with public repo
+sloth-kubernetes addons bootstrap --repo https://github.com/you/gitops-repo
+
+# Bootstrap with private repo
+sloth-kubernetes addons bootstrap \
+  --repo git@github.com:you/private-repo.git \
+  --private-key ~/.ssh/id_rsa
+
+# Custom branch and path
+sloth-kubernetes addons bootstrap \
+  --repo https://github.com/you/gitops-repo \
+  --branch production \
+  --path cluster-addons/
+```
+
+---
+
+#### `addons list`
+
+List all installed addons.
+
+**Synopsis:**
+```bash
+sloth-kubernetes addons list [stack-name]
+```
+
+**Displays:**
+- Addon name, category, status
+- Version, namespace
+- Sync status (if managed by ArgoCD)
+
+---
+
+#### `addons sync`
+
+Manually trigger ArgoCD sync.
+
+**Synopsis:**
+```bash
+sloth-kubernetes addons sync [--app <name>]
+```
+
+**Flags:**
+- `--app <name>` - Sync specific application (default: all)
+
+---
+
+#### `addons status`
+
+Show ArgoCD and addon status.
+
+**Synopsis:**
+```bash
+sloth-kubernetes addons status
+```
+
+**Displays:**
+- ArgoCD server status
+- Application sync status
+- Health status of each addon
+
+---
+
+#### `addons template`
+
+Generate example GitOps repository structure.
+
+**Synopsis:**
+```bash
+sloth-kubernetes addons template [-o <dir>]
+```
+
+**Flags:**
+- `-o, --output <dir>` - Output directory (default: print to stdout)
+
+**Examples:**
+```bash
+# Print template structure
+sloth-kubernetes addons template
+
+# Generate to directory
+sloth-kubernetes addons template --output ./my-gitops-repo
+```
+
+---
 
 ## Configuration Reference
 
