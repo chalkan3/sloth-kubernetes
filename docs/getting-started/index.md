@@ -1,30 +1,118 @@
 ---
-layout: default
 title: Getting Started
-nav_order: 2
-has_children: true
+description: Get started with sloth-kubernetes by installing the binary and deploying your first cluster
 ---
 
 # Getting Started
 
-Welcome to sloth-kubernetes! This section will guide you through installing and deploying your first multi-cloud Kubernetes cluster.
+Welcome to **sloth-kubernetes**! This guide will walk you through installing the tool and deploying your first multi-cloud Kubernetes cluster.
 
 ## What You'll Learn
 
-- How to install sloth-kubernetes on your system
-- How to configure a basic cluster
-- How to deploy and manage your first cluster
-- Basic troubleshooting steps
+In this section, you'll learn how to:
 
-## Before You Begin
+- Install sloth-kubernetes on Linux, macOS, or Windows
+- Configure cloud provider credentials
+- Create your first cluster configuration
+- Deploy a production-grade Kubernetes cluster
+- Access and manage your cluster
 
-Make sure you have:
-- A cloud provider account (DigitalOcean, Linode, or Azure)
-- API tokens for your chosen provider(s)
-- Basic knowledge of Kubernetes concepts
-- An SSH key pair
+## Prerequisites
 
-## Quick Links
+Before you begin, make sure you have:
 
-- [Installation](installation) - Install the sloth-kubernetes binary
-- [Quick Start](quickstart) - Deploy your first cluster in 10 minutes
+### Required
+
+- **Cloud provider account** - At least one of:
+    - [DigitalOcean account](https://www.digitalocean.com/) with API token
+    - [Linode account](https://www.linode.com/) with API token
+    - [AWS account](https://aws.amazon.com/) with access keys (coming soon)
+    - [Azure account](https://azure.microsoft.com/) with service principal (coming soon)
+    - [GCP account](https://cloud.google.com/) with service account (coming soon)
+
+- **SSH keys** - For secure access to cluster nodes
+- **Terminal/Shell** - Command-line access on your local machine
+
+### Optional
+
+- **kubectl** - For Kubernetes management (embedded in sloth-kubernetes)
+- **Helm** - For package management (wrapper provided)
+- **Git** - For GitOps with ArgoCD
+
+## Quick Installation
+
+=== "Linux"
+
+    ```bash
+    # Download the latest release
+    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-amd64 -o sloth-kubernetes
+
+    # Make it executable
+    chmod +x sloth-kubernetes
+
+    # Move to PATH
+    sudo mv sloth-kubernetes /usr/local/bin/
+
+    # Verify installation
+    sloth-kubernetes version
+    ```
+
+=== "macOS"
+
+    ```bash
+    # Download the latest release
+    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-amd64 -o sloth-kubernetes
+
+    # Make it executable
+    chmod +x sloth-kubernetes
+
+    # Move to PATH
+    sudo mv sloth-kubernetes /usr/local/bin/
+
+    # Verify installation
+    sloth-kubernetes version
+    ```
+
+=== "macOS (ARM64)"
+
+    ```bash
+    # Download the latest release for Apple Silicon
+    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-arm64 -o sloth-kubernetes
+
+    # Make it executable
+    chmod +x sloth-kubernetes
+
+    # Move to PATH
+    sudo mv sloth-kubernetes /usr/local/bin/
+
+    # Verify installation
+    sloth-kubernetes version
+    ```
+
+=== "Windows"
+
+    ```powershell
+    # Download the latest release
+    Invoke-WebRequest -Uri "https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-windows-amd64.exe" -OutFile "sloth-kubernetes.exe"
+
+    # Move to a directory in PATH
+    Move-Item sloth-kubernetes.exe C:\Windows\System32\
+
+    # Verify installation
+    sloth-kubernetes version
+    ```
+
+## Next Steps
+
+Once installed, continue with:
+
+1. **[Installation Guide](installation.md)** - Detailed installation instructions and troubleshooting
+2. **[Quick Start](quickstart.md)** - Deploy your first cluster in 5 minutes
+
+## What's Next?
+
+After deploying your first cluster, explore:
+
+- **[User Guide](../user-guide/index.md)** - Learn all CLI commands and workflows
+- **[Architecture](../architecture/index.md)** - Understand how sloth-kubernetes works
+- **[Configuration Reference](../user-guide/index.md)** - Complete YAML configuration options

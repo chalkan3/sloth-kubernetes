@@ -1,144 +1,163 @@
-/* 🦥 Sloth Kubernetes Custom Styles */
+/* Custom styles for sloth-kubernetes documentation */
 
 :root {
-  --sloth-brown: #8B4513;
-  --sloth-light-brown: #D2691E;
-  --sloth-orange: #FF8C00;
-  --sloth-green: #228B22;
+    --md-primary-fg-color: #4051b5;
+    --md-primary-fg-color--light: #5c6bc0;
+    --md-primary-fg-color--dark: #303f9f;
+    --md-accent-fg-color: #7c4dff;
 }
 
-/* Sloth emoji animations */
-.sloth-emoji {
-  display: inline-block;
-  animation: sloth-swing 3s ease-in-out infinite;
+/* Hero section */
+.hero {
+    text-align: center;
+    padding: 2em 0;
+    background: linear-gradient(135deg, rgba(64, 81, 181, 0.05) 0%, rgba(124, 77, 255, 0.05) 100%);
+    border-radius: 8px;
+    margin-bottom: 2em;
 }
 
-@keyframes sloth-swing {
-  0%, 100% { transform: rotate(-5deg); }
-  50% { transform: rotate(5deg); }
+.hero h2 {
+    font-size: 2em;
+    font-weight: 300;
+    margin: 0.5em 0;
 }
 
-/* Custom card styling */
-.md-typeset .grid.cards > * {
-  border: 2px solid var(--sloth-light-brown);
-  transition: transform 0.3s ease, box-shadow 0.3s ease;
+.hero p {
+    font-size: 1.2em;
+    color: var(--md-default-fg-color--light);
+    max-width: 800px;
+    margin: 1em auto;
 }
 
-.md-typeset .grid.cards > *:hover {
-  transform: translateY(-5px);
-  box-shadow: 0 8px 16px rgba(139, 69, 19, 0.3);
+/* Grid cards custom styling */
+.grid.cards {
+    margin-top: 1em;
 }
 
-/* Sloth-themed buttons */
-.md-button {
-  transition: all 0.3s ease;
+.grid.cards > * {
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 8px;
+    padding: 1.5em;
+    transition: all 0.3s ease;
 }
 
-.md-button:hover {
-  transform: scale(1.05);
-  box-shadow: 0 4px 12px rgba(139, 69, 19, 0.4);
-}
-
-.md-button--primary {
-  background-color: var(--sloth-brown) !important;
-  border-color: var(--sloth-brown) !important;
-}
-
-.md-button--primary:hover {
-  background-color: var(--sloth-light-brown) !important;
-  border-color: var(--sloth-light-brown) !important;
+.grid.cards > *:hover {
+    border-color: var(--md-primary-fg-color);
+    box-shadow: 0 4px 12px rgba(64, 81, 181, 0.15);
+    transform: translateY(-2px);
 }
 
 /* Code blocks */
-.md-typeset code {
-  background-color: rgba(139, 69, 19, 0.1);
-  border: 1px solid rgba(139, 69, 19, 0.2);
-}
-
-.md-typeset pre > code {
-  background-color: rgba(0, 0, 0, 0.05);
+.highlight pre {
+    border-radius: 8px;
 }
 
 /* Admonitions */
-.md-typeset .admonition.tip {
-  border-left-color: var(--sloth-green);
-}
-
-.md-typeset .admonition.tip .admonition-title {
-  background-color: rgba(34, 139, 34, 0.1);
+.md-typeset .admonition {
+    border-radius: 8px;
 }
 
 /* Tables */
 .md-typeset table:not([class]) {
-  border: 2px solid var(--sloth-light-brown);
+    border-radius: 8px;
+    overflow: hidden;
 }
 
 .md-typeset table:not([class]) th {
-  background-color: rgba(139, 69, 19, 0.1);
-  border-bottom: 2px solid var(--sloth-brown);
+    background-color: var(--md-primary-fg-color);
+    color: white;
+    font-weight: 600;
+}
+
+/* Mermaid diagrams */
+.mermaid {
+    text-align: center;
+    margin: 2em 0;
 }
 
 /* Navigation tabs */
 .md-tabs {
-  background-color: var(--sloth-brown);
+    background-color: var(--md-primary-fg-color);
 }
 
-/* Sloth loading animation */
-.sloth-loading {
-  display: inline-block;
-  font-size: 2em;
-  animation: sloth-climb 2s linear infinite;
+/* Buttons */
+.md-button {
+    border-radius: 6px;
+    padding: 0.6em 1.2em;
+    font-weight: 600;
+    transition: all 0.2s ease;
 }
 
-@keyframes sloth-climb {
-  0% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-10px) rotate(5deg); }
-  100% { transform: translateY(0) rotate(0deg); }
+.md-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
 }
 
-/* Scrollbar customization */
-::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+.md-button--primary {
+    background-color: var(--md-primary-fg-color);
+    color: white;
 }
 
-::-webkit-scrollbar-track {
-  background: #f1f1f1;
+/* Search */
+.md-search__input {
+    border-radius: 6px;
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--sloth-brown);
-  border-radius: 5px;
+/* Typography improvements */
+.md-typeset h1 {
+    font-weight: 600;
+    color: var(--md-primary-fg-color);
 }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--sloth-light-brown);
+.md-typeset h2 {
+    font-weight: 600;
+    border-bottom: 2px solid var(--md-primary-fg-color--light);
+    padding-bottom: 0.3em;
 }
 
-/* Command line styling */
-.md-typeset .language-bash::before {
-  content: "🦥 $";
-  display: block;
-  color: var(--sloth-brown);
-  font-weight: bold;
-  margin-bottom: 0.5em;
+.md-typeset code {
+    background-color: rgba(64, 81, 181, 0.08);
+    border-radius: 4px;
+    padding: 0.1em 0.4em;
 }
 
-/* Success messages */
-.success-box {
-  background-color: rgba(34, 139, 34, 0.1);
-  border-left: 4px solid var(--sloth-green);
-  padding: 1em;
-  margin: 1em 0;
-  border-radius: 4px;
+/* Sidebar improvements */
+.md-sidebar--secondary {
+    border-left: 1px solid var(--md-default-fg-color--lightest);
 }
 
-/* Sloth quote styling */
-.md-typeset .admonition.quote {
-  border-left-color: var(--sloth-orange);
-  font-style: italic;
+/* Footer */
+.md-footer {
+    background-color: var(--md-primary-fg-color--dark);
 }
 
-.md-typeset .admonition.quote .admonition-title::before {
-  content: "🦥 ";
+/* Custom content blocks */
+.feature-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5em;
+    margin: 2em 0;
+}
+
+.feature-card {
+    padding: 1.5em;
+    border: 1px solid var(--md-default-fg-color--lightest);
+    border-radius: 8px;
+    transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+    border-color: var(--md-primary-fg-color);
+    box-shadow: 0 4px 12px rgba(64, 81, 181, 0.15);
+}
+
+/* Responsive improvements */
+@media screen and (max-width: 76.1875em) {
+    .hero h2 {
+        font-size: 1.5em;
+    }
+    
+    .hero p {
+        font-size: 1em;
+    }
 }
