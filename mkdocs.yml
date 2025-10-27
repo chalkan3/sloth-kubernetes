@@ -106,7 +106,6 @@ extra_css:
   - stylesheets/extra.css
 
 nav:
-  - Home: index.html
   - Getting Started:
     - getting-started/index.md
     - Installation: getting-started/installation.md
