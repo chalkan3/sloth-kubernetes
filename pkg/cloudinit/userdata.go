@@ -22,6 +22,25 @@ manage_etc_hosts: true
 `, hostname, hostname)
 	}
 
+	// Build write_files section for Salt config
+	writeFiles := ""
+	if saltMasterIP != "" {
+		writeFiles = fmt.Sprintf(`
+# Salt Minion configuration files
+write_files:
+  - path: /etc/salt/minion.d/master.conf
+    content: |
+      master: %s
+    owner: root:root
+    permissions: '0644'
+  - path: /etc/salt/minion.d/minion_id.conf
+    content: |
+      id: %s
+    owner: root:root
+    permissions: '0644'
+`, saltMasterIP, hostname)
+	}
+
 	// Build runcmd section
 	runcmds := `# Enable IP forwarding for Kubernetes networking
 runcmd:
@@ -32,25 +51,20 @@ runcmd:
 
 	// Add Salt Minion installation if master IP is provided
 	if saltMasterIP != "" {
-		runcmds += fmt.Sprintf(`
+		runcmds += `
   # Install Salt Minion
   - echo "Installing Salt Minion..."
   - curl -o /tmp/bootstrap-salt.sh -L https://github.com/saltstack/salt-bootstrap/releases/latest/download/bootstrap-salt.sh
   - chmod +x /tmp/bootstrap-salt.sh
   - sh /tmp/bootstrap-salt.sh stable
-  # Configure Salt Minion to connect to master
-  - mkdir -p /etc/salt/minion.d
-  - echo "master:%s" > /etc/salt/minion.d/master.conf
-  - echo "id:%s" > /etc/salt/minion.d/minion_id.conf
   # Restart Salt Minion to apply configuration
   - systemctl restart salt-minion
   - systemctl enable salt-minion
-  - echo "Salt Minion installed and configured"
-`, saltMasterIP, hostname)
+  - echo "Salt Minion installed and configured"`
 	}
 
 	cloudConfig := fmt.Sprintf(`#cloud-config
-%s
+%s%s
 # Package installation (runs during boot)
 # Only install prerequisites - K3s will be installed later via remote commands
 packages:
@@ -62,7 +76,7 @@ packages:
   - net-tools
 
 %s
-`, hostnameConfig, runcmds)
+`, hostnameConfig, writeFiles, runcmds)
 
 	return cloudConfig
 }

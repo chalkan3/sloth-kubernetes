@@ -93,7 +93,33 @@ func runDestroy(cmd *cobra.Command, args []string) error {
 	s.Stop()
 	printSuccess("Connected to stack")
 
-	// Destroy
+	// STEP 1: Logout from Salt (if logged in)
+	fmt.Println()
+	printHeader("🔓 Cleaning up Salt session...")
+	homeDir, err := os.UserHomeDir()
+	if err == nil {
+		saltConfigFile := homeDir + "/.sloth-kubernetes/salt-config.json"
+		if err := os.Remove(saltConfigFile); err != nil {
+			if !os.IsNotExist(err) {
+				color.Yellow("⚠️  Could not remove Salt config: %v", err)
+			}
+		} else {
+			printSuccess("Salt session cleaned")
+		}
+	}
+
+	// STEP 2: Leave VPN (if connected)
+	fmt.Println()
+	printHeader("👋 Leaving VPN...")
+	vpnLeaveCmd := &cobra.Command{}
+	vpnLeaveCmd.SetArgs([]string{targetStack})
+	if err := runVPNLeave(vpnLeaveCmd, []string{targetStack}); err != nil {
+		color.Yellow("⚠️  VPN leave failed (might not be connected): %v", err)
+	} else {
+		printSuccess("Left VPN successfully")
+	}
+
+	// STEP 3: Destroy cluster
 	fmt.Println()
 	printHeader("🔥 Destroying cluster...")
 	fmt.Println()
