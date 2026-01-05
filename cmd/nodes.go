@@ -400,18 +400,19 @@ func runAddNode(cmd *cobra.Command, args []string) error {
 	printInfo(fmt.Sprintf("💾 Saved updated configuration to: %s", tempConfig))
 	fmt.Println()
 
-	color.Cyan("🚀 Running deployment to add node(s)...")
-	color.Yellow("⚠️  This will provision new infrastructure. Press Ctrl+C to cancel.")
-	fmt.Println()
-
-	// TODO: Call the deploy command programmatically
-	// For now, show the command the user should run
 	color.Green("✅ Configuration updated successfully!")
 	fmt.Println()
-	color.Cyan("To apply the changes, run:")
-	fmt.Printf("  ./sloth-kubernetes deploy %s --config %s --do-token $DIGITALOCEAN_TOKEN --linode-token $LINODE_TOKEN -y\n", stack, tempConfig)
+
+	// Display instructions for applying the changes
+	color.Cyan("📋 To apply the node changes, run:")
 	fmt.Println()
-	color.Yellow("💡 Tip: After deployment completes, you can delete the temporary config file:")
+	fmt.Printf("  sloth-kubernetes deploy %s --config %s -y\n", stack, tempConfig)
+	fmt.Println()
+	color.Yellow("💡 Note: Ensure your provider tokens are set as environment variables:")
+	fmt.Println("  export DIGITALOCEAN_TOKEN=<your-token>")
+	fmt.Println("  export LINODE_TOKEN=<your-token>")
+	fmt.Println()
+	color.Cyan("📝 After successful deployment, clean up the temporary config:")
 	fmt.Printf("  rm %s\n", tempConfig)
 
 	// Record the operation
@@ -452,19 +453,15 @@ func runRemoveNode(cmd *cobra.Command, args []string) error {
 }
 
 func printNodesTable(outputs auto.OutputMap) {
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
-	defer w.Flush()
+	// Parse actual node data from outputs
+	nodes, err := ParseNodeOutputs(outputs)
+	if err != nil || len(nodes) == 0 {
+		color.Yellow("⚠️  No nodes found in stack outputs")
+		return
+	}
 
-	// Header
-	color.New(color.Bold).Fprintln(w, "NAME\tPROVIDER\tREGION\tSIZE\tROLES\tPUBLIC IP\tVPN IP\tSTATUS")
-	fmt.Fprintln(w, "----\t--------\t------\t----\t-----\t---------\t------\t------")
-
-	// TODO: Parse actual node data from outputs
-	// For now, show placeholder
-	fmt.Fprintln(w, "master-1\tdigitalocean\tnyc3\ts-2vcpu-4gb\tmaster\t167.71.1.1\t10.8.0.10\t✅ Running")
-	fmt.Fprintln(w, "worker-1\tlinode\tus-ord\tg6-standard-2\tworker\t172.236.1.1\t10.8.0.11\t✅ Running")
-
-	color.Yellow("\n⚠️  Full node information will be available after implementing output parsing")
+	// Use the real implementation
+	printNodesTableReal(nodes)
 }
 
 func printNodesTableReal(nodes []NodeInfo) {

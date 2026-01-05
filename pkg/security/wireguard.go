@@ -165,6 +165,9 @@ PersistentKeepalive = %d
 }
 
 // generateMeshPeers generates peer configurations for mesh networking
+// Note: For mesh networking, we use WireGuard IPs as endpoints since all nodes
+// are already connected to the VPN server. Direct node-to-node connections
+// will route through the WireGuard network.
 func (w *WireGuardManager) generateMeshPeers(currentNode *providers.NodeOutput) string {
 	peers := ""
 
@@ -174,9 +177,10 @@ func (w *WireGuardManager) generateMeshPeers(currentNode *providers.NodeOutput) 
 			continue
 		}
 
-		// Note: In production, this would need to properly handle pulumi.StringOutput
-		// For now, using a placeholder for the endpoint IP
-		endpointIP := "PLACEHOLDER_IP" // TODO: Handle pulumi.StringOutput properly
+		// For mesh networking within VPN, use WireGuard IPs as endpoints
+		// This works because all nodes are already connected to the VPN server
+		// and can reach each other via their VPN addresses
+		endpointIP := node.WireGuardIP
 
 		peers += fmt.Sprintf(`
 [Peer]

@@ -135,17 +135,14 @@ func NewFirewallComponent(
 		},
 	})
 
-	// Convert node droplet IDs to IntArray
-	dropletIDsInt := make([]pulumi.IntInput, len(nodeDropletIDs))
-	for i, id := range nodeDropletIDs {
-		dropletIDsInt[i] = pulumi.Int(0) // Will be set dynamically
-		_ = id                           // TODO: Convert string ID to int
-	}
+	// Note: nodeDropletIDs parameter is kept for future use if explicit droplet targeting is needed
+	// Currently, the firewall uses tag-based targeting which is more flexible and doesn't require
+	// tracking individual droplet IDs. Droplets with the "kubernetes" tag will have this firewall applied.
+	_ = nodeDropletIDs
 
-	// Create firewall
+	// Create firewall with tag-based targeting
 	firewall, err := digitalocean.NewFirewall(ctx, name, &digitalocean.FirewallArgs{
-		Name: pulumi.String(fmt.Sprintf("kubernetes-bastion-fw-%s", ctx.Stack())),
-		// DropletIds:    pulumi.IntArray(dropletIDsInt), // Commented - will use tags instead
+		Name:          pulumi.String(fmt.Sprintf("kubernetes-bastion-fw-%s", ctx.Stack())),
 		InboundRules:  inboundRules,
 		OutboundRules: outboundRules,
 		Tags: pulumi.StringArray{

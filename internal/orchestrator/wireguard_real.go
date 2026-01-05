@@ -80,8 +80,21 @@ func NewRealWireGuardSetupComponent(ctx *pulumi.Context, name string, config *co
 	}).(pulumi.ArrayOutput)
 
 	component.ConfigOutputs = configOutputs
+
+	// Build peer configs from node configurations
+	peerConfigs := nodeConfigs.ApplyT(func(configs []NodeWireGuardConfig) map[string]interface{} {
+		peers := make(map[string]interface{})
+		for _, cfg := range configs {
+			peers[cfg.NodeName] = map[string]interface{}{
+				"address":    cfg.Address,
+				"listenPort": cfg.ListenPort,
+			}
+		}
+		return peers
+	}).(pulumi.MapOutput)
+
 	component.Status = pulumi.Sprintf("WireGuard mesh VPN configured on all nodes")
-	component.PeerConfigs = pulumi.Map{}.ToMapOutput() // TODO: Populate with actual keys
+	component.PeerConfigs = peerConfigs
 	component.MeshStatus = pulumi.Map{
 		"type":   pulumi.String("full-mesh"),
 		"status": pulumi.String("active"),

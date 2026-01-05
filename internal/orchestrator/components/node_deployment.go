@@ -212,14 +212,11 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 	// This eliminates the need for SSH provisioning and saves ~2-3 minutes per node
 	// The cloud-init validator (in cluster_orchestrator.go) waits for installation to complete
 	//
-	// NOTE: SSH provisioning is DISABLED because cloud-init handles everything:
+	// Cloud-init support by provider:
 	// - DigitalOcean: Uses UserData field with cloud-init script
-	// - Linode: TODO - Add Stackscript support for cloud-init
-	//
-	// OLD CODE (COMMENTED OUT - kept for reference):
-	// provisioningComponents := []*RealNodeProvisioningComponent{}
-	// var bastionProvisioningDep pulumi.Resource = component
-	// ... (SSH provisioning logic removed)
+	// - Linode: Uses Metadatas.UserData field (base64 encoded cloud-init)
+	// - Azure: Uses CustomData field (base64 encoded cloud-init)
+	// - AWS: Uses UserData field with cloud-init script
 
 	ctx.Log.Info("✅ Node provisioning handled by cloud-init (UserData) - SSH provisioning disabled", nil)
 

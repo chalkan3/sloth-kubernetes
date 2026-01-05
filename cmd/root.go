@@ -27,6 +27,8 @@ func SetVersionInfo(version, commit, date, builtBy string) {
 	Commit = commit
 	Date = date
 	BuiltBy = builtBy
+	// Also set in common package for use by internal packages
+	common.SetVersionInfo(version, commit, date, builtBy)
 }
 
 // rootCmd represents the base command

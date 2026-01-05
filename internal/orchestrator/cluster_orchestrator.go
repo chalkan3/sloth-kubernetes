@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/chalkan3/sloth-kubernetes/internal/common"
 	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator/components"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/chalkan3/sloth-kubernetes/pkg/versioning"
@@ -681,8 +682,8 @@ func generateDeploymentMetadata(cfg *config.ClusterConfig, previousMetaJSON stri
 		LastDeployedAt:   now,
 		UpdatedAt:        now,
 		CurrentNodeCount: currentNodeCount,
-		SlothVersion:     "1.0.0", // TODO: get from version constant
-		PulumiVersion:    "3.x",   // Pulumi SDK version
+		SlothVersion:     common.GetVersion(),
+		PulumiVersion:    "3.x", // Pulumi SDK version
 		ConfigChecksum:   configChecksum,
 		SchemaVersion:    string(versioning.CurrentSchema),
 		ManifestHashes:   make(map[string]string),

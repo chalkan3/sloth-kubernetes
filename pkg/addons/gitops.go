@@ -233,3 +233,187 @@ func ApplyAddonsFromRepo(kubeconfig string, repoPath string, addonPath string) e
 
 	return nil
 }
+
+// ArgoCDLocalStatus represents ArgoCD status queried via kubeconfig
+type ArgoCDLocalStatus struct {
+	Running      bool
+	Version      string
+	Namespace    string
+	Applications []ArgoCDAppDetail
+}
+
+// ArgoCDAppDetail represents detailed ArgoCD application info
+type ArgoCDAppDetail struct {
+	Name       string
+	SyncStatus string
+	Health     string
+	Namespace  string
+	RepoURL    string
+}
+
+// SyncArgoCDApplications triggers sync for ArgoCD applications via kubeconfig
+func SyncArgoCDApplications(kubeconfig string, appName string) error {
+	var cmd *exec.Cmd
+
+	if appName == "" || appName == "--all" {
+		// Sync all applications by refreshing each one
+		cmd = exec.Command("kubectl", "--kubeconfig", kubeconfig,
+			"get", "applications", "-n", "argocd", "-o", "jsonpath={.items[*].metadata.name}")
+		output, err := cmd.Output()
+		if err != nil {
+			return fmt.Errorf("failed to list applications: %w", err)
+		}
+
+		apps := strings.Fields(string(output))
+		for _, app := range apps {
+			// Trigger refresh by patching the application
+			patchCmd := exec.Command("kubectl", "--kubeconfig", kubeconfig,
+				"patch", "application", app, "-n", "argocd",
+				"--type", "merge", "-p", `{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}`)
+			if err := patchCmd.Run(); err != nil {
+				return fmt.Errorf("failed to sync application %s: %w", app, err)
+			}
+		}
+	} else {
+		// Sync specific application
+		cmd = exec.Command("kubectl", "--kubeconfig", kubeconfig,
+			"patch", "application", appName, "-n", "argocd",
+			"--type", "merge", "-p", `{"metadata":{"annotations":{"argocd.argoproj.io/refresh":"hard"}}}`)
+		if err := cmd.Run(); err != nil {
+			return fmt.Errorf("failed to sync application %s: %w", appName, err)
+		}
+	}
+
+	return nil
+}
+
+// GetArgoCDLocalStatus gets the current status of ArgoCD using kubeconfig
+func GetArgoCDLocalStatus(kubeconfig string) (*ArgoCDLocalStatus, error) {
+	status := &ArgoCDLocalStatus{
+		Namespace:    "argocd",
+		Applications: []ArgoCDAppDetail{},
+	}
+
+	// Check if ArgoCD server is running
+	cmd := exec.Command("kubectl", "--kubeconfig", kubeconfig,
+		"get", "pods", "-n", "argocd", "-l", "app.kubernetes.io/name=argocd-server",
+		"-o", "jsonpath={.items[0].status.phase}")
+	output, err := cmd.Output()
+	if err != nil {
+		status.Running = false
+	} else {
+		status.Running = strings.TrimSpace(string(output)) == "Running"
+	}
+
+	// Get ArgoCD version
+	cmd = exec.Command("kubectl", "--kubeconfig", kubeconfig,
+		"get", "pods", "-n", "argocd", "-l", "app.kubernetes.io/name=argocd-server",
+		"-o", "jsonpath={.items[0].spec.containers[0].image}")
+	output, err = cmd.Output()
+	if err == nil {
+		// Extract version from image tag
+		image := string(output)
+		if parts := strings.Split(image, ":"); len(parts) > 1 {
+			status.Version = parts[len(parts)-1]
+		} else {
+			status.Version = "unknown"
+		}
+	}
+
+	// Get applications status
+	cmd = exec.Command("kubectl", "--kubeconfig", kubeconfig,
+		"get", "applications", "-n", "argocd",
+		"-o", "jsonpath={range .items[*]}{.metadata.name}|{.status.sync.status}|{.status.health.status}|{.spec.destination.namespace}|{.spec.source.repoURL}{\"\\n\"}{end}")
+	output, err = cmd.Output()
+	if err == nil {
+		lines := strings.Split(strings.TrimSpace(string(output)), "\n")
+		for _, line := range lines {
+			if line == "" {
+				continue
+			}
+			parts := strings.Split(line, "|")
+			if len(parts) >= 5 {
+				status.Applications = append(status.Applications, ArgoCDAppDetail{
+					Name:       parts[0],
+					SyncStatus: parts[1],
+					Health:     parts[2],
+					Namespace:  parts[3],
+					RepoURL:    parts[4],
+				})
+			}
+		}
+	}
+
+	return status, nil
+}
+
+// InstalledAddon represents an addon installed in the cluster
+type InstalledAddon struct {
+	Name      string
+	Category  string
+	Status    string
+	Version   string
+	Namespace string
+}
+
+// GetInstalledAddons gets the list of installed addons from the cluster
+func GetInstalledAddons(kubeconfig string) ([]InstalledAddon, error) {
+	addons := []InstalledAddon{}
+
+	// Define known addons and their namespaces
+	knownAddons := []struct {
+		name      string
+		namespace string
+		category  string
+		label     string
+	}{
+		{"argocd", "argocd", "CD", "app.kubernetes.io/name=argocd-server"},
+		{"ingress-nginx", "ingress-nginx", "Ingress", "app.kubernetes.io/name=ingress-nginx"},
+		{"cert-manager", "cert-manager", "Security", "app.kubernetes.io/name=cert-manager"},
+		{"prometheus", "monitoring", "Monitoring", "app=prometheus"},
+		{"longhorn", "longhorn-system", "Storage", "app=longhorn-manager"},
+		{"metallb", "metallb-system", "LoadBalancer", "app=metallb"},
+		{"traefik", "traefik", "Ingress", "app.kubernetes.io/name=traefik"},
+	}
+
+	for _, addon := range knownAddons {
+		// Check if namespace exists and has running pods
+		cmd := exec.Command("kubectl", "--kubeconfig", kubeconfig,
+			"get", "pods", "-n", addon.namespace, "-l", addon.label,
+			"-o", "jsonpath={.items[0].status.phase}|{.items[0].spec.containers[0].image}")
+		output, err := cmd.Output()
+		if err != nil {
+			continue // Addon not installed
+		}
+
+		parts := strings.Split(string(output), "|")
+		if len(parts) >= 1 && parts[0] != "" {
+			status := "❌ Unknown"
+			if strings.TrimSpace(parts[0]) == "Running" {
+				status = "✅ Running"
+			} else if strings.TrimSpace(parts[0]) == "Pending" {
+				status = "⏳ Pending"
+			} else if strings.TrimSpace(parts[0]) == "Failed" {
+				status = "❌ Failed"
+			}
+
+			version := "unknown"
+			if len(parts) > 1 {
+				image := parts[1]
+				if imgParts := strings.Split(image, ":"); len(imgParts) > 1 {
+					version = imgParts[len(imgParts)-1]
+				}
+			}
+
+			addons = append(addons, InstalledAddon{
+				Name:      addon.name,
+				Category:  addon.category,
+				Status:    status,
+				Version:   version,
+				Namespace: addon.namespace,
+			})
+		}
+	}
+
+	return addons, nil
+}

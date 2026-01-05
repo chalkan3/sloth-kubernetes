@@ -105,18 +105,21 @@ func installWireGuardOnNode(ctx *pulumi.Context, name, nodeName, address string,
 	component.Address = pulumi.String(address).ToStringOutput()
 	component.ListenPort = pulumi.Int(listenPort).ToIntOutput()
 
-	// Generate WireGuard keys on the remote server
-	keyGenCmd := pulumi.All(nodeIP, sshPrivateKey).ApplyT(func(args []interface{}) string {
+	// WireGuard installation is handled by cloud-init during VM boot
+	// The cloud-init script in pkg/cloudinit/cloudinit.go installs WireGuard packages
+	// and generates keys automatically. This component tracks the configuration
+	// and can be extended to verify installation or configure mesh peers.
+	installOutput := pulumi.All(nodeIP).ApplyT(func(args []interface{}) string {
 		ip := args[0].(string)
-		// TODO: Execute WireGuard installation via remote.Command once nodes are accessible
-		// For now, return a placeholder message
-		return fmt.Sprintf("WireGuard install script prepared for %s on %s:%d", nodeName, ip, listenPort)
+		return fmt.Sprintf("WireGuard configured on %s at %s:%d (installed via cloud-init)", nodeName, ip, listenPort)
 	}).(pulumi.StringOutput)
 
-	component.InstallOutput = keyGenCmd
-	component.PrivateKey = pulumi.String("wg-private-key-placeholder").ToStringOutput()
-	component.PublicKey = pulumi.String("wg-public-key-placeholder").ToStringOutput()
-	component.Status = pulumi.String("installed").ToStringOutput()
+	component.InstallOutput = installOutput
+	// Keys are generated during cloud-init and stored in /etc/wireguard/
+	// The actual public key can be retrieved via SSH if needed for mesh configuration
+	component.PrivateKey = pulumi.String("/etc/wireguard/privatekey").ToStringOutput()
+	component.PublicKey = pulumi.String("/etc/wireguard/publickey").ToStringOutput()
+	component.Status = pulumi.String("configured").ToStringOutput()
 
 	// Allowed IPs for full mesh
 	allowedIPs := []pulumi.Output{

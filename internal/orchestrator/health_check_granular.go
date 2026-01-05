@@ -27,16 +27,12 @@ func NewHealthCheckComponentGranular(ctx *pulumi.Context, name string, nodes pul
 		return nil, err
 	}
 
-	// Use the SSH private key content directly (PEM format from TLS provider)
-	privateKeyContent := sshPrivateKey
+	// SSH private key is available for health check commands if needed
+	// Currently, node provisioning is handled by cloud-init during VM boot,
+	// not by SSH provisioning commands. See node_deployment.go for details.
+	_ = sshPrivateKey
 
 	totalChecks := 0
-	_ = privateKeyContent // TODO: Will be used for provisioning
-
-	// TODO: Provisioning will be added here once we solve the nested Output problem
-	// The issue is that nodes is an ArrayOutput of RealNodeComponent, and each RealNodeComponent
-	// has PublicIP which is also an Output. We can't easily extract nested Outputs in a loop.
-	// Solution: Move provisioning to node_deployment_real.go where we have direct access to each node
 
 	// Create health check components for tracking
 	healthResults := nodes.ApplyT(func(nodeList []interface{}) map[string]interface{} {

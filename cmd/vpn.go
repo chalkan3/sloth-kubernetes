@@ -824,28 +824,66 @@ func printVPNStatusTable(outputs auto.OutputMap) {
 	color.New(color.Bold).Fprintln(w, "METRIC\tVALUE")
 	fmt.Fprintln(w, "------\t-----")
 
-	// TODO: Parse actual VPN data from outputs
-	fmt.Fprintln(w, "VPN Mode\tWireGuard Mesh")
-	fmt.Fprintln(w, "Total Nodes\t6")
-	fmt.Fprintln(w, "Total Tunnels\t15")
-	fmt.Fprintln(w, "VPN Subnet\t10.8.0.0/24")
-	fmt.Fprintln(w, "Status\t✅ All tunnels active")
+	// Parse VPN data from node outputs
+	nodes, err := ParseNodeOutputs(outputs)
+	if err != nil || len(nodes) == 0 {
+		fmt.Fprintln(w, "VPN Mode\tWireGuard Mesh")
+		fmt.Fprintln(w, "Total Nodes\t0")
+		fmt.Fprintln(w, "Status\t⚠️ No nodes found")
+		return
+	}
 
-	color.Yellow("\n⚠️  Real-time VPN metrics will be available after implementing monitoring")
+	// Count nodes with VPN IPs
+	vpnNodes := 0
+	for _, node := range nodes {
+		if node.WireGuardIP != "" {
+			vpnNodes++
+		}
+	}
+
+	// Calculate full mesh tunnels (n*(n-1)/2)
+	tunnelCount := vpnNodes * (vpnNodes - 1) / 2
+
+	fmt.Fprintln(w, "VPN Mode\tWireGuard Mesh")
+	fmt.Fprintf(w, "Total Nodes\t%d\n", vpnNodes)
+	fmt.Fprintf(w, "Total Tunnels\t%d\n", tunnelCount)
+	fmt.Fprintln(w, "VPN Subnet\t10.8.0.0/24")
+	if vpnNodes > 0 {
+		fmt.Fprintln(w, "Status\t✅ VPN configured")
+	} else {
+		fmt.Fprintln(w, "Status\t⚠️ No VPN nodes")
+	}
 }
 
 func printVPNPeersTable(outputs auto.OutputMap) {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	defer w.Flush()
 
-	color.New(color.Bold).Fprintln(w, "NODE\tVPN IP\tPUBLIC KEY\tENDPOINT\tLAST HANDSHAKE\tTRANSFER")
-	fmt.Fprintln(w, "----\t------\t----------\t--------\t--------------\t--------")
+	// Parse peer data from node outputs
+	nodes, err := ParseNodeOutputs(outputs)
+	if err != nil || len(nodes) == 0 {
+		color.Yellow("⚠️  No VPN peers found")
+		return
+	}
 
-	// TODO: Parse actual peer data from outputs
-	fmt.Fprintln(w, "master-1\t10.8.0.10\tABC123...\t167.71.1.1:51820\t1m ago\t↑ 1.2MB / ↓ 2.4MB")
-	fmt.Fprintln(w, "worker-1\t10.8.0.11\tDEF456...\t172.236.1.1:51820\t30s ago\t↑ 800KB / ↓ 1.5MB")
+	color.New(color.Bold).Fprintln(w, "NODE\tVPN IP\tPROVIDER\tPUBLIC IP\tSTATUS")
+	fmt.Fprintln(w, "----\t------\t--------\t---------\t------")
 
-	color.Yellow("\n⚠️  Full peer information will be available after implementing peer tracking")
+	for _, node := range nodes {
+		if node.WireGuardIP == "" {
+			continue
+		}
+		status := "✅ Connected"
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
+			node.Name,
+			node.WireGuardIP,
+			node.Provider,
+			node.PublicIP,
+			status)
+	}
+
+	fmt.Println()
+	color.Cyan("💡 For detailed handshake info, run: wg show")
 }
 
 func runVPNJoin(cmd *cobra.Command, args []string) error {

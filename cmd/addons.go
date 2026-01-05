@@ -342,89 +342,178 @@ func runAddonsList(cmd *cobra.Command, args []string) error {
 		return nil
 	}
 
-	// Print addon table
-	printAddonTable()
+	// Get kubeconfig path
+	kubeconfigOutput, ok := outputs["kubeconfig"]
+	if !ok {
+		return fmt.Errorf("kubeconfig not found in stack outputs")
+	}
+	kubeconfigPath := fmt.Sprintf("%v", kubeconfigOutput.Value)
+
+	// Print addon table with real data
+	printAddonTable(kubeconfigPath)
 
 	return nil
 }
 
 func runAddonsSync(cmd *cobra.Command, args []string) error {
 	startTime := time.Now()
+	ctx := context.Background()
 	printHeader("🔄 Sync ArgoCD Applications")
 
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = " Triggering ArgoCD sync..."
+	s.Suffix = " Getting cluster information..."
 	s.Start()
 
-	// TODO: Implement actual sync via argocd CLI or kubectl
-	time.Sleep(2 * time.Second)
+	// Get kubeconfig from stack
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	stack, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to select stack: %w", err)
+	}
+
+	outputs, err := stack.Outputs(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to get outputs: %w", err)
+	}
+
+	kubeconfigOutput, ok := outputs["kubeconfig"]
+	if !ok {
+		s.Stop()
+		return fmt.Errorf("kubeconfig not found in stack outputs")
+	}
+	kubeconfigPath := fmt.Sprintf("%v", kubeconfigOutput.Value)
+
+	s.Suffix = " Triggering ArgoCD sync..."
+
+	// Trigger actual sync
+	appToSync := addonNamespace // --app flag value
+	if appToSync == "" {
+		appToSync = "--all"
+	}
+
+	if err := addons.SyncArgoCDApplications(kubeconfigPath, appToSync); err != nil {
+		s.Stop()
+		operations.RecordAddonsOperation(stackName, "sync", appToSync, "argocd", "failed", err.Error(), 0, 0, time.Since(startTime), err)
+		return fmt.Errorf("failed to sync: %w", err)
+	}
 
 	s.Stop()
 
 	color.Green("✅ Sync triggered successfully!")
 	fmt.Println()
 	color.Cyan("💡 Monitor sync status:")
-	fmt.Println("   kubernetes-create addons status")
+	fmt.Println("   sloth-kubernetes addons status")
 	fmt.Println("   kubectl get applications -n argocd")
 
 	// Record the operation
-	addonName := addonNamespace // --app flag value
-	if addonName == "" {
-		addonName = "--all"
-	}
-	operations.RecordAddonsOperation(stackName, "sync", addonName, "argocd", "success", "Sync triggered", 0, 0, time.Since(startTime), nil)
+	operations.RecordAddonsOperation(stackName, "sync", appToSync, "argocd", "success", "Sync triggered", 0, 0, time.Since(startTime), nil)
 
 	return nil
 }
 
 func runAddonsStatus(cmd *cobra.Command, args []string) error {
+	ctx := context.Background()
 	printHeader("📊 ArgoCD & Addon Status")
 
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
-	s.Suffix = " Fetching status..."
+	s.Suffix = " Getting cluster information..."
 	s.Start()
 
-	// TODO: Implement actual status check via kubectl
-	time.Sleep(2 * time.Second)
+	// Get kubeconfig from stack
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	stack, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to select stack: %w", err)
+	}
+
+	outputs, err := stack.Outputs(ctx)
+	if err != nil {
+		s.Stop()
+		return fmt.Errorf("failed to get outputs: %w", err)
+	}
+
+	kubeconfigOutput, ok := outputs["kubeconfig"]
+	if !ok {
+		s.Stop()
+		return fmt.Errorf("kubeconfig not found in stack outputs")
+	}
+	kubeconfigPath := fmt.Sprintf("%v", kubeconfigOutput.Value)
+
+	s.Suffix = " Fetching ArgoCD status..."
+
+	// Get real ArgoCD status
+	status, err := addons.GetArgoCDLocalStatus(kubeconfigPath)
+	if err != nil {
+		s.Stop()
+		color.Yellow("⚠️  Could not get ArgoCD status: %v", err)
+		fmt.Println()
+		return nil
+	}
 
 	s.Stop()
 
 	// Print ArgoCD status
 	fmt.Println()
 	color.Cyan("ArgoCD Server:")
-	fmt.Println("  Status: ✅ Running")
-	fmt.Println("  Version: v2.9.3")
-	fmt.Println("  Namespace: argocd")
+	if status.Running {
+		fmt.Println("  Status: ✅ Running")
+	} else {
+		fmt.Println("  Status: ❌ Not Running")
+	}
+	fmt.Printf("  Version: %s\n", status.Version)
+	fmt.Printf("  Namespace: %s\n", status.Namespace)
 	fmt.Println()
 
 	// Print applications
-	color.Cyan("Applications:")
-	fmt.Println()
+	if len(status.Applications) > 0 {
+		color.Cyan("Applications:")
+		fmt.Println()
 
-	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "NAME\tSYNC STATUS\tHEALTH\tNAMESPACE\tREPO")
-	fmt.Fprintln(w, "----\t-----------\t------\t---------\t----")
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintln(w, "NAME\tSYNC STATUS\tHEALTH\tNAMESPACE\tREPO")
+		fmt.Fprintln(w, "----\t-----------\t------\t---------\t----")
 
-	// Example data - TODO: Get real data from kubectl
-	apps := []struct {
-		Name       string
-		SyncStatus string
-		Health     string
-		Namespace  string
-		Repo       string
-	}{
-		{"cluster-addons", "✅ Synced", "✅ Healthy", "argocd", "github.com/user/gitops"},
-		{"ingress-nginx", "✅ Synced", "✅ Healthy", "ingress-nginx", "Auto-synced"},
-		{"cert-manager", "✅ Synced", "✅ Healthy", "cert-manager", "Auto-synced"},
+		for _, app := range status.Applications {
+			syncIcon := "✅"
+			if app.SyncStatus != "Synced" {
+				syncIcon = "⚠️"
+			}
+			healthIcon := "✅"
+			if app.Health != "Healthy" {
+				healthIcon = "❌"
+			}
+
+			// Truncate repo URL for display
+			repoDisplay := app.RepoURL
+			if len(repoDisplay) > 40 {
+				repoDisplay = repoDisplay[:37] + "..."
+			}
+
+			fmt.Fprintf(w, "%s\t%s %s\t%s %s\t%s\t%s\n",
+				app.Name, syncIcon, app.SyncStatus, healthIcon, app.Health, app.Namespace, repoDisplay)
+		}
+
+		w.Flush()
+		fmt.Println()
+	} else {
+		color.Yellow("No ArgoCD applications found")
+		fmt.Println()
 	}
-
-	for _, app := range apps {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
-			app.Name, app.SyncStatus, app.Health, app.Namespace, app.Repo)
-	}
-
-	w.Flush()
-	fmt.Println()
 
 	color.Cyan("💡 View in ArgoCD UI:")
 	fmt.Println("   kubectl port-forward svc/argocd-server -n argocd 8080:443")
@@ -469,43 +558,47 @@ func runAddonsTemplate(cmd *cobra.Command, args []string) error {
 
 // Helper functions
 
-func printAddonTable() {
+func printAddonTable(kubeconfigPath string) {
 	color.Cyan("Addons:")
 	fmt.Println()
+
+	// Get real addon data from cluster
+	installedAddons, err := addons.GetInstalledAddons(kubeconfigPath)
+	if err != nil || len(installedAddons) == 0 {
+		color.Yellow("No addons detected in cluster")
+		fmt.Println()
+		return
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "NAME\tCATEGORY\tSTATUS\tVERSION\tNAMESPACE")
 	fmt.Fprintln(w, "----\t--------\t------\t-------\t---------")
 
-	// Example data - TODO: Get real data from kubectl/ArgoCD
-	addonsData := []struct {
-		Name      string
-		Category  string
-		Status    string
-		Version   string
-		Namespace string
-	}{
-		{"argocd", "CD", "✅ Running", "v2.9.3", "argocd"},
-		{"ingress-nginx", "Ingress", "✅ Running", "v4.8.3", "ingress-nginx"},
-		{"cert-manager", "Security", "✅ Running", "v1.13.3", "cert-manager"},
-		{"prometheus", "Monitoring", "✅ Running", "v55.5.0", "monitoring"},
-		{"longhorn", "Storage", "✅ Running", "v1.5.3", "longhorn-system"},
-	}
-
-	for _, addon := range addonsData {
+	running := 0
+	failed := 0
+	for _, addon := range installedAddons {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n",
 			addon.Name, addon.Category, addon.Status, addon.Version, addon.Namespace)
+		if addon.Status == "✅ Running" {
+			running++
+		} else {
+			failed++
+		}
 	}
 
 	w.Flush()
 	fmt.Println()
 
 	color.Cyan("📊 Summary:")
-	fmt.Println("  • Total Addons: 5")
-	fmt.Println("  • Running: 5")
-	fmt.Println("  • Failed: 0")
+	fmt.Printf("  • Total Addons: %d\n", len(installedAddons))
+	fmt.Printf("  • Running: %d\n", running)
+	fmt.Printf("  • Failed: %d\n", failed)
 	fmt.Println()
-	color.Green("  ✅ All addons healthy")
+	if failed == 0 {
+		color.Green("  ✅ All addons healthy")
+	} else {
+		color.Yellow("  ⚠️  Some addons need attention")
+	}
 }
 
 func generateTemplateStructure(outputDir string) error {
