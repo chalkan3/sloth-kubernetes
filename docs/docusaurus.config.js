@@ -27,9 +27,11 @@ const config = {
       /** @type {import('@docusaurus/preset-classic').Options} */
       ({
         docs: {
+          path: '.',
           sidebarPath: './sidebars.js',
           editUrl: 'https://github.com/chalkan3/sloth-kubernetes/tree/main/docs/',
           routeBasePath: '/',
+          exclude: ['**/node_modules/**', 'src/**', 'static/**', 'package.json', 'package-lock.json', 'docusaurus.config.js', 'sidebars.js', 'README.md', '*.yml', '*.yaml'],
         },
         blog: false,
         theme: {
