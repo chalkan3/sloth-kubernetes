@@ -32,14 +32,6 @@ const sidebars = {
         'user-guide/kubectl',
       ],
     },
-    {
-      type: 'category',
-      label: 'Architecture',
-      items: [
-        'architecture/index',
-        'advanced/architecture',
-      ],
-    },
     'faq',
   ],
 };
