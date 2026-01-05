@@ -234,18 +234,18 @@ The resource is removed from the source stack and added to the target stack.`,
 }
 
 var (
-	destroyStack    bool
-	outputKey       string
-	outputJSON      bool
-	exportOutput    string
-	forceDelete     bool
-	resourceType    string
-	diffFile        string
-	stateDryRun     bool
-	unprotectAll    bool
-	bulkPattern     string
-	bulkFile        string
-	moveType        string
+	destroyStack bool
+	outputKey    string
+	outputJSON   bool
+	exportOutput string
+	forceDelete  bool
+	resourceType string
+	diffFile     string
+	stateDryRun  bool
+	unprotectAll bool
+	bulkPattern  string
+	bulkFile     string
+	moveType     string
 )
 
 func init() {
@@ -763,7 +763,7 @@ func runExportStack(cmd *cobra.Command, args []string) error {
 
 	// Create export wrapper with metadata
 	exportData := map[string]interface{}{
-		"version": deployment.Version,
+		"version":    deployment.Version,
 		"deployment": json.RawMessage(deployment.Deployment),
 		"metadata": map[string]interface{}{
 			"stack":      stackName,
@@ -813,8 +813,8 @@ func runImportStack(cmd *cobra.Command, args []string) error {
 
 	// Parse export wrapper
 	var exportData struct {
-		Version    int             `json:"version"`
-		Deployment json.RawMessage `json:"deployment"`
+		Version    int                    `json:"version"`
+		Deployment json.RawMessage        `json:"deployment"`
 		Metadata   map[string]interface{} `json:"metadata,omitempty"`
 	}
 
@@ -1343,10 +1343,10 @@ type resourceInfo struct {
 func parseResourcesFromDeployment(deployment json.RawMessage) []resourceInfo {
 	var data struct {
 		Resources []struct {
-			URN       string      `json:"urn"`
-			Type      string      `json:"type"`
-			ID        interface{} `json:"id"`
-			Protect   bool        `json:"protect"`
+			URN     string      `json:"urn"`
+			Type    string      `json:"type"`
+			ID      interface{} `json:"id"`
+			Protect bool        `json:"protect"`
 		} `json:"resources"`
 	}
 
