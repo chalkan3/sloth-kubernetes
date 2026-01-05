@@ -196,6 +196,29 @@ func runArgocdInstall(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Get and save ArgoCD password to Pulumi state
+	fmt.Println()
+	color.Cyan("Saving ArgoCD credentials to Pulumi state...")
+	password, err := addons.GetArgoCDPassword(stackInfo.MasterIP, sshKey, argocdNamespace)
+	if err != nil {
+		color.Yellow("Warning: Could not retrieve ArgoCD password: %v", err)
+	} else {
+		creds := &operations.ArgoCDCredentials{
+			Username:    "admin",
+			Password:    password,
+			Namespace:   argocdNamespace,
+			InstalledAt: time.Now().UTC(),
+			GitOpsRepo:  gitopsRepoURL,
+			Version:     argocdVersion,
+		}
+		if saveErr := operations.SaveArgoCDCredentials(targetStack, creds); saveErr != nil {
+			color.Yellow("Warning: Failed to save credentials to state: %v", saveErr)
+		} else {
+			color.Green("ArgoCD credentials saved to Pulumi state!")
+			fmt.Println("  Next time you run 'argocd password', it will read from state.")
+		}
+	}
+
 	fmt.Println()
 	printSuccess("ArgoCD installation completed!")
 	printArgocdAccessInfo(argocdNamespace)
@@ -281,6 +304,28 @@ func runArgocdPassword(cmd *cobra.Command, args []string) error {
 		return err
 	}
 
+	// First, try to get credentials from Pulumi state
+	creds, err := operations.GetArgoCDCredentialsFromStack(targetStack)
+	if err == nil && creds != nil && creds.Password != "" {
+		fmt.Println()
+		color.Green("ArgoCD Admin Credentials (from Pulumi state)")
+		fmt.Println("=============================================")
+		fmt.Printf("Username: %s\n", creds.Username)
+		fmt.Printf("Password: %s\n", creds.Password)
+		fmt.Printf("Namespace: %s\n", creds.Namespace)
+		if creds.GitOpsRepo != "" {
+			fmt.Printf("GitOps Repo: %s\n", creds.GitOpsRepo)
+		}
+		fmt.Printf("Installed: %s\n", creds.InstalledAt.Format(time.RFC3339))
+		fmt.Println()
+		return nil
+	}
+
+	// If not in state, fetch from cluster via SSH
+	fmt.Println()
+	color.Yellow("Credentials not found in state, fetching from cluster...")
+	fmt.Println()
+
 	stackInfo, err := GetStackInfo(targetStack)
 	if err != nil {
 		return fmt.Errorf("failed to get stack info: %w", err)
@@ -301,11 +346,24 @@ func runArgocdPassword(cmd *cobra.Command, args []string) error {
 	}
 
 	fmt.Println()
-	color.Cyan("ArgoCD Admin Credentials")
-	fmt.Println("========================")
+	color.Cyan("ArgoCD Admin Credentials (from cluster)")
+	fmt.Println("=======================================")
 	fmt.Printf("Username: admin\n")
 	fmt.Printf("Password: %s\n", password)
 	fmt.Println()
+
+	// Save to state for next time
+	newCreds := &operations.ArgoCDCredentials{
+		Username:    "admin",
+		Password:    password,
+		Namespace:   argocdNamespace,
+		InstalledAt: time.Now().UTC(),
+	}
+	if saveErr := operations.SaveArgoCDCredentials(targetStack, newCreds); saveErr != nil {
+		color.Yellow("Warning: Failed to save credentials to state: %v", saveErr)
+	} else {
+		color.Green("Credentials saved to Pulumi state for future use!")
+	}
 
 	return nil
 }

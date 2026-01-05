@@ -670,3 +670,57 @@ func RecordValidation(stackName, validationType, overallStatus string, totalChec
 		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
 	}
 }
+
+// SaveArgoCDCredentials saves ArgoCD credentials to Pulumi stack state
+func SaveArgoCDCredentials(stackName string, creds *ArgoCDCredentials) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	history.SetArgoCDCredentials(creds)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// GetArgoCDCredentialsFromStack retrieves ArgoCD credentials from Pulumi stack state
+func GetArgoCDCredentialsFromStack(stackName string) (*ArgoCDCredentials, error) {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get operations history: %w", err)
+	}
+
+	creds := history.GetArgoCDCredentials()
+	if creds == nil {
+		return nil, nil // No credentials stored yet
+	}
+
+	return creds, nil
+}
+
+// SaveGrafanaCredentials saves Grafana credentials to Pulumi stack state
+func SaveGrafanaCredentials(stackName string, creds *GrafanaCredentials) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	history.SetGrafanaCredentials(creds)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// GetGrafanaCredentialsFromStack retrieves Grafana credentials from Pulumi stack state
+func GetGrafanaCredentialsFromStack(stackName string) (*GrafanaCredentials, error) {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get operations history: %w", err)
+	}
+
+	creds := history.GetGrafanaCredentials()
+	if creds == nil {
+		return nil, nil // No credentials stored yet
+	}
+
+	return creds, nil
+}
