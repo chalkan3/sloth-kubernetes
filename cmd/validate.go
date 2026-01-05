@@ -3,12 +3,14 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/internal/validation"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var validateCmd = &cobra.Command{
@@ -42,6 +44,7 @@ func init() {
 }
 
 func runValidate(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	fmt.Println()
 	printHeader("🔍 Validating Cluster Configuration")
 	fmt.Println()
@@ -264,6 +267,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 		}
 		fmt.Println()
 	}
+
+	// Record the validation (6 checks: syntax, metadata, providers, nodes, network, kubernetes)
+	totalChecks := 6
+	passedChecks := totalChecks
+	warningChecks := len(warnings)
+	operations.RecordValidation(stackName, "config", "passed", totalChecks, passedChecks, 0, warningChecks, time.Since(startTime), nil)
 
 	return nil
 }

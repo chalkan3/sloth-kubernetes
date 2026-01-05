@@ -4,12 +4,14 @@ import (
 	"fmt"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/addons"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -132,6 +134,7 @@ func init() {
 }
 
 func runArgocdInstall(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	printHeader("Installing ArgoCD GitOps")
 
 	// Get stack name
@@ -196,6 +199,16 @@ func runArgocdInstall(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	printSuccess("ArgoCD installation completed!")
 	printArgocdAccessInfo(argocdNamespace)
+
+	// Record the operation
+	details := fmt.Sprintf("Version: %s, Namespace: %s", argocdVersion, argocdNamespace)
+	if gitopsRepoURL != "" {
+		details += fmt.Sprintf(", GitOps Repo: %s", gitopsRepoURL)
+	}
+	if appOfAppsEnabled {
+		details += fmt.Sprintf(", App of Apps: %s", appOfAppsName)
+	}
+	operations.RecordArgoCDOperation(targetStack, "install", "", argocdNamespace, "success", "", "", details, time.Since(startTime), nil)
 
 	return nil
 }
@@ -356,6 +369,7 @@ func runArgocdApps(cmd *cobra.Command, args []string) error {
 }
 
 func runArgocdSync(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	syncAll, _ := cmd.Flags().GetBool("all")
 
 	// Get stack name
@@ -387,15 +401,19 @@ func runArgocdSync(cmd *cobra.Command, args []string) error {
 	if syncAll {
 		color.Cyan("Syncing all applications...")
 		if err := addons.SyncAllApps(stackInfo.MasterIP, sshKey, argocdNamespace); err != nil {
+			operations.RecordArgoCDOperation(targetStack, "sync", "--all", argocdNamespace, "failed", "", "", "Sync all applications failed", time.Since(startTime), err)
 			return fmt.Errorf("failed to sync applications: %w", err)
 		}
 		printSuccess("All applications synced!")
+		operations.RecordArgoCDOperation(targetStack, "sync", "--all", argocdNamespace, "success", "Synced", "", "All applications synced", time.Since(startTime), nil)
 	} else if appName != "" {
 		color.Cyan("Syncing application: %s", appName)
 		if err := addons.SyncApp(stackInfo.MasterIP, sshKey, argocdNamespace, appName); err != nil {
+			operations.RecordArgoCDOperation(targetStack, "sync", appName, argocdNamespace, "failed", "", "", fmt.Sprintf("Sync application %s failed", appName), time.Since(startTime), err)
 			return fmt.Errorf("failed to sync application %s: %w", appName, err)
 		}
 		printSuccess(fmt.Sprintf("Application '%s' synced!", appName))
+		operations.RecordArgoCDOperation(targetStack, "sync", appName, argocdNamespace, "success", "Synced", "", fmt.Sprintf("Application %s synced", appName), time.Since(startTime), nil)
 	} else {
 		return fmt.Errorf("please specify an application name or use --all")
 	}

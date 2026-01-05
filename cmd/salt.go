@@ -14,6 +14,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 	"github.com/chalkan3/sloth-kubernetes/pkg/salt"
 )
 
@@ -671,6 +672,7 @@ func runSaltMinions(cmd *cobra.Command, args []string) error {
 }
 
 func runSaltCmd(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	client, err := getSaltClient()
 	if err != nil {
 		return err
@@ -686,6 +688,7 @@ func runSaltCmd(cmd *cobra.Command, args []string) error {
 	resp, err := client.RunShellCommand(saltTarget, command)
 	if err != nil {
 		color.Red("❌ Command execution failed: %v", err)
+		operations.RecordSaltOperation(stackName, "cmd", saltTarget, "cmd.run", command, "failed", "", 0, 0, 0, time.Since(startTime), err)
 		return err
 	}
 
@@ -697,9 +700,11 @@ func runSaltCmd(cmd *cobra.Command, args []string) error {
 
 	if len(resp.Return) == 0 || len(resp.Return[0]) == 0 {
 		color.Yellow("⚠️  No results returned")
+		operations.RecordSaltOperation(stackName, "cmd", saltTarget, "cmd.run", command, "success", "No results returned", 0, 0, 0, time.Since(startTime), nil)
 		return nil
 	}
 
+	nodesTargeted := len(resp.Return[0])
 	color.Green("✅ Results:")
 	fmt.Println()
 	for minion, result := range resp.Return[0] {
@@ -708,6 +713,9 @@ func runSaltCmd(cmd *cobra.Command, args []string) error {
 		fmt.Printf("%v\n", result)
 		fmt.Println()
 	}
+
+	// Record the operation
+	operations.RecordSaltOperation(stackName, "cmd", saltTarget, "cmd.run", command, "success", "", nodesTargeted, nodesTargeted, 0, time.Since(startTime), nil)
 
 	return nil
 }
@@ -777,6 +785,7 @@ func runSaltGrains(cmd *cobra.Command, args []string) error {
 }
 
 func runSaltStateApply(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	client, err := getSaltClient()
 	if err != nil {
 		return err
@@ -792,6 +801,7 @@ func runSaltStateApply(cmd *cobra.Command, args []string) error {
 	resp, err := client.ApplyState(saltTarget, state)
 	if err != nil {
 		color.Red("❌ State apply failed: %v", err)
+		operations.RecordSaltOperation(stackName, "state", saltTarget, "state.apply", state, "failed", "", 0, 0, 0, time.Since(startTime), err)
 		return err
 	}
 
@@ -804,7 +814,9 @@ func runSaltStateApply(cmd *cobra.Command, args []string) error {
 	color.Green("✅ State applied successfully")
 	fmt.Println()
 
+	nodesTargeted := 0
 	if len(resp.Return) > 0 {
+		nodesTargeted = len(resp.Return[0])
 		for minion, result := range resp.Return[0] {
 			color.Cyan("Minion: %s", minion)
 			fmt.Println(strings.Repeat("-", 60))
@@ -814,10 +826,14 @@ func runSaltStateApply(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Record the operation
+	operations.RecordSaltOperation(stackName, "state", saltTarget, "state.apply", state, "success", "", nodesTargeted, nodesTargeted, 0, time.Since(startTime), nil)
+
 	return nil
 }
 
 func runSaltHighstate(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	client, err := getSaltClient()
 	if err != nil {
 		return err
@@ -832,6 +848,7 @@ func runSaltHighstate(cmd *cobra.Command, args []string) error {
 	resp, err := client.HighState(saltTarget)
 	if err != nil {
 		color.Red("❌ Highstate failed: %v", err)
+		operations.RecordSaltOperation(stackName, "highstate", saltTarget, "state.highstate", "", "failed", "", 0, 0, 0, time.Since(startTime), err)
 		return err
 	}
 
@@ -844,7 +861,9 @@ func runSaltHighstate(cmd *cobra.Command, args []string) error {
 	color.Green("✅ Highstate completed")
 	fmt.Println()
 
+	nodesTargeted := 0
 	if len(resp.Return) > 0 {
+		nodesTargeted = len(resp.Return[0])
 		for minion, result := range resp.Return[0] {
 			color.Cyan("Minion: %s", minion)
 			fmt.Println(strings.Repeat("-", 60))
@@ -853,6 +872,9 @@ func runSaltHighstate(cmd *cobra.Command, args []string) error {
 			fmt.Println()
 		}
 	}
+
+	// Record the operation
+	operations.RecordSaltOperation(stackName, "highstate", saltTarget, "state.highstate", "", "success", "", nodesTargeted, nodesTargeted, 0, time.Since(startTime), nil)
 
 	return nil
 }

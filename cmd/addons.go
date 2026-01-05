@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/addons"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -159,6 +160,7 @@ func init() {
 }
 
 func runAddonsBootstrap(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	ctx := context.Background()
 
 	printHeader("🚀 Bootstrap ArgoCD via GitOps")
@@ -296,6 +298,10 @@ func runAddonsBootstrap(cmd *cobra.Command, args []string) error {
 	color.Cyan("💡 View addon status:")
 	fmt.Println("   kubernetes-create addons status")
 
+	// Record the operation
+	details := fmt.Sprintf("GitOps Repo: %s, Branch: %s, Path: %s", gitopsRepo, gitopsBranch, gitopsPath)
+	operations.RecordAddonsOperation(stackName, "bootstrap", "argocd", "gitops", "success", details, 1, 0, time.Since(startTime), nil)
+
 	return nil
 }
 
@@ -343,6 +349,7 @@ func runAddonsList(cmd *cobra.Command, args []string) error {
 }
 
 func runAddonsSync(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
 	printHeader("🔄 Sync ArgoCD Applications")
 
 	s := spinner.New(spinner.CharSets[14], 100*time.Millisecond)
@@ -359,6 +366,13 @@ func runAddonsSync(cmd *cobra.Command, args []string) error {
 	color.Cyan("💡 Monitor sync status:")
 	fmt.Println("   kubernetes-create addons status")
 	fmt.Println("   kubectl get applications -n argocd")
+
+	// Record the operation
+	addonName := addonNamespace // --app flag value
+	if addonName == "" {
+		addonName = "--all"
+	}
+	operations.RecordAddonsOperation(stackName, "sync", addonName, "argocd", "success", "Sync triggered", 0, 0, time.Since(startTime), nil)
 
 	return nil
 }
