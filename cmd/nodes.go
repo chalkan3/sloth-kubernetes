@@ -6,11 +6,14 @@ import (
 	"os"
 	"os/exec"
 	"text/tabwriter"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	yaml "gopkg.in/yaml.v3"
+
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var nodesCmd = &cobra.Command{
@@ -315,6 +318,8 @@ func getSSHUserForProvider(provider string) string {
 }
 
 func runAddNode(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+
 	if len(args) < 1 {
 		return fmt.Errorf("usage: sloth-kubernetes nodes add <stack-name> --pool <pool-name>")
 	}
@@ -409,10 +414,16 @@ func runAddNode(cmd *cobra.Command, args []string) error {
 	color.Yellow("💡 Tip: After deployment completes, you can delete the temporary config file:")
 	fmt.Printf("  rm %s\n", tempConfig)
 
+	// Record the operation
+	details := fmt.Sprintf("Pool: %s, Adding %d node(s), New count: %d", poolName, addCount, newCount)
+	operations.RecordNodeOperation(stack, "add", poolName, nodeRole, "", "success", details, time.Since(startTime), nil)
+
 	return nil
 }
 
 func runRemoveNode(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+
 	if len(args) < 2 {
 		return fmt.Errorf("usage: sloth-kubernetes nodes remove <stack-name> <node-name>")
 	}
@@ -429,6 +440,13 @@ func runRemoveNode(cmd *cobra.Command, args []string) error {
 	}
 
 	color.Yellow("⚠️  Remove node functionality will be implemented in next phase")
+
+	// Record the operation (placeholder for now)
+	details := "Remove functionality pending implementation"
+	if forceRemove {
+		details = "Force remove - " + details
+	}
+	operations.RecordNodeOperation(stack, "remove", node, "", "", "pending", details, time.Since(startTime), nil)
 
 	return nil
 }

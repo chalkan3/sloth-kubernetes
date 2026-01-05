@@ -253,6 +253,126 @@ func AddBenchmarkEntry(stackName string, entry BenchmarkEntry) error {
 	return SaveOperationsHistory(stackName, history)
 }
 
+// AddNodeEntry adds a node entry to the stack's operations history
+func AddNodeEntry(stackName string, entry NodeEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddNode(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// AddVPNEntry adds a VPN entry to the stack's operations history
+func AddVPNEntry(stackName string, entry VPNEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddVPN(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// AddArgoCDEntry adds an ArgoCD entry to the stack's operations history
+func AddArgoCDEntry(stackName string, entry ArgoCDEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddArgoCD(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// AddAddonsEntry adds an addons entry to the stack's operations history
+func AddAddonsEntry(stackName string, entry AddonsEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddAddons(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// AddSaltEntry adds a Salt entry to the stack's operations history
+func AddSaltEntry(stackName string, entry SaltEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddSalt(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
+// AddValidationEntry adds a validation entry to the stack's operations history
+func AddValidationEntry(stackName string, entry ValidationEntry) error {
+	history, err := GetOperationsHistory(stackName)
+	if err != nil {
+		history = NewOperationsHistory()
+	}
+
+	if entry.ID == "" {
+		entry.ID = uuid.New().String()
+	}
+
+	if entry.Timestamp.IsZero() {
+		entry.Timestamp = time.Now().UTC()
+	}
+
+	history.AddValidation(entry)
+
+	return SaveOperationsHistory(stackName, history)
+}
+
 // createWorkspaceWithS3Support creates a Pulumi workspace with S3/MinIO backend support
 func createWorkspaceWithS3Support(ctx context.Context) (auto.Workspace, error) {
 	// Load saved S3 backend configuration
@@ -404,6 +524,149 @@ func RecordBenchmark(stackName, benchmarkType string, overallScore float64, grad
 	}
 
 	if saveErr := AddBenchmarkEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordNodeOperation is a convenience function to record a node operation
+func RecordNodeOperation(stackName, operation, nodeName, nodeRole, nodeIP, status, details string, duration time.Duration, err error) {
+	entry := NodeEntry{
+		ID:        uuid.New().String(),
+		Timestamp: time.Now().UTC(),
+		Operation: operation,
+		NodeName:  nodeName,
+		NodeRole:  nodeRole,
+		NodeIP:    nodeIP,
+		Status:    status,
+		Details:   details,
+		Duration:  duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddNodeEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordVPNOperation is a convenience function to record a VPN operation
+func RecordVPNOperation(stackName, operation, nodeName, networkID, status, details string, nodesCount int, duration time.Duration, err error) {
+	entry := VPNEntry{
+		ID:         uuid.New().String(),
+		Timestamp:  time.Now().UTC(),
+		Operation:  operation,
+		NodeName:   nodeName,
+		NetworkID:  networkID,
+		Status:     status,
+		NodesCount: nodesCount,
+		Details:    details,
+		Duration:   duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddVPNEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordArgoCDOperation is a convenience function to record an ArgoCD operation
+func RecordArgoCDOperation(stackName, operation, appName, namespace, status, syncStatus, healthState, details string, duration time.Duration, err error) {
+	entry := ArgoCDEntry{
+		ID:          uuid.New().String(),
+		Timestamp:   time.Now().UTC(),
+		Operation:   operation,
+		AppName:     appName,
+		Namespace:   namespace,
+		Status:      status,
+		SyncStatus:  syncStatus,
+		HealthState: healthState,
+		Details:     details,
+		Duration:    duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddArgoCDEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordAddonsOperation is a convenience function to record an addons operation
+func RecordAddonsOperation(stackName, operation, addonName, addonType, status, details string, addonsApplied, addonsFailed int, duration time.Duration, err error) {
+	entry := AddonsEntry{
+		ID:            uuid.New().String(),
+		Timestamp:     time.Now().UTC(),
+		Operation:     operation,
+		AddonName:     addonName,
+		AddonType:     addonType,
+		Status:        status,
+		AddonsApplied: addonsApplied,
+		AddonsFailed:  addonsFailed,
+		Details:       details,
+		Duration:      duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddAddonsEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordSaltOperation is a convenience function to record a Salt operation
+func RecordSaltOperation(stackName, operation, target, function, arguments, status, output string, nodesTargeted, nodesSuccess, nodesFailed int, duration time.Duration, err error) {
+	entry := SaltEntry{
+		ID:            uuid.New().String(),
+		Timestamp:     time.Now().UTC(),
+		Operation:     operation,
+		Target:        target,
+		Function:      function,
+		Arguments:     arguments,
+		Status:        status,
+		NodesTargeted: nodesTargeted,
+		NodesSuccess:  nodesSuccess,
+		NodesFailed:   nodesFailed,
+		Output:        output,
+		Duration:      duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddSaltEntry(stackName, entry); saveErr != nil {
+		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
+	}
+}
+
+// RecordValidation is a convenience function to record a validation run
+func RecordValidation(stackName, validationType, overallStatus string, totalChecks, passedChecks, failedChecks, warningChecks int, duration time.Duration, err error) {
+	entry := ValidationEntry{
+		ID:             uuid.New().String(),
+		Timestamp:      time.Now().UTC(),
+		ValidationType: validationType,
+		OverallStatus:  overallStatus,
+		TotalChecks:    totalChecks,
+		PassedChecks:   passedChecks,
+		FailedChecks:   failedChecks,
+		WarningChecks:  warningChecks,
+		Duration:       duration.String(),
+	}
+
+	if err != nil {
+		entry.Error = err.Error()
+	}
+
+	if saveErr := AddValidationEntry(stackName, entry); saveErr != nil {
 		fmt.Printf("Warning: Failed to save operation to history: %v\n", saveErr)
 	}
 }

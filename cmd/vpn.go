@@ -16,6 +16,8 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/auto"
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/curve25519"
+
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -847,6 +849,8 @@ func printVPNPeersTable(outputs auto.OutputMap) {
 }
 
 func runVPNJoin(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+
 	if len(args) < 1 {
 		return fmt.Errorf("usage: sloth-kubernetes vpn join <stack-name>")
 	}
@@ -1520,10 +1524,17 @@ echo "✓ WireGuard installed and started"
 	printSuccess(fmt.Sprintf("Successfully joined VPN with IP %s!", vpnJoinIP))
 	printInfo("You can now access cluster nodes via their VPN IPs (10.8.0.x)")
 
+	// Record the operation
+	nodeCount := len(nodes)
+	details := fmt.Sprintf("Joined with IP %s, %d cluster nodes configured", vpnJoinIP, nodeCount)
+	operations.RecordVPNOperation(stack, "join", vpnJoinLabel, "", "success", details, nodeCount, time.Since(startTime), nil)
+
 	return nil
 }
 
 func runVPNLeave(cmd *cobra.Command, args []string) error {
+	startTime := time.Now()
+
 	if len(args) < 1 {
 		return fmt.Errorf("usage: sloth-kubernetes vpn leave <stack-name>")
 	}
@@ -1769,6 +1780,15 @@ func runVPNLeave(cmd *cobra.Command, args []string) error {
 		fmt.Println("  sudo wg-quick down wg0")
 		fmt.Println("  sudo rm /etc/wireguard/wg0.conf")
 	}
+
+	// Record the operation
+	nodeCount := len(nodes)
+	details := fmt.Sprintf("Removed peer %s from %d nodes", targetIP, successCount)
+	status := "success"
+	if successCount < len(nodes) {
+		status = "partial"
+	}
+	operations.RecordVPNOperation(stack, "leave", "", "", status, details, nodeCount, time.Since(startTime), nil)
 
 	return nil
 }
