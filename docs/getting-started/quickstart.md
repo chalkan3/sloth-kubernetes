@@ -145,6 +145,6 @@ sloth-kubernetes destroy --config cluster.lisp
 ## Next Steps
 
 - [LISP Configuration](../configuration/lisp-format.md) - Full config syntax
-- [Multi-Cloud](../advanced/multi-cloud.md) - Deploy across providers
 - [CLI Reference](../user-guide/cli-reference.md) - All commands
 - [Examples](../configuration/examples.md) - More configurations
+- [FAQ](../faq.md) - Frequently asked questions

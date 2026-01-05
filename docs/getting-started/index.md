@@ -114,5 +114,5 @@ Once installed, continue with:
 After deploying your first cluster, explore:
 
 - **[User Guide](../user-guide/index.md)** - Learn all CLI commands and workflows
-- **[Architecture](../architecture/index.md)** - Understand how sloth-kubernetes works
-- **[Configuration Reference](../user-guide/index.md)** - Complete YAML configuration options
+- **[Configuration Reference](../configuration/lisp-format.md)** - Complete LISP configuration options
+- **[FAQ](../faq.md)** - Frequently asked questions

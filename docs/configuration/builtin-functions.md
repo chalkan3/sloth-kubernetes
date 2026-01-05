@@ -185,9 +185,9 @@ Equality comparison.
 (= (env "COUNT") "3")
 ```
 
-### != / < / > / <= / >=
+### Comparison Operators
 
-Comparison operators.
+`!=`, `<`, `>`, `<=`, `>=` - Compare values.
 
 ```lisp
 (!= (env "ENV") "development")

@@ -1371,5 +1371,5 @@ sloth-kubernetes salt keys accept-all
 
 ## Next Steps
 
-- **[Architecture](../architecture/index.md)** - Understand how it all works
+- **[Configuration](../configuration/lisp-format.md)** - LISP configuration reference
 - **[FAQ](../faq.md)** - Frequently asked questions
