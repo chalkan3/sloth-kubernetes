@@ -6,8 +6,6 @@ on:
       - main
     paths:
       - 'docs/**'
-      - 'mkdocs.yml'
-      - 'requirements.txt'
       - '.github/workflows/docs.yml'
   workflow_dispatch:
 
@@ -23,32 +21,31 @@ concurrency:
 jobs:
   build:
     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.11'
-          cache: 'pip'
+          node-version: '20'
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        run: npm install
+
+      - name: Build website
+        run: npm run build
 
       - name: Setup Pages
-        id: pages
         uses: actions/configure-pages@v5
-        with:
-          enablement: true
-
-      - name: Build with MkDocs
-        run: mkdocs build
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
-          path: site
+          path: docs/build
 
   deploy:
     environment:
