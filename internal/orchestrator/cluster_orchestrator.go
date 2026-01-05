@@ -565,6 +565,9 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 	// Export kubeconfig for kubectl access
 	ctx.Export("kubeConfig", pulumi.ToSecret(kubeConfig))
 
+	// Initialize operations history for CLI operations tracking
+	ctx.Export("operationsHistory", pulumi.String("{}"))
+
 	// Export bastion information if enabled
 	if bastionComponent != nil {
 		ctx.Export("bastion", pulumi.Map{

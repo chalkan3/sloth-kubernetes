@@ -8,7 +8,7 @@ import (
 
 func TestHelmCmd_Structure(t *testing.T) {
 	assert.NotNil(t, helmCmd)
-	assert.Equal(t, "helm", helmCmd.Use)
+	assert.Equal(t, "helm [stack-name] [helm-args...]", helmCmd.Use)
 	assert.NotEmpty(t, helmCmd.Short)
 	assert.NotEmpty(t, helmCmd.Long)
 	assert.NotEmpty(t, helmCmd.Example)
@@ -24,14 +24,14 @@ func TestHelmCmd_DisableFlagParsing(t *testing.T) {
 
 func TestHelmCmd_Examples(t *testing.T) {
 	examples := helmCmd.Example
-	assert.Contains(t, examples, "helm list")
-	assert.Contains(t, examples, "helm install")
-	assert.Contains(t, examples, "helm upgrade")
-	assert.Contains(t, examples, "helm repo add")
-	assert.Contains(t, examples, "helm search")
-	assert.Contains(t, examples, "helm status")
-	assert.Contains(t, examples, "helm uninstall")
-	assert.Contains(t, examples, "--kubeconfig")
+	// Updated examples use stack-aware syntax: helm <stack-name> <command>
+	assert.Contains(t, examples, "helm my-cluster list")
+	assert.Contains(t, examples, "helm my-cluster install")
+	assert.Contains(t, examples, "helm my-cluster upgrade")
+	assert.Contains(t, examples, "helm my-cluster repo add")
+	assert.Contains(t, examples, "helm my-cluster search")
+	assert.Contains(t, examples, "helm my-cluster status")
+	assert.Contains(t, examples, "helm my-cluster uninstall")
 }
 
 func TestHelmCmd_LongDescription(t *testing.T) {
@@ -40,15 +40,15 @@ func TestHelmCmd_LongDescription(t *testing.T) {
 	assert.Contains(t, long, "binary")
 	assert.Contains(t, long, "PATH")
 	assert.Contains(t, long, "kubeconfig")
-	assert.Contains(t, long, "KUBECONFIG")
-	assert.Contains(t, long, ".kube/config")
+	// Stack-aware syntax: kubeconfig is retrieved from stack
+	assert.Contains(t, long, "Pulumi stack")
 }
 
 func TestHelmCmd_ShortDescription(t *testing.T) {
 	short := helmCmd.Short
 	assert.Contains(t, short, "Helm")
-	assert.Contains(t, short, "helm")
-	assert.Contains(t, short, "PATH")
+	// Updated short description mentions kubeconfig from stack
+	assert.Contains(t, short, "kubeconfig")
 }
 
 func TestHelmCmd_RegisteredWithRoot(t *testing.T) {
@@ -70,10 +70,10 @@ func TestHelmCmd_RequiresBinary(t *testing.T) {
 
 func TestHelmCmd_KubeconfigOptions(t *testing.T) {
 	long := helmCmd.Long
-	// Should document all kubeconfig resolution methods
-	assert.Contains(t, long, "--kubeconfig")
-	assert.Contains(t, long, "KUBECONFIG")
-	assert.Contains(t, long, "~/.kube/config")
+	// Stack-aware: kubeconfig is automatically retrieved from stack
+	assert.Contains(t, long, "kubeconfig")
+	assert.Contains(t, long, "automatically")
+	assert.Contains(t, long, "Pulumi stack")
 }
 
 func TestHelmCmd_ExampleCommands(t *testing.T) {

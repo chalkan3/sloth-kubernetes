@@ -1,8 +1,6 @@
 package cmd
 
 import (
-	"os"
-	"path/filepath"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -10,7 +8,7 @@ import (
 
 func TestKubectlCmd_Structure(t *testing.T) {
 	assert.NotNil(t, kubectlCmd)
-	assert.Equal(t, "kubectl", kubectlCmd.Use)
+	assert.Equal(t, "kubectl [stack-name] [kubectl-args...]", kubectlCmd.Use)
 	assert.NotEmpty(t, kubectlCmd.Short)
 	assert.NotEmpty(t, kubectlCmd.Long)
 	assert.NotEmpty(t, kubectlCmd.Example)
@@ -22,47 +20,6 @@ func TestKubectlCmd_DisableFlagParsing(t *testing.T) {
 
 func TestKubectlCmd_RunE(t *testing.T) {
 	assert.NotNil(t, kubectlCmd.RunE, "kubectl command should have RunE function")
-}
-
-func TestGetKubeconfigPath_FromEnv(t *testing.T) {
-	// Test with KUBECONFIG env var set
-	testPath := "/tmp/test-kubeconfig"
-	oldKubeconfig := os.Getenv("KUBECONFIG")
-	defer os.Setenv("KUBECONFIG", oldKubeconfig)
-
-	os.Setenv("KUBECONFIG", testPath)
-	path := getKubeconfigPath()
-	assert.Equal(t, testPath, path)
-}
-
-func TestGetKubeconfigPath_Default(t *testing.T) {
-	// Test without KUBECONFIG env var (should return default path)
-	oldKubeconfig := os.Getenv("KUBECONFIG")
-	defer os.Setenv("KUBECONFIG", oldKubeconfig)
-
-	os.Unsetenv("KUBECONFIG")
-	path := getKubeconfigPath()
-
-	// Should return either default kubeconfig or empty string
-	if path != "" {
-		assert.Contains(t, path, ".kube")
-	}
-}
-
-func TestGetKubeconfigPath_HomeDir(t *testing.T) {
-	// Clear KUBECONFIG env
-	oldKubeconfig := os.Getenv("KUBECONFIG")
-	defer os.Setenv("KUBECONFIG", oldKubeconfig)
-	os.Unsetenv("KUBECONFIG")
-
-	path := getKubeconfigPath()
-
-	// If home dir is accessible, path should contain .kube/config
-	home, err := os.UserHomeDir()
-	if err == nil && path != "" {
-		expectedPath := filepath.Join(home, ".kube", "config")
-		assert.Equal(t, expectedPath, path)
-	}
 }
 
 func TestKubectlCmd_Examples(t *testing.T) {
@@ -81,8 +38,22 @@ func TestKubectlCmd_LongDescription(t *testing.T) {
 	assert.Contains(t, long, "kubeconfig")
 }
 
-func TestRunKubectl_WithInvalidArgs(t *testing.T) {
-	// This test verifies that runKubectl can be called (even though it will fail with invalid args)
-	// We're just testing that the function exists and has correct signature
-	assert.NotNil(t, runKubectl)
+func TestKubectlCmd_StackAwareUsage(t *testing.T) {
+	// Verify the command usage shows stack-name as first argument
+	assert.Contains(t, kubectlCmd.Use, "stack-name")
+	assert.Contains(t, kubectlCmd.Use, "kubectl-args")
+}
+
+func TestRunKubectl_RequiresStackName(t *testing.T) {
+	// Test that running kubectl without arguments returns an error
+	err := runKubectl(kubectlCmd, []string{})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "stack name is required")
+}
+
+func TestRunKubectl_WithInvalidStack(t *testing.T) {
+	// Test with a non-existent stack name
+	err := runKubectl(kubectlCmd, []string{"non-existent-stack", "get", "nodes"})
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "failed to get kubeconfig")
 }

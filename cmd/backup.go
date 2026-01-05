@@ -10,6 +10,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/backup"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -370,8 +371,11 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Cyan("Creating backup...")
 
+	startTime := time.Now()
 	result, err := manager.CreateBackup(config)
 	if err != nil {
+		// Record failed backup
+		operations.RecordBackupOperation(targetStack, "create", config.Name, "failed", config.IncludedNamespaces, time.Since(startTime), err)
 		return err
 	}
 
@@ -379,9 +383,17 @@ func runBackupCreate(cmd *cobra.Command, args []string) error {
 		color.Cyan("Waiting for backup to complete...")
 		result, err = manager.WaitForBackup(result.Name, backupTimeout)
 		if err != nil {
+			operations.RecordBackupOperation(targetStack, "create", result.Name, "failed", config.IncludedNamespaces, time.Since(startTime), err)
 			return err
 		}
 	}
+
+	// Record successful backup
+	status := "success"
+	if result.Status == "PartiallyFailed" {
+		status = "partial"
+	}
+	operations.RecordBackupOperation(targetStack, "create", result.Name, status, result.IncludedNamespaces, time.Since(startTime), nil)
 
 	if backupOutputJSON {
 		return outputBackupJSON(result)
@@ -509,10 +521,13 @@ func runBackupDelete(cmd *cobra.Command, args []string) error {
 
 	color.Yellow("Deleting backup %s...", backupName)
 
+	startTime := time.Now()
 	if err := manager.DeleteBackup(backupName); err != nil {
+		operations.RecordBackupOperation(targetStack, "delete", backupName, "failed", nil, time.Since(startTime), err)
 		return err
 	}
 
+	operations.RecordBackupOperation(targetStack, "delete", backupName, "success", nil, time.Since(startTime), nil)
 	color.Green("Backup %s deleted successfully", backupName)
 	return nil
 }
@@ -600,8 +615,10 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Cyan("Creating restore from backup %s...", restoreFromBackup)
 
+	startTime := time.Now()
 	result, err := manager.CreateRestore(config)
 	if err != nil {
+		operations.RecordBackupOperation(targetStack, "restore", restoreFromBackup, "failed", config.IncludedNamespaces, time.Since(startTime), err)
 		return err
 	}
 
@@ -609,9 +626,17 @@ func runBackupRestore(cmd *cobra.Command, args []string) error {
 		color.Cyan("Waiting for restore to complete...")
 		result, err = manager.WaitForRestore(result.Name, backupTimeout)
 		if err != nil {
+			operations.RecordBackupOperation(targetStack, "restore", restoreFromBackup, "failed", config.IncludedNamespaces, time.Since(startTime), err)
 			return err
 		}
 	}
+
+	// Record successful restore
+	status := "success"
+	if result.Status == "PartiallyFailed" {
+		status = "partial"
+	}
+	operations.RecordBackupOperation(targetStack, "restore", result.Name, status, result.IncludedNamespaces, time.Since(startTime), nil)
 
 	if backupOutputJSON {
 		return outputBackupJSON(result)
@@ -721,10 +746,14 @@ func runScheduleCreate(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 	color.Cyan("Creating backup schedule...")
 
+	startTime := time.Now()
 	result, err := manager.CreateSchedule(config)
 	if err != nil {
+		operations.RecordBackupOperation(targetStack, "schedule-create", config.Name, "failed", config.IncludedNamespaces, time.Since(startTime), err)
 		return err
 	}
+
+	operations.RecordBackupOperation(targetStack, "schedule-create", result.Name, "success", config.IncludedNamespaces, time.Since(startTime), nil)
 
 	if backupOutputJSON {
 		return outputBackupJSON(result)
@@ -837,10 +866,13 @@ func runScheduleDelete(cmd *cobra.Command, args []string) error {
 
 	color.Yellow("Deleting schedule %s...", scheduleName)
 
+	startTime := time.Now()
 	if err := manager.DeleteSchedule(scheduleName); err != nil {
+		operations.RecordBackupOperation(targetStack, "schedule-delete", scheduleName, "failed", nil, time.Since(startTime), err)
 		return err
 	}
 
+	operations.RecordBackupOperation(targetStack, "schedule-delete", scheduleName, "success", nil, time.Since(startTime), nil)
 	color.Green("Schedule %s deleted successfully", scheduleName)
 	return nil
 }

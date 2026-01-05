@@ -3,11 +3,13 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/health"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -112,8 +114,10 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 	fmt.Println()
 
 	// Run all checks
+	startTime := time.Now()
 	report, err := checker.RunAllChecks(clusterName)
 	if err != nil {
+		operations.RecordHealthCheck(targetStack, "error", 0, 0, 0, 0, err.Error(), time.Since(startTime), err)
 		return fmt.Errorf("health check failed: %w", err)
 	}
 
@@ -121,6 +125,10 @@ func runHealthCheck(cmd *cobra.Command, args []string) error {
 	if len(healthChecks) > 0 {
 		report = filterChecks(report, healthChecks)
 	}
+
+	// Record health check
+	summary := fmt.Sprintf("%d healthy, %d warnings, %d critical", report.Summary.HealthyChecks, report.Summary.WarningChecks, report.Summary.CriticalChecks)
+	operations.RecordHealthCheck(targetStack, string(report.OverallStatus), report.Summary.TotalChecks, report.Summary.HealthyChecks, report.Summary.WarningChecks, report.Summary.CriticalChecks, summary, time.Since(startTime), nil)
 
 	// Print report based on output mode
 	if healthCompact {

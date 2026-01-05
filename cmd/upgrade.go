@@ -3,10 +3,12 @@ package cmd
 import (
 	"fmt"
 	"strings"
+	"time"
 
 	"github.com/fatih/color"
 	"github.com/spf13/cobra"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 	"github.com/chalkan3/sloth-kubernetes/pkg/upgrade"
 )
 
@@ -252,13 +254,29 @@ func runUpgradeApply(cmd *cobra.Command, args []string) error {
 	color.Cyan("Starting upgrade...")
 	fmt.Println()
 
+	startTime := time.Now()
 	result, err := manager.Execute(plan)
 	if err != nil {
+		// Record failed upgrade
+		operations.RecordUpgradeOperation(targetStack, "upgrade", plan.CurrentVersion, plan.TargetVersion, string(plan.Strategy), "failed", len(plan.Nodes), 0, len(plan.Nodes), time.Since(startTime), err)
 		return fmt.Errorf("upgrade failed: %w", err)
 	}
 
 	// Print results
 	printUpgradeResult(result)
+
+	// Record upgrade result
+	status := "success"
+	if result.Status == upgrade.StatusFailed {
+		status = "failed"
+	} else if result.Status == upgrade.StatusRolledBack {
+		status = "rollback"
+	} else if result.NodesUpgraded < result.TotalNodes {
+		status = "partial"
+	}
+
+	nodesFailed := result.TotalNodes - result.NodesUpgraded
+	operations.RecordUpgradeOperation(targetStack, "upgrade", result.PreviousVersion, result.NewVersion, string(plan.Strategy), status, result.TotalNodes, result.NodesUpgraded, nodesFailed, time.Since(startTime), nil)
 
 	if result.Status == upgrade.StatusFailed {
 		return fmt.Errorf("upgrade completed with failures")
@@ -297,10 +315,19 @@ func runUpgradeRollback(cmd *cobra.Command, args []string) error {
 	color.Cyan("Starting rollback...")
 	fmt.Println()
 
+	// Get current version before rollback
+	currentVersion, _ := manager.GetCurrentVersion()
+
+	startTime := time.Now()
 	err = manager.Rollback()
 	if err != nil {
+		operations.RecordUpgradeOperation(targetStack, "rollback", currentVersion, "", "", "failed", 0, 0, 0, time.Since(startTime), err)
 		return fmt.Errorf("rollback failed: %w", err)
 	}
+
+	// Get new version after rollback
+	newVersion, _ := manager.GetCurrentVersion()
+	operations.RecordUpgradeOperation(targetStack, "rollback", currentVersion, newVersion, "", "success", 0, 0, 0, time.Since(startTime), nil)
 
 	color.Green("[OK] Rollback completed successfully!")
 	return nil

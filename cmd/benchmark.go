@@ -11,6 +11,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/benchmark"
+	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 )
 
 var (
@@ -171,12 +172,16 @@ func runBenchmark(cmd *cobra.Command, args []string) error {
 	startTime := time.Now()
 	report, err := manager.RunBenchmark(bType)
 	if err != nil {
+		operations.RecordBenchmark(targetStack, benchmarkType, 0, "", 0, 0, 0, 0, nil, time.Since(startTime), err)
 		return fmt.Errorf("benchmark failed: %w", err)
 	}
 
 	if benchmarkVerbose {
 		fmt.Printf("Benchmarks completed in %s\n", time.Since(startTime))
 	}
+
+	// Record benchmark to history
+	operations.RecordBenchmark(targetStack, benchmarkType, report.Summary.OverallScore, report.Summary.Grade, report.Summary.NetworkScore, report.Summary.StorageScore, report.Summary.CPUScore, report.Summary.MemoryScore, report.Summary.Recommendations, time.Since(startTime), nil)
 
 	// Output results
 	switch benchmarkOutput {
@@ -223,10 +228,15 @@ func runQuickBenchmark(cmd *cobra.Command, args []string) error {
 	}
 
 	// Run all benchmarks but show compact output
+	startTime := time.Now()
 	report, err := manager.RunBenchmark(benchmark.BenchmarkAll)
 	if err != nil {
+		operations.RecordBenchmark(targetStack, "quick", 0, "", 0, 0, 0, 0, nil, time.Since(startTime), err)
 		return fmt.Errorf("benchmark failed: %w", err)
 	}
+
+	// Record benchmark to history
+	operations.RecordBenchmark(targetStack, "quick", report.Summary.OverallScore, report.Summary.Grade, report.Summary.NetworkScore, report.Summary.StorageScore, report.Summary.CPUScore, report.Summary.MemoryScore, report.Summary.Recommendations, time.Since(startTime), nil)
 
 	if benchmarkOutput == "json" {
 		return outputBenchmarkJSON(report)
