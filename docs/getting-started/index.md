@@ -1,118 +1,157 @@
 ---
 title: Getting Started
-description: Get started with sloth-kubernetes by installing the binary and deploying your first cluster
+description: Get started with sloth-kubernetes - deploy production-grade Kubernetes clusters in minutes
 ---
 
 # Getting Started
 
-Welcome to **sloth-kubernetes**! This guide will walk you through installing the tool and deploying your first multi-cloud Kubernetes cluster.
+Welcome to **sloth-kubernetes** - the multi-cloud Kubernetes deployment platform that fits in a single binary.
 
-## What You'll Learn
+---
 
-In this section, you'll learn how to:
+## What is sloth-kubernetes?
 
-- Install sloth-kubernetes on Linux, macOS, or Windows
-- Configure cloud provider credentials
-- Create your first cluster configuration
-- Deploy a production-grade Kubernetes cluster
-- Access and manage your cluster
+sloth-kubernetes is a CLI tool that deploys production-ready Kubernetes clusters across multiple cloud providers with:
 
-## Prerequisites
+- **Zero external dependencies** - Single binary includes Pulumi, Salt, and kubectl
+- **Multi-cloud support** - AWS, DigitalOcean, Linode, Azure (GCP coming soon)
+- **Lisp-based configuration** - Dynamic, readable configs with 70+ built-in functions
+- **Enterprise features** - State management, audit logging, config versioning, manifest tracking
+- **Automatic networking** - WireGuard VPN mesh across all providers
 
-Before you begin, make sure you have:
-
-### Required
-
-- **Cloud provider account** - At least one of:
-    - [DigitalOcean account](https://www.digitalocean.com/) with API token
-    - [Linode account](https://www.linode.com/) with API token
-    - [AWS account](https://aws.amazon.com/) with access keys (coming soon)
-    - [Azure account](https://azure.microsoft.com/) with service principal (coming soon)
-    - [GCP account](https://cloud.google.com/) with service account (coming soon)
-
-- **SSH keys** - For secure access to cluster nodes
-- **Terminal/Shell** - Command-line access on your local machine
-
-### Optional
-
-- **kubectl** - For Kubernetes management (embedded in sloth-kubernetes)
-- **Helm** - For package management (wrapper provided)
-- **Git** - For GitOps with ArgoCD
+---
 
 ## Quick Installation
 
-=== "Linux"
+```bash
+# One-line install (Linux/macOS)
+curl -fsSL https://raw.githubusercontent.com/chalkan3/sloth-kubernetes/main/install.sh | bash
 
-    ```bash
-    # Download the latest release
-    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-linux-amd64 -o sloth-kubernetes
+# Verify
+sloth-kubernetes version
+```
 
-    # Make it executable
-    chmod +x sloth-kubernetes
+**Other platforms:** See [Installation Guide](installation.md) for Windows, manual install, and building from source.
 
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
+---
 
-    # Verify installation
-    sloth-kubernetes version
-    ```
+## 5-Minute Quick Start
 
-=== "macOS"
+**1. Set credentials:**
 
-    ```bash
-    # Download the latest release
-    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-amd64 -o sloth-kubernetes
+```bash
+export DIGITALOCEAN_TOKEN="your-token"
+export PULUMI_CONFIG_PASSPHRASE="your-passphrase"
+```
 
-    # Make it executable
-    chmod +x sloth-kubernetes
+**2. Create `cluster.lisp`:**
 
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
+```lisp
+(cluster
+  (metadata (name "my-cluster") (environment "dev"))
+  (providers (digitalocean (enabled true) (region "nyc3")))
+  (network (mode "wireguard") (wireguard (enabled true) (create true) (mesh-networking true)))
+  (node-pools
+    (main
+      (name "main")
+      (provider "digitalocean")
+      (region "nyc3")
+      (count 1)
+      (roles master etcd worker)
+      (size "s-4vcpu-8gb")))
+  (kubernetes (distribution "k3s")))
+```
 
-    # Verify installation
-    sloth-kubernetes version
-    ```
+**3. Deploy:**
 
-=== "macOS (ARM64)"
+```bash
+sloth-kubernetes deploy my-cluster --config cluster.lisp
+```
 
-    ```bash
-    # Download the latest release for Apple Silicon
-    curl -sSL https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-darwin-arm64 -o sloth-kubernetes
+**4. Use:**
 
-    # Make it executable
-    chmod +x sloth-kubernetes
+```bash
+sloth-kubernetes kubectl my-cluster get nodes
+```
 
-    # Move to PATH
-    sudo mv sloth-kubernetes /usr/local/bin/
+**Full guide:** [Quick Start](quickstart.md)
 
-    # Verify installation
-    sloth-kubernetes version
-    ```
+---
 
-=== "Windows"
+## Why sloth-kubernetes?
 
-    ```powershell
-    # Download the latest release
-    Invoke-WebRequest -Uri "https://github.com/chalkan3/sloth-kubernetes/releases/latest/download/sloth-kubernetes-windows-amd64.exe" -OutFile "sloth-kubernetes.exe"
+| Challenge | sloth-kubernetes Solution |
+|-----------|---------------------------|
+| Multiple tools required (Terraform, kubectl, helm, etc.) | Single binary with everything embedded |
+| Static configuration files | Dynamic Lisp configs with env vars, conditionals, functions |
+| Vendor lock-in | Multi-cloud support with same config format |
+| State management complexity | Pulumi state as database with full audit trail |
+| Networking across providers | Automatic WireGuard VPN mesh |
 
-    # Move to a directory in PATH
-    Move-Item sloth-kubernetes.exe C:\Windows\System32\
+---
 
-    # Verify installation
-    sloth-kubernetes version
-    ```
+## How It Works
 
-## Next Steps
+```
+┌────────────────────────────────────────────────────────────────┐
+│                    sloth-kubernetes CLI                        │
+│                     (Single Binary)                            │
+├────────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────────┐   │
+│  │  Lisp    │  │  Pulumi  │  │  Salt    │  │   kubectl    │   │
+│  │  Config  │  │  Engine  │  │  Master  │  │   Embedded   │   │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────────┘   │
+├────────────────────────────────────────────────────────────────┤
+│            Cloud Providers (AWS, DO, Linode, Azure)            │
+├────────────────────────────────────────────────────────────────┤
+│          WireGuard VPN Mesh | RKE2/K3s | Node Management       │
+└────────────────────────────────────────────────────────────────┘
+```
 
-Once installed, continue with:
+---
 
-1. **[Installation Guide](installation.md)** - Detailed installation instructions and troubleshooting
+## What You'll Learn
+
+In this section:
+
+1. **[Installation](installation.md)** - Install on Linux, macOS, or Windows
 2. **[Quick Start](quickstart.md)** - Deploy your first cluster in 5 minutes
 
-## What's Next?
+After getting started:
 
-After deploying your first cluster, explore:
+- **[User Guide](../user-guide/index.md)** - All CLI commands and workflows
+- **[Configuration](../configuration/lisp-format.md)** - Complete Lisp syntax reference
+- **[Built-in Functions](../configuration/builtin-functions.md)** - 70+ functions for dynamic configs
+- **[Examples](../configuration/examples.md)** - Multi-cloud and production configurations
+- **[FAQ](../faq.md)** - Common questions answered
 
-- **[User Guide](../user-guide/index.md)** - Learn all CLI commands and workflows
-- **[Configuration Reference](../configuration/lisp-format.md)** - Complete LISP configuration options
-- **[FAQ](../faq.md)** - Frequently asked questions
+---
+
+## Prerequisites
+
+### Required
+
+- **Cloud provider account** with API credentials:
+  - [DigitalOcean](https://cloud.digitalocean.com/account/api/tokens) - Easiest to start
+  - [Linode](https://cloud.linode.com/profile/tokens)
+  - [AWS](https://console.aws.amazon.com/iam/) - IAM credentials
+  - [Azure](https://portal.azure.com/) - Service principal
+
+- **Terminal** - Command-line access (bash, zsh, PowerShell)
+
+### Optional (but embedded)
+
+- kubectl - Embedded in sloth-kubernetes
+- Pulumi - Embedded in sloth-kubernetes
+- Salt - Automatically configured
+
+---
+
+## Support
+
+- **Issues:** [GitHub Issues](https://github.com/chalkan3/sloth-kubernetes/issues)
+- **Discussions:** [GitHub Discussions](https://github.com/chalkan3/sloth-kubernetes/discussions)
+
+---
+
+Ready to get started? Head to the **[Quick Start Guide](quickstart.md)** to deploy your first cluster.
