@@ -1,5 +1,25 @@
 # Changelog
 
+## [0.7.0](https://github.com/chalkan3/sloth-kubernetes/compare/v0.6.1...v0.7.0) (2026-01-05)
+
+
+### Features
+
+* add operation history persistence to Pulumi state ([#73](https://github.com/chalkan3/sloth-kubernetes/issues/73)) ([36271b6](https://github.com/chalkan3/sloth-kubernetes/commit/36271b6ec90e4f9ca11fab16ca6c66082e0be028))
+* **cli:** implement stack-aware commands for all CLI operations ([b267e2c](https://github.com/chalkan3/sloth-kubernetes/commit/b267e2cc47d12162020c60523d29e34793ba12f6))
+* **docs:** migrate documentation to Docusaurus ([#63](https://github.com/chalkan3/sloth-kubernetes/issues/63)) ([1bc0fe4](https://github.com/chalkan3/sloth-kubernetes/commit/1bc0fe44021826feb5da062a72812d4ecf1f1d79))
+* extend operations history recording to all CLI commands ([#74](https://github.com/chalkan3/sloth-kubernetes/issues/74)) ([d692b24](https://github.com/chalkan3/sloth-kubernetes/commit/d692b24aa97246ea5e3b4924f5ea1aa87501a32a))
+* **stacks:** add advanced Pulumi state management commands ([ad51c2b](https://github.com/chalkan3/sloth-kubernetes/commit/ad51c2b4f7f7fa8a7112c54718b5bad7079b503f))
+* **stacks:** add advanced Pulumi state management commands ([3ba1173](https://github.com/chalkan3/sloth-kubernetes/commit/3ba11732254c37419309835f6cf269f8e3528858))
+
+
+### Bug Fixes
+
+* **docs:** add missing index.md for Docusaurus ([#65](https://github.com/chalkan3/sloth-kubernetes/issues/65)) ([b8fad66](https://github.com/chalkan3/sloth-kubernetes/commit/b8fad66dd6f9bcf55e097166b3279aee86b75d37))
+* **docs:** exclude MkDocs-incompatible files from Docusaurus build ([#66](https://github.com/chalkan3/sloth-kubernetes/issues/66)) ([46ba8c7](https://github.com/chalkan3/sloth-kubernetes/commit/46ba8c761d42e90907381ab5aee51b00f497383f))
+* **docs:** resolve MDX compilation and broken link errors ([#70](https://github.com/chalkan3/sloth-kubernetes/issues/70)) ([4e95730](https://github.com/chalkan3/sloth-kubernetes/commit/4e95730cdbfc45aa99f5f27e6f20967a09d82464))
+* **docs:** set correct docs path for Docusaurus ([#64](https://github.com/chalkan3/sloth-kubernetes/issues/64)) ([9e22286](https://github.com/chalkan3/sloth-kubernetes/commit/9e2228623cb2d0463d40798d9ab9e65bc71ff74f))
+
 ## [0.6.1](https://github.com/chalkan3/sloth-kubernetes/compare/v0.6.0...v0.6.1) (2026-01-05)
 
 
