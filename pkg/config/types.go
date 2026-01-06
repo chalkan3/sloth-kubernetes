@@ -93,6 +93,7 @@ type ProvidersConfig struct {
 	AWS          *AWSProvider          `yaml:"aws,omitempty" json:"aws,omitempty"`
 	Azure        *AzureProvider        `yaml:"azure,omitempty" json:"azure,omitempty"`
 	GCP          *GCPProvider          `yaml:"gcp,omitempty" json:"gcp,omitempty"`
+	Hetzner      *HetznerProvider      `yaml:"hetzner,omitempty" json:"hetzner,omitempty"`
 }
 
 // DigitalOceanProvider configuration
@@ -165,6 +166,45 @@ type GCPProvider struct {
 	Zone        string                 `yaml:"zone" json:"zone"`
 	Network     *VPCConfig             `yaml:"network,omitempty" json:"network,omitempty"`
 	Custom      map[string]interface{} `yaml:"custom" json:"custom"`
+}
+
+// HetznerProvider configuration for Hetzner Cloud
+type HetznerProvider struct {
+	Enabled      bool                   `yaml:"enabled" json:"enabled"`
+	Token        string                 `yaml:"token" json:"token"`               // Hetzner Cloud API token
+	Location     string                 `yaml:"location" json:"location"`         // Default location (fsn1, nbg1, hel1, ash, hil)
+	Datacenter   string                 `yaml:"datacenter" json:"datacenter"`     // Specific datacenter (fsn1-dc14, nbg1-dc3, etc.)
+	Network      *HetznerNetworkConfig  `yaml:"network,omitempty" json:"network,omitempty"`
+	SSHKeys      []string               `yaml:"sshKeys" json:"sshKeys"`           // SSH key names or IDs
+	SSHPublicKey interface{}            `yaml:"-" json:"-"`                       // Set programmatically
+	Labels       map[string]string      `yaml:"labels" json:"labels"`             // Labels to apply to resources
+	Firewall     *FirewallConfig        `yaml:"firewall,omitempty" json:"firewall,omitempty"`
+	PlacementGroup *HetznerPlacementGroup `yaml:"placementGroup,omitempty" json:"placementGroup,omitempty"`
+	Custom       map[string]interface{} `yaml:"custom" json:"custom"`
+}
+
+// HetznerNetworkConfig - Hetzner Cloud network configuration
+type HetznerNetworkConfig struct {
+	Create      bool                   `yaml:"create" json:"create"`             // Auto-create network
+	ID          string                 `yaml:"id" json:"id"`                     // Existing network ID
+	Name        string                 `yaml:"name" json:"name"`                 // Network name
+	IPRange     string                 `yaml:"ipRange" json:"ipRange"`           // Network IP range (e.g., 10.0.0.0/16)
+	Subnets     []HetznerSubnetConfig  `yaml:"subnets" json:"subnets"`           // Subnets configuration
+	Labels      map[string]string      `yaml:"labels" json:"labels"`             // Network labels
+}
+
+// HetznerSubnetConfig - Hetzner Cloud subnet configuration
+type HetznerSubnetConfig struct {
+	Type        string `yaml:"type" json:"type"`               // cloud, server, vswitch
+	IPRange     string `yaml:"ipRange" json:"ipRange"`         // Subnet IP range (e.g., 10.0.1.0/24)
+	NetworkZone string `yaml:"networkZone" json:"networkZone"` // eu-central, us-east, us-west, ap-southeast
+}
+
+// HetznerPlacementGroup - Hetzner Cloud placement group for anti-affinity
+type HetznerPlacementGroup struct {
+	Create bool   `yaml:"create" json:"create"` // Auto-create placement group
+	Name   string `yaml:"name" json:"name"`     // Placement group name
+	Type   string `yaml:"type" json:"type"`     // spread (only option currently)
 }
 
 // NetworkConfig defines network settings
@@ -462,6 +502,7 @@ type PolicyRule struct {
 }
 
 type SSHConfig struct {
+	AutoGenerate      bool     `yaml:"autoGenerate" json:"autoGenerate"`
 	KeyPath           string   `yaml:"keyPath" json:"keyPath"`
 	PublicKeyPath     string   `yaml:"publicKeyPath" json:"publicKeyPath"`
 	AuthorizedKeys    []string `yaml:"authorizedKeys" json:"authorizedKeys"`

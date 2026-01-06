@@ -181,6 +181,10 @@ func ValidateNodePools(cfg *config.ClusterConfig) error {
 			if cfg.Providers.GCP == nil || !cfg.Providers.GCP.Enabled {
 				errors = append(errors, fmt.Sprintf("pool '%s' uses GCP but provider is not enabled", poolName))
 			}
+		case "hetzner":
+			if cfg.Providers.Hetzner == nil || !cfg.Providers.Hetzner.Enabled {
+				errors = append(errors, fmt.Sprintf("pool '%s' uses Hetzner but provider is not enabled", poolName))
+			}
 		default:
 			errors = append(errors, fmt.Sprintf("pool '%s' has invalid provider: %s", poolName, pool.Provider))
 		}
@@ -242,6 +246,10 @@ func ValidateNodePools(cfg *config.ClusterConfig) error {
 		case "gcp":
 			if cfg.Providers.GCP == nil || !cfg.Providers.GCP.Enabled {
 				errors = append(errors, fmt.Sprintf("node %d uses GCP but provider is not enabled", i))
+			}
+		case "hetzner":
+			if cfg.Providers.Hetzner == nil || !cfg.Providers.Hetzner.Enabled {
+				errors = append(errors, fmt.Sprintf("node %d uses Hetzner but provider is not enabled", i))
 			}
 		default:
 			errors = append(errors, fmt.Sprintf("node %d has invalid provider: %s", i, node.Provider))

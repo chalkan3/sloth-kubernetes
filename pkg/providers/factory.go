@@ -40,6 +40,9 @@ func (f *ProviderFactory) registerAllProviders() {
 
 	// Azure provider
 	f.registry.Register("azure", NewAzureProvider())
+
+	// Hetzner provider
+	f.registry.Register("hetzner", NewHetznerProvider())
 }
 
 // GetRegistry returns the provider registry
@@ -99,6 +102,15 @@ func (f *ProviderFactory) GetEnabledProviders(cfg *config.ClusterConfig) ([]Prov
 	// Check Azure
 	if cfg.Providers.Azure != nil && cfg.Providers.Azure.Enabled {
 		provider, err := f.GetProvider("azure")
+		if err != nil {
+			return nil, err
+		}
+		enabledProviders = append(enabledProviders, provider)
+	}
+
+	// Check Hetzner
+	if cfg.Providers.Hetzner != nil && cfg.Providers.Hetzner.Enabled {
+		provider, err := f.GetProvider("hetzner")
 		if err != nil {
 			return nil, err
 		}
@@ -188,6 +200,13 @@ func (f *ProviderFactory) ValidateProviderConfig(cfg *config.ClusterConfig) erro
 		// Subscription ID and credentials can be provided via environment variables or managed identity
 	}
 
+	// Validate Hetzner config if enabled
+	if cfg.Providers.Hetzner != nil && cfg.Providers.Hetzner.Enabled {
+		if cfg.Providers.Hetzner.Token == "" {
+			errors = append(errors, "Hetzner: token is required")
+		}
+	}
+
 	if len(errors) > 0 {
 		return fmt.Errorf("provider configuration validation failed:\n  - %s", joinErrors(errors))
 	}
@@ -203,6 +222,7 @@ func (f *ProviderFactory) GetSupportedProviders() []string {
 		"aws",
 		"gcp",
 		"azure",
+		"hetzner",
 	}
 }
 
@@ -243,6 +263,13 @@ func (f *ProviderFactory) GetProviderInfo() map[string]ProviderInfo {
 			Description: "Azure Virtual Machines - Microsoft's cloud platform",
 			Regions:     NewAzureProvider().GetRegions(),
 			Sizes:       NewAzureProvider().GetSizes(),
+		},
+		"hetzner": {
+			Name:        "Hetzner Cloud",
+			Code:        "hetzner",
+			Description: "Hetzner Cloud - High-performance European cloud infrastructure",
+			Regions:     NewHetznerProvider().GetRegions(),
+			Sizes:       NewHetznerProvider().GetSizes(),
 		},
 	}
 }

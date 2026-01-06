@@ -54,12 +54,12 @@ type LoginResponse struct {
 }
 
 // Login authenticates with Salt API and obtains a token
-// Uses sharedsecret authentication for more reliable programmatic access
+// Uses PAM authentication which is the default Salt external_auth method
 func (c *Client) Login() error {
 	loginReq := LoginRequest{
 		Username: c.Username,
 		Password: c.Password,
-		Eauth:    "sharedsecret",
+		Eauth:    "pam",
 	}
 
 	jsonData, err := json.Marshal(loginReq)

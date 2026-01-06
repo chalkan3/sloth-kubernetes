@@ -116,6 +116,8 @@ func parseProviders(l *List) ProvidersConfig {
 					cfg.Azure = parseAzureProvider(provider)
 				case "gcp":
 					cfg.GCP = parseGCPProvider(provider)
+				case "hetzner":
+					cfg.Hetzner = parseHetznerProvider(provider)
 				}
 			}
 		}
@@ -182,6 +184,16 @@ func parseGCPProvider(l *List) *GCPProvider {
 		Credentials: l.GetString("credentials"),
 		Region:      l.GetString("region"),
 		Zone:        l.GetString("zone"),
+	}
+}
+
+func parseHetznerProvider(l *List) *HetznerProvider {
+	return &HetznerProvider{
+		Enabled:    l.GetBool("enabled"),
+		Token:      l.GetString("token"),
+		Location:   l.GetString("location"),
+		Datacenter: l.GetString("datacenter"),
+		SSHKeys:    l.GetStringSlice("ssh-keys"),
 	}
 }
 
@@ -311,6 +323,7 @@ func parseSecurity(l *List) SecurityConfig {
 
 func parseSSHConfig(l *List) SSHConfig {
 	return SSHConfig{
+		AutoGenerate:      l.GetBool("auto-generate"),
 		KeyPath:           l.GetString("key-path"),
 		PublicKeyPath:     l.GetString("public-key-path"),
 		AuthorizedKeys:    l.GetStringSlice("authorized-keys"),

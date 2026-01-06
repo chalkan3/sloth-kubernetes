@@ -12,6 +12,7 @@ import (
 	azureresources "github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
+	"github.com/pulumi/pulumi-hcloud/sdk/go/hcloud"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -20,14 +21,16 @@ import (
 type BastionComponent struct {
 	pulumi.ResourceState
 
-	BastionName pulumi.StringOutput `pulumi:"bastionName"`
-	PublicIP    pulumi.StringOutput `pulumi:"publicIP"`
-	PrivateIP   pulumi.StringOutput `pulumi:"privateIP"`
-	WireGuardIP pulumi.StringOutput `pulumi:"wireGuardIP"`
-	Provider    pulumi.StringOutput `pulumi:"provider"`
-	Region      pulumi.StringOutput `pulumi:"region"`
-	SSHPort     pulumi.IntOutput    `pulumi:"sshPort"`
-	Status      pulumi.StringOutput `pulumi:"status"`
+	BastionName     pulumi.StringOutput `pulumi:"bastionName"`
+	PublicIP        pulumi.StringOutput `pulumi:"publicIP"`
+	PrivateIP       pulumi.StringOutput `pulumi:"privateIP"`
+	WireGuardIP     pulumi.StringOutput `pulumi:"wireGuardIP"`
+	Provider        pulumi.StringOutput `pulumi:"provider"`
+	Region          pulumi.StringOutput `pulumi:"region"`
+	SSHPort         pulumi.IntOutput    `pulumi:"sshPort"`
+	Status          pulumi.StringOutput `pulumi:"status"`
+	HetznerSSHKey   *hcloud.SshKey      // Shared SSH key for Hetzner nodes
+	HetznerProvider *hcloud.Provider    // Shared Hetzner provider
 }
 
 // NewBastionComponent creates a bastion host for secure cluster access
@@ -83,8 +86,10 @@ func NewBastionComponent(
 		err = createAWSBastion(ctx, name, bastionConfig, sshKeyOutput, component)
 	case "azure":
 		err = createAzureBastion(ctx, name, bastionConfig, sshKeyOutput, component)
+	case "hetzner":
+		err = createHetznerBastion(ctx, name, bastionConfig, sshKeyOutput, component)
 	default:
-		return nil, fmt.Errorf("unsupported bastion provider: %s (supported: digitalocean, linode, aws, azure)", bastionConfig.Provider)
+		return nil, fmt.Errorf("unsupported bastion provider: %s (supported: digitalocean, linode, aws, azure, hetzner)", bastionConfig.Provider)
 	}
 
 	if err != nil {
@@ -595,6 +600,94 @@ func createAzureBastion(
 	return nil
 }
 
+func createHetznerBastion(
+	ctx *pulumi.Context,
+	name string,
+	bastionConfig *config.BastionConfig,
+	sshKeyOutput pulumi.StringOutput,
+	component *BastionComponent,
+) error {
+	location := bastionConfig.Region
+	if location == "" {
+		location = "fsn1"
+	}
+
+	// Determine server type (size)
+	serverType := bastionConfig.Size
+	if serverType == "" {
+		serverType = "cpx22" // Hetzner shared AMD vCPU (2 vCPU, 4GB)
+	}
+
+	// Determine image
+	image := bastionConfig.Image
+	if image == "" {
+		image = "ubuntu-22.04"
+	}
+
+	// Create Hetzner provider with token from environment
+	hetznerToken := os.Getenv("HETZNER_TOKEN")
+	if hetznerToken == "" {
+		return fmt.Errorf("HETZNER_TOKEN environment variable is required")
+	}
+
+	hetznerProvider, err := hcloud.NewProvider(ctx, fmt.Sprintf("%s-hetzner-provider", name), &hcloud.ProviderArgs{
+		Token: pulumi.String(hetznerToken),
+	}, pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create Hetzner provider: %w", err)
+	}
+
+	// Create SSH key for bastion
+	sshKey, err := hcloud.NewSshKey(ctx, fmt.Sprintf("%s-ssh-key", name), &hcloud.SshKeyArgs{
+		Name:      pulumi.Sprintf("bastion-key-%s", name),
+		PublicKey: sshKeyOutput,
+		Labels: pulumi.StringMap{
+			"managed": pulumi.String("sloth-kubernetes"),
+			"role":    pulumi.String("bastion"),
+		},
+	}, pulumi.Provider(hetznerProvider), pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create Hetzner SSH key: %w", err)
+	}
+
+	// Create bastion server
+	server, err := hcloud.NewServer(ctx, name, &hcloud.ServerArgs{
+		Name:       pulumi.String(bastionConfig.Name),
+		ServerType: pulumi.String(serverType),
+		Image:      pulumi.String(image),
+		Location:   pulumi.String(location),
+		SshKeys: pulumi.StringArray{
+			sshKey.ID().ToStringOutput(),
+		},
+		Labels: pulumi.StringMap{
+			"managed": pulumi.String("sloth-kubernetes"),
+			"role":    pulumi.String("bastion"),
+			"stack":   pulumi.String(ctx.Stack()),
+		},
+		PublicNets: hcloud.ServerPublicNetArray{
+			&hcloud.ServerPublicNetArgs{
+				Ipv4Enabled: pulumi.Bool(true),
+				Ipv6Enabled: pulumi.Bool(true),
+			},
+		},
+	}, pulumi.Provider(hetznerProvider), pulumi.Parent(component))
+	if err != nil {
+		return fmt.Errorf("failed to create Hetzner bastion server: %w", err)
+	}
+
+	// Set component outputs
+	component.PublicIP = server.Ipv4Address
+	component.PrivateIP = server.Ipv4Address // Hetzner uses public IP as primary
+
+	// Store SSH key and provider for reuse by Hetzner nodes (avoid duplicate key error)
+	component.HetznerSSHKey = sshKey
+	component.HetznerProvider = hetznerProvider
+
+	ctx.Log.Info(fmt.Sprintf("✅ Hetzner bastion server '%s' created in %s", bastionConfig.Name, location), nil)
+
+	return nil
+}
+
 // BastionProvisioningComponent handles bastion host provisioning and hardening
 type BastionProvisioningComponent struct {
 	pulumi.ResourceState
@@ -810,11 +903,19 @@ apt_get_with_retry() {
             RETRY_COUNT=$((RETRY_COUNT + 1))
 
             # On 3rd failure, try switching to Ubuntu official mirrors
-            if [ $RETRY_COUNT -eq 3 ] && [ "$SWITCHED_MIRROR" = "false" ] && grep -q "mirrors.digitalocean.com" /etc/apt/sources.list 2>/dev/null; then
-                echo "[$(date +%H:%M:%S)] ⚠️  Repeated failures detected, switching mirrors..."
-                sed -i.bak 's|http://mirrors.digitalocean.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+            if [ $RETRY_COUNT -eq 3 ] && [ "$SWITCHED_MIRROR" = "false" ]; then
+                echo "[$(date +%H:%M:%S)] ⚠️  Repeated failures detected, switching to official Ubuntu mirrors..."
+                # Switch DigitalOcean mirrors
+                if grep -q "mirrors.digitalocean.com" /etc/apt/sources.list 2>/dev/null; then
+                    sed -i.bak 's|http://mirrors.digitalocean.com/ubuntu|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+                fi
+                # Switch Hetzner mirrors
+                if grep -q "mirror.hetzner.com" /etc/apt/sources.list 2>/dev/null; then
+                    sed -i.bak 's|https://mirror.hetzner.com/ubuntu/packages|http://archive.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+                    sed -i 's|https://mirror.hetzner.com/ubuntu/security|http://security.ubuntu.com/ubuntu|g' /etc/apt/sources.list
+                fi
                 SWITCHED_MIRROR=true
-                echo "[$(date +%H:%M:%S)] 📝 Mirror switched, retrying..."
+                echo "[$(date +%H:%M:%S)] 📝 Mirror switched to official Ubuntu repos, retrying..."
             fi
 
             if [ $RETRY_COUNT -lt $MAX_RETRIES ]; then
@@ -848,6 +949,23 @@ echo "[$(date +%H:%M:%S)] =========================================="
 echo "[$(date +%H:%M:%S)] STEP 2: Updating system packages"
 echo "[$(date +%H:%M:%S)] =========================================="
 export DEBIAN_FRONTEND=noninteractive
+
+# Fix Hetzner mirrors - replace with official Ubuntu mirrors
+if grep -q "mirror.hetzner.com" /etc/apt/sources.list 2>/dev/null; then
+    echo "[$(date +%H:%M:%S)] 🔧 Detected Hetzner mirrors, switching to official Ubuntu mirrors..."
+    # Detect Ubuntu version
+    UBUNTU_CODENAME=$(lsb_release -cs 2>/dev/null || echo "jammy")
+    # Backup original
+    cp /etc/apt/sources.list /etc/apt/sources.list.hetzner.bak
+    # Create new sources.list with official mirrors
+    cat > /etc/apt/sources.list << EOFMIRROR
+deb http://archive.ubuntu.com/ubuntu ${UBUNTU_CODENAME} main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu ${UBUNTU_CODENAME}-updates main restricted universe multiverse
+deb http://archive.ubuntu.com/ubuntu ${UBUNTU_CODENAME}-backports main restricted universe multiverse
+deb http://security.ubuntu.com/ubuntu ${UBUNTU_CODENAME}-security main restricted universe multiverse
+EOFMIRROR
+    echo "[$(date +%H:%M:%S)] ✅ Switched to official Ubuntu mirrors"
+fi
 
 # Enable universe repository (required for fail2ban, wireguard-tools on some AMIs)
 echo "[$(date +%H:%M:%S)] Enabling universe repository..."

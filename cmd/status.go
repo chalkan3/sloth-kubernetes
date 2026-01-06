@@ -139,17 +139,71 @@ func buildClusterStatus(outputs auto.OutputMap, targetStack string) ClusterStatu
 		status.APIEndpoint = fmt.Sprintf("%v", apiEndpoint.Value)
 	}
 
-	// Simulated node data (in real implementation, would fetch from outputs)
-	status.Nodes = []NodeStatus{
-		{Name: "do-master-1", Provider: "DigitalOcean", Role: "master", Status: "Ready", Region: "nyc3"},
-		{Name: "linode-master-1", Provider: "Linode", Role: "master", Status: "Ready", Region: "us-east"},
-		{Name: "linode-master-2", Provider: "Linode", Role: "master", Status: "Ready", Region: "us-east"},
-		{Name: "do-worker-1", Provider: "DigitalOcean", Role: "worker", Status: "Ready", Region: "nyc3"},
-		{Name: "do-worker-2", Provider: "DigitalOcean", Role: "worker", Status: "Ready", Region: "nyc3"},
-		{Name: "linode-worker-1", Provider: "Linode", Role: "worker", Status: "Ready", Region: "us-east"},
-	}
+	// Parse real node data from Pulumi outputs
+	status.Nodes = parseNodesFromOutputs(outputs)
 
 	return status
+}
+
+// parseNodesFromOutputs extracts node information from Pulumi outputs
+func parseNodesFromOutputs(outputs auto.OutputMap) []NodeStatus {
+	var nodes []NodeStatus
+
+	// Try to get nodes from the "nodes" output
+	if nodesOutput, ok := outputs["nodes"]; ok {
+		if nodesMap, ok := nodesOutput.Value.(map[string]interface{}); ok {
+			for _, nodeData := range nodesMap {
+				if node, ok := nodeData.(map[string]interface{}); ok {
+					nodeStatus := NodeStatus{
+						Status: "Ready",
+					}
+
+					if name, ok := node["name"].(string); ok {
+						nodeStatus.Name = name
+					}
+					if provider, ok := node["provider"].(string); ok {
+						nodeStatus.Provider = capitalizeProvider(provider)
+					}
+					if region, ok := node["region"].(string); ok {
+						nodeStatus.Region = region
+					}
+					if roles, ok := node["roles"].([]interface{}); ok && len(roles) > 0 {
+						if role, ok := roles[0].(string); ok {
+							nodeStatus.Role = role
+						}
+					}
+					if status, ok := node["status"].(string); ok {
+						nodeStatus.Status = status
+					}
+
+					nodes = append(nodes, nodeStatus)
+				}
+			}
+		}
+	}
+
+	// If no nodes found in outputs, return empty slice
+	return nodes
+}
+
+// capitalizeProvider returns a nicely formatted provider name
+func capitalizeProvider(provider string) string {
+	switch provider {
+	case "aws":
+		return "AWS"
+	case "hetzner":
+		return "Hetzner"
+	case "digitalocean":
+		return "DigitalOcean"
+	case "linode":
+		return "Linode"
+	case "azure":
+		return "Azure"
+	case "gcp":
+		return "GCP"
+	default:
+		return provider
+	}
 }
 
 // outputStatusJSON outputs the status as JSON
@@ -168,7 +222,7 @@ func outputStatusYAML(status ClusterStatus) error {
 
 // outputStatusTable outputs the status as a formatted table
 func outputStatusTable(status ClusterStatus, outputs auto.OutputMap) error {
-	printHeader(fmt.Sprintf("Cluster Status: %s", stackName))
+	printHeader(fmt.Sprintf("Cluster Status: %s", status.StackName))
 
 	if len(outputs) == 0 {
 		color.Yellow("No cluster found. Deploy with: kubernetes-create deploy")
@@ -188,29 +242,42 @@ func outputStatusTable(status ClusterStatus, outputs auto.OutputMap) error {
 	}
 	fmt.Println()
 
-	// Node table
-	printStatusNodeTable()
+	// Node table with real data
+	printStatusNodeTable(status.Nodes)
+
+	fmt.Println()
+	color.Green("VPN Status: ✅ %s", status.VPNStatus)
+	color.Green("RKE2 Status: ✅ %s", status.RKE2Status)
+	color.Green("DNS Status: ✅ %s", status.DNSStatus)
 
 	return nil
 }
 
-func printStatusNodeTable() {
-	// Simulated node data (in real implementation, would fetch from outputs)
+func printStatusNodeTable(nodes []NodeStatus) {
 	color.Cyan("Nodes:")
+
+	if len(nodes) == 0 {
+		color.Yellow("  No nodes found in cluster state")
+		return
+	}
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	fmt.Fprintln(w, "NAME\tPROVIDER\tROLE\tSTATUS\tREGION")
 	fmt.Fprintln(w, "----\t--------\t----\t------\t------")
-	fmt.Fprintln(w, "do-master-1\tDigitalOcean\tmaster\t✅ Ready\tnyc3")
-	fmt.Fprintln(w, "linode-master-1\tLinode\tmaster\t✅ Ready\tus-east")
-	fmt.Fprintln(w, "linode-master-2\tLinode\tmaster\t✅ Ready\tus-east")
-	fmt.Fprintln(w, "do-worker-1\tDigitalOcean\tworker\t✅ Ready\tnyc3")
-	fmt.Fprintln(w, "do-worker-2\tDigitalOcean\tworker\t✅ Ready\tnyc3")
-	fmt.Fprintln(w, "linode-worker-1\tLinode\tworker\t✅ Ready\tus-east")
-	w.Flush()
 
-	fmt.Println()
-	color.Green("VPN Status: ✅ All nodes connected")
-	color.Green("RKE2 Status: ✅ Cluster operational")
-	color.Green("DNS Status: ✅ All records configured")
+	for _, node := range nodes {
+		statusIcon := "✅"
+		if node.Status != "Ready" && node.Status != "created" {
+			statusIcon = "⚠️"
+		}
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s %s\t%s\n",
+			node.Name,
+			node.Provider,
+			node.Role,
+			statusIcon,
+			node.Status,
+			node.Region,
+		)
+	}
+	w.Flush()
 }

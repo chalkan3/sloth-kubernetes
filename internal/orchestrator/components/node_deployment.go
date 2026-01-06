@@ -15,6 +15,7 @@ import (
 	azurenetwork "github.com/pulumi/pulumi-azure-native-sdk/network/v2"
 	azureresources "github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
 	"github.com/pulumi/pulumi-digitalocean/sdk/v4/go/digitalocean"
+	"github.com/pulumi/pulumi-hcloud/sdk/go/hcloud"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -53,6 +54,7 @@ var providerNodeCreators = map[string]ProviderNodeCreator{
 	"linode":       createLinodeNode,
 	"azure":        createAzureNode,
 	"aws":          createAWSNode,
+	"hetzner":      createHetznerNode,
 }
 
 // RegisterProviderCreator allows registering new provider creators dynamically
@@ -282,6 +284,7 @@ func newRealNodeComponent(ctx *pulumi.Context, name string, nodeConfig *config.N
 		"doToken":                 doToken,
 		"linodeToken":             linodeToken,
 		"vpcComponent":            vpcComponent,
+		"bastionComponent":        bastionComponent,
 	}
 
 	err = creator(ctx, name, nodeConfig, sshKeyOutput, bastionEnabled, saltMasterIP, component, extras)
@@ -726,6 +729,12 @@ var (
 	awsKeyPair       *ec2.KeyPair
 )
 
+// Hetzner shared resources (created once, reused by all instances)
+var (
+	hetznerProvider *hcloud.Provider
+	hetznerSshKey   *hcloud.SshKey
+)
+
 // createAWSNode creates an AWS EC2 instance
 func createAWSNode(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, bastionEnabled bool, saltMasterIP string, component *RealNodeComponent, extras map[string]interface{}) error {
 	region := nodeConfig.Region
@@ -981,4 +990,136 @@ func getUbuntuAMIForRegion(ctx *pulumi.Context, region string) (string, error) {
 	}
 
 	return ami, nil
+}
+
+// createHetznerNode creates a Hetzner Cloud server
+func createHetznerNode(ctx *pulumi.Context, name string, nodeConfig *config.NodeConfig, sshKeyOutput pulumi.StringOutput, bastionEnabled bool, saltMasterIP string, component *RealNodeComponent, extras map[string]interface{}) error {
+	// Get provider-specific config
+	hetznerConfig, _ := extras["hetznerConfig"].(*config.HetznerProvider)
+	bastionComponent, _ := extras["bastionComponent"].(*BastionComponent)
+
+	// Determine server type
+	serverType := nodeConfig.Size
+	if serverType == "" {
+		serverType = "cpx22" // Default: 2 vCPU, 4GB RAM (AMD shared)
+	}
+
+	// Determine image
+	image := nodeConfig.Image
+	if image == "" {
+		image = "ubuntu-22.04"
+	}
+
+	// Determine location
+	location := nodeConfig.Region
+	if location == "" && hetznerConfig != nil {
+		location = hetznerConfig.Location
+	}
+	if location == "" {
+		location = "nbg1" // Default to Nuremberg (more reliable than fsn1)
+	}
+
+	// Reuse bastion's Hetzner provider and SSH key if available (avoids duplicate key error)
+	if hetznerProvider == nil && bastionComponent != nil && bastionComponent.HetznerProvider != nil {
+		hetznerProvider = bastionComponent.HetznerProvider
+		hetznerSshKey = bastionComponent.HetznerSSHKey
+		ctx.Log.Info("   ✅ Reusing bastion's Hetzner provider and SSH key for cluster nodes", nil)
+	}
+
+	// Create shared Hetzner provider with token (only once for all instances)
+	if hetznerProvider == nil {
+		hetznerToken := os.Getenv("HETZNER_TOKEN")
+		if hetznerToken == "" {
+			return fmt.Errorf("HETZNER_TOKEN environment variable is required for Hetzner nodes")
+		}
+
+		provider, err := hcloud.NewProvider(ctx, fmt.Sprintf("%s-hetzner-node-provider", ctx.Stack()), &hcloud.ProviderArgs{
+			Token: pulumi.String(hetznerToken),
+		})
+		if err != nil {
+			return fmt.Errorf("failed to create Hetzner provider: %w", err)
+		}
+		hetznerProvider = provider
+
+		// Create shared SSH key for all Hetzner nodes
+		sshKey, err := hcloud.NewSshKey(ctx, fmt.Sprintf("%s-hetzner-node-ssh-key", ctx.Stack()), &hcloud.SshKeyArgs{
+			Name:      pulumi.Sprintf("sloth-k8s-nodes-%s", ctx.Stack()),
+			PublicKey: sshKeyOutput,
+			Labels: pulumi.StringMap{
+				"managed": pulumi.String("sloth-kubernetes"),
+				"stack":   pulumi.String(ctx.Stack()),
+			},
+		}, pulumi.Provider(hetznerProvider))
+		if err != nil {
+			return fmt.Errorf("failed to create Hetzner SSH key: %w", err)
+		}
+		hetznerSshKey = sshKey
+
+		ctx.Log.Info("   ✅ Hetzner provider and SSH key created for cluster nodes", nil)
+	}
+
+	// Generate cloud-init user data
+	userDataScript := cloudinit.GenerateUserDataWithHostnameAndSalt(name, saltMasterIP)
+
+	// Build labels
+	labels := pulumi.StringMap{
+		"managed": pulumi.String("sloth-kubernetes"),
+		"role":    pulumi.String(strings.Join(nodeConfig.Roles, "-")),
+		"stack":   pulumi.String(ctx.Stack()),
+	}
+	if nodeConfig.Labels != nil {
+		for k, v := range nodeConfig.Labels {
+			labels[k] = pulumi.String(v)
+		}
+	}
+
+	if bastionEnabled {
+		ctx.Log.Info(fmt.Sprintf("🔒 Creating Hetzner server %s (SSH restricted to bastion only)", nodeConfig.Name), nil)
+	} else {
+		ctx.Log.Info(fmt.Sprintf("🌍 Creating PUBLIC Hetzner server %s", nodeConfig.Name), nil)
+	}
+
+	// Build server args with shared SSH key
+	serverArgs := &hcloud.ServerArgs{
+		Name:       pulumi.String(name),
+		ServerType: pulumi.String(serverType),
+		Image:      pulumi.String(image),
+		Location:   pulumi.String(location),
+		UserData:   pulumi.String(userDataScript),
+		Labels:     labels,
+		SshKeys: pulumi.StringArray{
+			hetznerSshKey.ID().ToStringOutput(),
+		},
+		PublicNets: hcloud.ServerPublicNetArray{
+			&hcloud.ServerPublicNetArgs{
+				Ipv4Enabled: pulumi.Bool(true),
+				Ipv6Enabled: pulumi.Bool(true),
+			},
+		},
+	}
+
+	// Create the server with explicit provider
+	server, err := hcloud.NewServer(ctx, name, serverArgs, pulumi.Parent(component), pulumi.Provider(hetznerProvider))
+	if err != nil {
+		return fmt.Errorf("failed to create Hetzner server %s: %w", name, err)
+	}
+
+	// Set component outputs
+	component.PublicIP = server.Ipv4Address
+	component.PrivateIP = server.Ipv4Address // Hetzner uses public IP as primary
+	component.NodeName = pulumi.String(name).ToStringOutput()
+	component.Provider = pulumi.String("hetzner").ToStringOutput()
+	component.WireGuardIP = pulumi.String(nodeConfig.WireGuardIP).ToStringOutput()
+	component.Region = pulumi.String(location).ToStringOutput()
+	component.Size = pulumi.String(serverType).ToStringOutput()
+	component.Status = server.Status
+
+	// Export outputs
+	ctx.Export(fmt.Sprintf("%s_id", name), server.ID())
+	ctx.Export(fmt.Sprintf("%s_public_ip", name), server.Ipv4Address)
+	ctx.Export(fmt.Sprintf("%s_status", name), server.Status)
+
+	ctx.Log.Info(fmt.Sprintf("   ✅ Hetzner server %s created (%s) in %s", name, serverType, location), nil)
+
+	return nil
 }

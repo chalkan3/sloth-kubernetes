@@ -194,7 +194,7 @@ func runSaltLogin(cmd *cobra.Command, args []string) error {
 		Username:    saltUsername,
 		Password:    saltPassword,
 		BastionIP:   bastionIP,
-		AuthMethod:  "sharedsecret",
+		AuthMethod:  "pam",
 		InstalledAt: time.Now().UTC(),
 	}
 
