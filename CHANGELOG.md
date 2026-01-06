@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/chalkan3/sloth-kubernetes/compare/v0.9.1...v0.10.0) (2026-01-06)
+
+
+### Features
+
+* **providers:** add Hetzner Cloud provider support and multi-cloud fixes ([#77](https://github.com/chalkan3/sloth-kubernetes/issues/77)) ([bbe983b](https://github.com/chalkan3/sloth-kubernetes/commit/bbe983bdb2e2db346c57f3185411b8857f519b25))
+
 ## [0.9.1](https://github.com/chalkan3/sloth-kubernetes/compare/v0.9.0...v0.9.1) (2026-01-05)
 
 
