@@ -105,15 +105,21 @@ func (p *HetznerProvider) setupSSHKeys(ctx *pulumi.Context) error {
 		return fmt.Errorf("SSH public key is required")
 	}
 
-	// Create SSH key
-	sshKey, err := hcloud.NewSshKey(ctx, "cluster-ssh-key", &hcloud.SshKeyArgs{
-		Name:      pulumi.String(fmt.Sprintf("%s-key", p.clusterConfig.Metadata.Name)),
+	// Use a unique resource name based on cluster name to prevent collisions during scaling
+	resourceName := fmt.Sprintf("ssh-key-%s", p.clusterConfig.Metadata.Name)
+	keyName := fmt.Sprintf("%s-key", p.clusterConfig.Metadata.Name)
+
+	// Create SSH key with aliases for backward compatibility and deleteBeforeReplace
+	sshKey, err := hcloud.NewSshKey(ctx, resourceName, &hcloud.SshKeyArgs{
+		Name:      pulumi.String(keyName),
 		PublicKey: pulumi.String(sshPublicKey),
 		Labels: pulumi.StringMap{
 			"cluster": pulumi.String(p.clusterConfig.Metadata.Name),
 			"managed": pulumi.String("sloth-kubernetes"),
 		},
-	})
+	}, pulumi.DeleteBeforeReplace(true), pulumi.Aliases([]pulumi.Alias{
+		{Name: pulumi.String("cluster-ssh-key")},
+	}))
 	if err != nil {
 		return fmt.Errorf("failed to create SSH key: %w", err)
 	}
