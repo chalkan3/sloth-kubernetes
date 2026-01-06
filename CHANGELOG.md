@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.1](https://github.com/chalkan3/sloth-kubernetes/compare/v0.10.0...v0.10.1) (2026-01-06)
+
+
+### Bug Fixes
+
+* **hetzner:** prevent SSH key collisions during cluster scaling ([#79](https://github.com/chalkan3/sloth-kubernetes/issues/79)) ([cd3d5a3](https://github.com/chalkan3/sloth-kubernetes/commit/cd3d5a37c7d01c9f7b2aa54ebb593f6a8114cb0b))
+
 ## [0.10.0](https://github.com/chalkan3/sloth-kubernetes/compare/v0.9.1...v0.10.0) (2026-01-06)
 
 
