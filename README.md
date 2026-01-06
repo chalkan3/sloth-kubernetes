@@ -44,13 +44,13 @@ sudo mv sloth /usr/local/bin/
 
 ---
 
-Deploy production-ready Kubernetes clusters across **DigitalOcean**, **Linode**, **AWS**, and **Azure** with embedded Pulumi, Salt, and kubectl. Features advanced **state management**, **configuration versioning**, **manifest tracking**, and comprehensive **audit logging**.
+Deploy production-ready Kubernetes clusters across **AWS**, **Hetzner Cloud**, **DigitalOcean**, **Linode**, and **Azure** with embedded Pulumi, Salt, and kubectl. Features advanced **state management**, **configuration versioning**, **manifest tracking**, and comprehensive **audit logging**.
 
 ## Key Features
 
 | Feature | Description |
 |---------|-------------|
-| **Multi-Cloud** | Deploy across AWS, DigitalOcean, Linode, Azure in a single cluster |
+| **Multi-Cloud** | Deploy across AWS, Hetzner, DigitalOcean, Linode, Azure in a single cluster |
 | **Zero Dependencies** | Single binary with embedded Pulumi, Salt, kubectl |
 | **Lisp Configuration** | Human-readable S-expression configuration format |
 | **State as Database** | Pulumi state stores complete deployment history |
@@ -70,6 +70,9 @@ Deploy production-ready Kubernetes clusters across **DigitalOcean**, **Linode**,
 export AWS_ACCESS_KEY_ID="your-access-key"
 export AWS_SECRET_ACCESS_KEY="your-secret-key"
 export AWS_REGION="us-east-1"
+
+# Hetzner Cloud
+export HETZNER_TOKEN="your-token"
 
 # DigitalOcean
 export DIGITALOCEAN_TOKEN="your-token"
@@ -942,7 +945,70 @@ All kubectl commands require the stack name as the first argument:
       (auto-join true))))
 ```
 
-### Multi-Cloud HA Cluster
+### Multi-Cloud HA Cluster (AWS + Hetzner)
+
+```lisp
+(cluster
+  (metadata
+    (name "aws-hetzner-cluster")
+    (environment "production"))
+
+  (providers
+    (aws
+      (enabled true)
+      (region "us-east-1")
+      (vpc
+        (create true)
+        (cidr "10.0.0.0/16")))
+    (hetzner
+      (enabled true)
+      (location "nbg1")))
+
+  (network
+    (mode "wireguard")
+    (wireguard
+      (enabled true)
+      (create true)
+      (mesh-networking true)
+      (subnet-cidr "10.8.0.0/24")))
+
+  (security
+    (bastion
+      (enabled true)
+      (provider "hetzner")
+      (location "nbg1")
+      (size "cx22")))
+
+  (node-pools
+    (aws-master
+      (name "aws-master")
+      (provider "aws")
+      (region "us-east-1")
+      (count 1)
+      (roles master etcd)
+      (size "t3.medium"))
+    (aws-workers
+      (name "aws-workers")
+      (provider "aws")
+      (region "us-east-1")
+      (count 2)
+      (roles worker)
+      (size "t3.medium"))
+    (hetzner-workers
+      (name "hetzner-workers")
+      (provider "hetzner")
+      (location "nbg1")
+      (count 2)
+      (roles worker)
+      (size "cx22")))
+
+  (kubernetes
+    (distribution "rke2")
+    (version "v1.29.0+rke2r1")
+    (network-plugin "calico")))
+```
+
+### Multi-Cloud HA Cluster (Legacy)
 
 ```lisp
 (cluster
@@ -1065,9 +1131,9 @@ All kubectl commands require the stack name as the first argument:
 │                              │                                             │
 │  ┌───────────────────────────┴───────────────────────────────────────┐     │
 │  │                      PROVIDER LAYER                               │     │
-│  │  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐ │     │
-│  │  │   AWS   │  │   DO    │  │ Linode  │  │  Azure  │  │   GCP   │ │     │
-│  │  └─────────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘ │     │
+│  │  ┌───────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  ┌─────────┐  │     │
+│  │  │  AWS  │  │ Hetzner │  │   DO    │  │ Linode  │  │  Azure  │  │     │
+│  │  └───────┘  └─────────┘  └─────────┘  └─────────┘  └─────────┘  │     │
 │  └───────────────────────────────────────────────────────────────────┘     │
 │                                                                             │
 │  ┌───────────────────────────────────────────────────────────────────┐     │
@@ -1216,7 +1282,7 @@ sloth-kubernetes stacks list
 
 ## License
 
-MIT License - see [LICENSE](LICENSE) for details.
+Apache License 2.0 - see [LICENSE](LICENSE) for details.
 
 ---
 

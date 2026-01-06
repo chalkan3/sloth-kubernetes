@@ -383,6 +383,152 @@ Distributed edge locations.
 
 ---
 
+## Hetzner Cloud Cluster
+
+Cost-effective European cloud deployment with Hetzner.
+
+```lisp
+; cluster.lisp - Hetzner Cloud cluster
+(cluster
+  (metadata
+    (name "hetzner-cluster")
+    (environment "production"))
+
+  (providers
+    (hetzner
+      (enabled true)
+      (location "nbg1")))  ; Nuremberg, Germany
+
+  (network
+    (mode "wireguard")
+    (wireguard
+      (enabled true)
+      (create true)
+      (mesh-networking true)
+      (subnet-cidr "10.8.0.0/24")))
+
+  (security
+    (bastion
+      (enabled true)
+      (provider "hetzner")
+      (location "nbg1")
+      (size "cx22")))
+
+  (node-pools
+    (masters
+      (name "masters")
+      (provider "hetzner")
+      (location "nbg1")
+      (count 3)
+      (roles master etcd)
+      (size "cx22"))  ; 2 vCPU, 4GB RAM
+    (workers
+      (name "workers")
+      (provider "hetzner")
+      (location "nbg1")
+      (count 5)
+      (roles worker)
+      (size "cx32")))  ; 4 vCPU, 8GB RAM
+
+  (kubernetes
+    (distribution "rke2")
+    (version "v1.29.0+rke2r1")
+    (high-availability true)))
+```
+
+**What you get:**
+- 3 master nodes with HA
+- 5 worker nodes
+- WireGuard VPN mesh
+- Bastion host with Salt Master
+- Cost: ~€80/month (very competitive)
+
+**Hetzner locations:**
+- `nbg1` - Nuremberg, Germany
+- `fsn1` - Falkenstein, Germany
+- `hel1` - Helsinki, Finland
+- `ash` - Ashburn, USA
+
+---
+
+## AWS + Hetzner Multi-Cloud
+
+Combine AWS reliability with Hetzner cost-effectiveness.
+
+```lisp
+; cluster.lisp - AWS + Hetzner multi-cloud
+(cluster
+  (metadata
+    (name "aws-hetzner-hybrid")
+    (environment "production"))
+
+  (providers
+    (aws
+      (enabled true)
+      (region "us-east-1")
+      (vpc
+        (create true)
+        (cidr "10.0.0.0/16")))
+    (hetzner
+      (enabled true)
+      (location "nbg1")))
+
+  (network
+    (mode "wireguard")
+    (wireguard
+      (enabled true)
+      (create true)
+      (mesh-networking true)
+      (subnet-cidr "10.8.0.0/24")))
+
+  (security
+    (bastion
+      (enabled true)
+      (provider "hetzner")
+      (location "nbg1")
+      (size "cx22")))
+
+  (node-pools
+    ; AWS masters for reliability
+    (aws-masters
+      (name "aws-masters")
+      (provider "aws")
+      (region "us-east-1")
+      (count 1)
+      (roles master etcd)
+      (size "t3.medium"))
+    ; AWS workers for US workloads
+    (aws-workers
+      (name "aws-workers")
+      (provider "aws")
+      (region "us-east-1")
+      (count 2)
+      (roles worker)
+      (size "t3.medium"))
+    ; Hetzner workers for EU workloads (cost-effective)
+    (hetzner-workers
+      (name "hetzner-workers")
+      (provider "hetzner")
+      (location "nbg1")
+      (count 3)
+      (roles worker)
+      (size "cx32")))
+
+  (kubernetes
+    (distribution "rke2")
+    (version "v1.29.0+rke2r1")
+    (network-plugin "calico")))
+```
+
+**What you get:**
+- AWS master for reliability
+- Workers split between AWS (US) and Hetzner (EU)
+- WireGuard mesh connecting both clouds
+- Bastion on Hetzner (cheaper)
+- Cost: ~$100/month (AWS) + ~€30/month (Hetzner)
+
+---
+
 ## Azure Cluster
 
 Single-cloud Azure deployment.
@@ -540,9 +686,22 @@ Reference environment variables in your configurations:
 Set before deploying:
 
 ```bash
+# AWS
+export AWS_ACCESS_KEY_ID="your-access-key"
+export AWS_SECRET_ACCESS_KEY="your-secret-key"
+export AWS_REGION="us-east-1"
+
+# Hetzner Cloud
+export HETZNER_TOKEN="your-hetzner-token"
+
+# DigitalOcean
 export DIGITALOCEAN_TOKEN="dop_v1_..."
+
+# Linode
 export LINODE_TOKEN="..."
-export DO_REGION="sfo3"
+
+# Pulumi state encryption
+export PULUMI_CONFIG_PASSPHRASE="your-passphrase"
 
 sloth-kubernetes deploy --config cluster.lisp
 ```
