@@ -14,20 +14,20 @@ const (
 
 // OperationsHistory holds the history of all CLI operations
 type OperationsHistory struct {
-	BackupHistory     []BackupEntry     `json:"backupHistory"`
-	UpgradeHistory    []UpgradeEntry    `json:"upgradeHistory"`
-	HealthHistory     []HealthEntry     `json:"healthHistory"`
-	BenchmarkHistory  []BenchmarkEntry  `json:"benchmarkHistory"`
-	NodeHistory       []NodeEntry       `json:"nodeHistory"`
-	VPNHistory        []VPNEntry        `json:"vpnHistory"`
-	ArgoCDHistory     []ArgoCDEntry     `json:"argocdHistory"`
-	AddonsHistory     []AddonsEntry     `json:"addonsHistory"`
-	SaltHistory       []SaltEntry       `json:"saltHistory"`
-	ValidationHistory []ValidationEntry `json:"validationHistory"`
+	BackupHistory     []BackupEntry      `json:"backupHistory"`
+	UpgradeHistory    []UpgradeEntry     `json:"upgradeHistory"`
+	HealthHistory     []HealthEntry      `json:"healthHistory"`
+	BenchmarkHistory  []BenchmarkEntry   `json:"benchmarkHistory"`
+	NodeHistory       []NodeEntry        `json:"nodeHistory"`
+	VPNHistory        []VPNEntry         `json:"vpnHistory"`
+	ArgoCDHistory     []ArgoCDEntry      `json:"argocdHistory"`
+	AddonsHistory     []AddonsEntry      `json:"addonsHistory"`
+	SaltHistory       []SaltEntry        `json:"saltHistory"`
+	ValidationHistory []ValidationEntry  `json:"validationHistory"`
 	Credentials       *AddonsCredentials `json:"credentials,omitempty"`
-	MaxEntries        int               `json:"maxEntries"`
-	LastUpdated       time.Time         `json:"lastUpdated"`
-	mu                sync.Mutex        `json:"-"`
+	MaxEntries        int                `json:"maxEntries"`
+	LastUpdated       time.Time          `json:"lastUpdated"`
+	mu                sync.Mutex         `json:"-"`
 }
 
 // BackupEntry represents a single backup operation record
@@ -169,7 +169,7 @@ type ArgoCDEntry struct {
 
 // AddonsEntry represents a single addons operation record
 type AddonsEntry struct {
-	ID            string   `json:"id"`
+	ID            string    `json:"id"`
 	Timestamp     time.Time `json:"timestamp"`
 	Operation     string    `json:"operation"` // bootstrap, sync, install, uninstall
 	AddonName     string    `json:"addonName,omitempty"`
@@ -184,34 +184,34 @@ type AddonsEntry struct {
 
 // SaltEntry represents a single Salt operation record
 type SaltEntry struct {
-	ID           string   `json:"id"`
-	Timestamp    time.Time `json:"timestamp"`
-	Operation    string    `json:"operation"` // cmd, state, highstate, grain
-	Target       string    `json:"target"`    // node target pattern
-	Function     string    `json:"function,omitempty"`
-	Arguments    string    `json:"arguments,omitempty"`
-	Status       string    `json:"status"` // success, failed, partial
-	NodesTargeted int      `json:"nodesTargeted,omitempty"`
-	NodesSuccess  int      `json:"nodesSuccess,omitempty"`
-	NodesFailed   int      `json:"nodesFailed,omitempty"`
-	Duration      string   `json:"duration,omitempty"`
-	Output        string   `json:"output,omitempty"`
-	Error         string   `json:"error,omitempty"`
+	ID            string    `json:"id"`
+	Timestamp     time.Time `json:"timestamp"`
+	Operation     string    `json:"operation"` // cmd, state, highstate, grain
+	Target        string    `json:"target"`    // node target pattern
+	Function      string    `json:"function,omitempty"`
+	Arguments     string    `json:"arguments,omitempty"`
+	Status        string    `json:"status"` // success, failed, partial
+	NodesTargeted int       `json:"nodesTargeted,omitempty"`
+	NodesSuccess  int       `json:"nodesSuccess,omitempty"`
+	NodesFailed   int       `json:"nodesFailed,omitempty"`
+	Duration      string    `json:"duration,omitempty"`
+	Output        string    `json:"output,omitempty"`
+	Error         string    `json:"error,omitempty"`
 }
 
 // ValidationEntry represents a single validation operation record
 type ValidationEntry struct {
-	ID               string             `json:"id"`
-	Timestamp        time.Time          `json:"timestamp"`
-	ValidationType   string             `json:"validationType"` // pre-deploy, post-deploy, full, quick
-	OverallStatus    string             `json:"overallStatus"`  // passed, failed, warning
-	TotalChecks      int                `json:"totalChecks"`
-	PassedChecks     int                `json:"passedChecks"`
-	FailedChecks     int                `json:"failedChecks"`
-	WarningChecks    int                `json:"warningChecks"`
-	Duration         string             `json:"duration,omitempty"`
+	ID                string            `json:"id"`
+	Timestamp         time.Time         `json:"timestamp"`
+	ValidationType    string            `json:"validationType"` // pre-deploy, post-deploy, full, quick
+	OverallStatus     string            `json:"overallStatus"`  // passed, failed, warning
+	TotalChecks       int               `json:"totalChecks"`
+	PassedChecks      int               `json:"passedChecks"`
+	FailedChecks      int               `json:"failedChecks"`
+	WarningChecks     int               `json:"warningChecks"`
+	Duration          string            `json:"duration,omitempty"`
 	ValidationResults []ValidationCheck `json:"validationResults,omitempty"`
-	Error            string             `json:"error,omitempty"`
+	Error             string            `json:"error,omitempty"`
 }
 
 // ValidationCheck represents a single validation check result
