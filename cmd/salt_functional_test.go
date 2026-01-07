@@ -1270,7 +1270,7 @@ func TestSaltCLI_ErrorHandling(t *testing.T) {
 	t.Run("MissingURL_Error", func(t *testing.T) {
 		_, err := getSaltClient()
 		require.Error(t, err, "Should error when API URL is missing")
-		assert.Contains(t, err.Error(), "Salt API URL is required")
+		assert.Contains(t, err.Error(), "stack name is required")
 	})
 
 	// Restore

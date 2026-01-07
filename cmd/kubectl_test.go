@@ -55,5 +55,5 @@ func TestRunKubectl_WithInvalidStack(t *testing.T) {
 	// Test with a non-existent stack name
 	err := runKubectl(kubectlCmd, []string{"non-existent-stack", "get", "nodes"})
 	assert.Error(t, err)
-	assert.Contains(t, err.Error(), "failed to get kubeconfig")
+	assert.Contains(t, err.Error(), "stack 'non-existent-stack' not found")
 }

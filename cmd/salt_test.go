@@ -161,7 +161,7 @@ func TestGetSaltClient(t *testing.T) {
 				saltPassword = "saltapi123"
 			},
 			shouldError: true,
-			errorMsg:    "Salt API URL is required",
+			errorMsg:    "stack name is required",
 		},
 	}
 

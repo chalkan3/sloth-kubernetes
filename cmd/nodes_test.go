@@ -154,11 +154,11 @@ func TestGetStackFromArgs(t *testing.T) {
 			expected:     "development",
 		},
 		{
-			name:         "Default to production",
+			name:         "Empty stack when no default",
 			args:         []string{},
 			index:        0,
 			stackNameVar: "",
-			expected:     "production",
+			expected:     "",
 		},
 		{
 			name:         "Args precedence over stackName",
@@ -175,11 +175,11 @@ func TestGetStackFromArgs(t *testing.T) {
 			expected:     "fallback",
 		},
 		{
-			name:         "Index out of bounds - default",
+			name:         "Index out of bounds - empty when no stackName",
 			args:         []string{"production"},
 			index:        5,
 			stackNameVar: "",
-			expected:     "production",
+			expected:     "",
 		},
 	}
 
