@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-hcloud/sdk/go/hcloud"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -125,7 +126,7 @@ func (p *HetznerProvider) setupSSHKeys(ctx *pulumi.Context) error {
 	}
 
 	p.sshKey = sshKey
-	ctx.Export("hetzner_ssh_key_id", sshKey.ID())
+	secrets.Export(ctx,"hetzner_ssh_key_id", sshKey.ID())
 	ctx.Log.Info("SSH key created/imported successfully", nil)
 
 	return nil
@@ -160,7 +161,7 @@ func (p *HetznerProvider) setupPlacementGroup(ctx *pulumi.Context) error {
 	}
 
 	p.placementGroup = pg
-	ctx.Export("hetzner_placement_group_id", pg.ID())
+	secrets.Export(ctx,"hetzner_placement_group_id", pg.ID())
 	ctx.Log.Info("Placement group created successfully", nil)
 
 	return nil
@@ -199,7 +200,7 @@ func (p *HetznerProvider) CreateNetwork(ctx *pulumi.Context, network *config.Net
 	}
 
 	p.network = hzNetwork
-	ctx.Export("hetzner_network_id", hzNetwork.ID())
+	secrets.Export(ctx,"hetzner_network_id", hzNetwork.ID())
 
 	// Create subnets
 	var subnets []SubnetOutput
@@ -361,9 +362,9 @@ func (p *HetznerProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfi
 	p.nodes = append(p.nodes, output)
 
 	// Export outputs
-	ctx.Export(fmt.Sprintf("%s_id", node.Name), server.ID())
-	ctx.Export(fmt.Sprintf("%s_public_ip", node.Name), server.Ipv4Address)
-	ctx.Export(fmt.Sprintf("%s_status", node.Name), server.Status)
+	secrets.Export(ctx,fmt.Sprintf("%s_id", node.Name), server.ID())
+	secrets.Export(ctx,fmt.Sprintf("%s_public_ip", node.Name), server.Ipv4Address)
+	secrets.Export(ctx,fmt.Sprintf("%s_status", node.Name), server.Status)
 
 	ctx.Log.Info(fmt.Sprintf("Server created: %s (%s) in %s", node.Name, serverType, location), nil)
 
@@ -541,7 +542,7 @@ func (p *HetznerProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.F
 	}
 
 	p.firewall = fw
-	ctx.Export("hetzner_firewall_id", fw.ID())
+	secrets.Export(ctx,"hetzner_firewall_id", fw.ID())
 
 	// Attach firewall to servers using separate attachment resources
 	for i, node := range p.nodes {
@@ -659,9 +660,9 @@ func (p *HetznerProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.Loa
 		}
 	}
 
-	ctx.Export("hetzner_lb_id", loadBalancer.ID())
-	ctx.Export("hetzner_lb_ipv4", loadBalancer.Ipv4)
-	ctx.Export("hetzner_lb_ipv6", loadBalancer.Ipv6)
+	secrets.Export(ctx,"hetzner_lb_id", loadBalancer.ID())
+	secrets.Export(ctx,"hetzner_lb_ipv4", loadBalancer.Ipv4)
+	secrets.Export(ctx,"hetzner_lb_ipv6", loadBalancer.Ipv6)
 
 	ctx.Log.Info(fmt.Sprintf("Load balancer %s created in %s", lbName, location), nil)
 

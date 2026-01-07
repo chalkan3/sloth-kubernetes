@@ -9,6 +9,7 @@ import (
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/cloudinit"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	azurecompute "github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
@@ -229,7 +230,7 @@ func NewRealNodeDeploymentComponent(ctx *pulumi.Context, name string, clusterCon
 		len(realNodeComponents))
 
 	// Store real node components for later use (WireGuard, RKE, etc)
-	ctx.Export("__realNodes", pulumi.ToOutput(realNodeComponents))
+	secrets.Export(ctx,"__realNodes", pulumi.ToOutput(realNodeComponents))
 
 	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{
 		"nodes":  component.Nodes,
@@ -1115,9 +1116,9 @@ func createHetznerNode(ctx *pulumi.Context, name string, nodeConfig *config.Node
 	component.Status = server.Status
 
 	// Export outputs
-	ctx.Export(fmt.Sprintf("%s_id", name), server.ID())
-	ctx.Export(fmt.Sprintf("%s_public_ip", name), server.Ipv4Address)
-	ctx.Export(fmt.Sprintf("%s_status", name), server.Status)
+	secrets.Export(ctx,fmt.Sprintf("%s_id", name), server.ID())
+	secrets.Export(ctx,fmt.Sprintf("%s_public_ip", name), server.Ipv4Address)
+	secrets.Export(ctx,fmt.Sprintf("%s_status", name), server.Status)
 
 	ctx.Log.Info(fmt.Sprintf("   ✅ Hetzner server %s created (%s) in %s", name, serverType, location), nil)
 

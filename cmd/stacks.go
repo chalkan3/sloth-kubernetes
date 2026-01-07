@@ -1,12 +1,15 @@
 package cmd
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -18,6 +21,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/common/tokens"
 	"github.com/pulumi/pulumi/sdk/v3/go/common/workspace"
 	"github.com/spf13/cobra"
+	"golang.org/x/term"
 
 	"github.com/chalkan3/sloth-kubernetes/internal/common"
 )
@@ -130,6 +134,36 @@ var cancelCmd = &cobra.Command{
 	RunE: runCancel,
 }
 
+var createStackCmd = &cobra.Command{
+	Use:   "create [stack-name]",
+	Short: "Create a new stack with encryption (passphrase or KMS)",
+	Long: `Create a new Pulumi stack with encrypted secrets.
+
+Encryption options:
+  1. AWS KMS (recommended for production):
+     - --kms-key: Use AWS KMS key for encryption
+     - Supports key ARN, key ID, or alias
+
+  2. Passphrase-based (AES-256-GCM):
+     - --password-stdin: Read from stdin
+     - Environment variable: PULUMI_CONFIG_PASSPHRASE
+     - Interactive prompt (if neither above is provided)
+
+The encryption configuration is saved for subsequent operations.`,
+	Example: `  # Create stack with AWS KMS encryption (recommended for production)
+  sloth-kubernetes stacks create production --kms-key alias/sloth-secrets
+
+  # Create stack with KMS key ARN
+  sloth-kubernetes stacks create production --kms-key arn:aws:kms:us-east-1:123456789:key/abcd-1234
+
+  # Create stack with password from stdin
+  echo "my-secure-password" | sloth-kubernetes stacks create production --password-stdin
+
+  # Create stack interactively (will prompt for password)
+  sloth-kubernetes stacks create production`,
+	RunE: runCreateStack,
+}
+
 var stateCmd = &cobra.Command{
 	Use:   "state",
 	Short: "Manage stack state",
@@ -234,18 +268,20 @@ The resource is removed from the source stack and added to the target stack.`,
 }
 
 var (
-	destroyStack bool
-	outputKey    string
-	outputJSON   bool
-	exportOutput string
-	forceDelete  bool
-	resourceType string
-	diffFile     string
-	stateDryRun  bool
-	unprotectAll bool
-	bulkPattern  string
-	bulkFile     string
-	moveType     string
+	destroyStack  bool
+	outputKey     string
+	outputJSON    bool
+	exportOutput  string
+	forceDelete   bool
+	resourceType  string
+	diffFile      string
+	stateDryRun   bool
+	unprotectAll  bool
+	bulkPattern   string
+	bulkFile      string
+	moveType      string
+	passwordStdin bool
+	kmsKey        string
 )
 
 func init() {
@@ -255,6 +291,7 @@ func init() {
 	// Add subcommands
 	stacksCmd.AddCommand(listStacksCmd)
 	stacksCmd.AddCommand(stackInfoCmd)
+	stacksCmd.AddCommand(createStackCmd)
 	stacksCmd.AddCommand(deleteStackCmd)
 	stacksCmd.AddCommand(outputCmd)
 	stacksCmd.AddCommand(selectStackCmd)
@@ -308,6 +345,10 @@ func init() {
 
 	// State move flags
 	stateMoveCmd.Flags().StringVar(&moveType, "type", "", "Move all resources of this type")
+
+	// Create stack flags
+	createStackCmd.Flags().BoolVar(&passwordStdin, "password-stdin", false, "Read passphrase from stdin")
+	createStackCmd.Flags().StringVar(&kmsKey, "kms-key", "", "AWS KMS key ARN or alias for encryption (e.g., alias/my-key or arn:aws:kms:...)")
 }
 
 // createWorkspaceWithS3Support creates a Pulumi workspace with S3/MinIO backend support
@@ -1196,6 +1237,357 @@ func runCancel(cmd *cobra.Command, args []string) error {
 	fmt.Println("  • If there were running operations, they have been cancelled")
 
 	return nil
+}
+
+func runCreateStack(cmd *cobra.Command, args []string) error {
+	if len(args) < 1 {
+		return fmt.Errorf("usage: sloth-kubernetes stacks create <stack-name> [--password-stdin | --kms-key <key>]")
+	}
+
+	ctx := context.Background()
+	stackName := args[0]
+
+	printHeader(fmt.Sprintf("🔐 Creating Stack: %s", stackName))
+
+	var secretsProvider string
+	var encryptionType string
+
+	// Check if KMS key is provided
+	if kmsKey != "" {
+		// Use AWS KMS encryption
+		secretsProvider = formatKMSProvider(kmsKey)
+		encryptionType = "AWS KMS"
+
+		fmt.Println()
+		color.Cyan("⏳ Creating stack with AWS KMS encryption...")
+		color.Cyan("   KMS Key: %s", kmsKey)
+
+		// Save KMS key to config
+		if err := saveKMSKey(kmsKey); err != nil {
+			color.Yellow("⚠️  Warning: Could not save KMS key to config: %v", err)
+		}
+	} else {
+		// Use passphrase-based encryption
+		passphrase, err := getPassphrase()
+		if err != nil {
+			return fmt.Errorf("failed to get passphrase: %w", err)
+		}
+
+		if passphrase == "" {
+			return fmt.Errorf("passphrase cannot be empty")
+		}
+
+		// Validate passphrase strength
+		if len(passphrase) < 8 {
+			color.Yellow("⚠️  Warning: Passphrase is short (less than 8 characters)")
+			fmt.Println("   Consider using a longer passphrase for better security")
+			fmt.Println()
+		}
+
+		// Set the passphrase as environment variable for Pulumi
+		os.Setenv("PULUMI_CONFIG_PASSPHRASE", passphrase)
+		secretsProvider = "passphrase"
+		encryptionType = "Passphrase (AES-256-GCM)"
+
+		// Save passphrase to config file
+		if err := savePassphrase(passphrase); err != nil {
+			color.Yellow("⚠️  Warning: Could not save passphrase to config: %v", err)
+			fmt.Println("   You will need to provide it again for future operations")
+		}
+
+		fmt.Println()
+		color.Cyan("⏳ Creating stack with passphrase encryption...")
+	}
+
+	// Load saved S3 backend configuration
+	_ = common.LoadSavedConfig()
+
+	// Create workspace with secrets provider
+	workspace, err := createWorkspaceWithSecretsProvider(ctx, secretsProvider)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Create the stack
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stackName)
+	_, err = auto.NewStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		// Check if stack already exists
+		if strings.Contains(err.Error(), "already exists") {
+			color.Yellow("\n⚠️  Stack '%s' already exists", stackName)
+			fmt.Println()
+			color.Cyan("To use this stack:")
+			fmt.Printf("  sloth-kubernetes deploy %s --config your-config.lisp\n", stackName)
+			return nil
+		}
+		return fmt.Errorf("failed to create stack: %w", err)
+	}
+
+	fmt.Println()
+	color.Green("✅ Stack '%s' created successfully", stackName)
+	fmt.Println()
+	color.New(color.Bold).Println("Stack Details:")
+	fmt.Printf("  • Name: %s\n", stackName)
+	fmt.Printf("  • Encryption: %s\n", encryptionType)
+	if kmsKey != "" {
+		fmt.Printf("  • KMS Key: %s\n", kmsKey)
+	}
+	fmt.Printf("  • Config saved: ~/.sloth-kubernetes/config\n")
+	fmt.Println()
+	color.Cyan("Next steps:")
+	fmt.Printf("  1. Deploy your cluster:\n")
+	fmt.Printf("     sloth-kubernetes deploy %s --config your-config.lisp\n", stackName)
+	fmt.Println()
+
+	if kmsKey != "" {
+		color.Yellow("⚠️  Important: Ensure AWS credentials have access to the KMS key!")
+		fmt.Println("   The key must allow Encrypt and Decrypt operations.")
+	} else {
+		color.Yellow("⚠️  Important: Keep your passphrase safe!")
+		fmt.Println("   You will need it to access encrypted outputs and manage this stack.")
+	}
+
+	return nil
+}
+
+// formatKMSProvider formats the KMS key into a Pulumi secrets provider URL
+func formatKMSProvider(key string) string {
+	// If it's a full ARN, extract key ID and region
+	// ARN format: arn:aws:kms:<region>:<account-id>:key/<key-id>
+	if strings.HasPrefix(key, "arn:aws:kms:") {
+		parts := strings.Split(key, ":")
+		if len(parts) >= 6 {
+			region := parts[3]
+			keyPart := parts[5] // "key/<key-id>"
+			if strings.HasPrefix(keyPart, "key/") {
+				keyID := strings.TrimPrefix(keyPart, "key/")
+				return fmt.Sprintf("awskms://%s?region=%s", keyID, region)
+			}
+		}
+		// Fallback: use just the key ID with region from ARN
+		return "awskms://" + key
+	}
+	// If it's an alias, format it properly with region query param
+	if strings.HasPrefix(key, "alias/") {
+		// Check if AWS_REGION or AWS_DEFAULT_REGION is set
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = os.Getenv("AWS_DEFAULT_REGION")
+		}
+		if region != "" {
+			return fmt.Sprintf("awskms://%s?region=%s", key, region)
+		}
+		return "awskms://" + key
+	}
+	// If it's just a key ID (UUID format), use it with region
+	if len(key) == 36 && strings.Count(key, "-") == 4 {
+		region := os.Getenv("AWS_REGION")
+		if region == "" {
+			region = os.Getenv("AWS_DEFAULT_REGION")
+		}
+		if region != "" {
+			return fmt.Sprintf("awskms://%s?region=%s", key, region)
+		}
+		return "awskms://" + key
+	}
+	// Default: treat as alias
+	return "awskms://alias/" + key
+}
+
+// saveKMSKey saves the KMS key to the config file
+func saveKMSKey(kmsKey string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configDir := filepath.Join(home, ".sloth-kubernetes")
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return err
+	}
+
+	configFile := filepath.Join(configDir, "config")
+
+	// Read existing config
+	existingContent := ""
+	if data, err := os.ReadFile(configFile); err == nil {
+		existingContent = string(data)
+	}
+
+	// Update or add KMS key, remove passphrase if present
+	lines := strings.Split(existingContent, "\n")
+	var newLines []string
+	foundKMS := false
+	for _, line := range lines {
+		// Skip existing KMS key and passphrase lines
+		if strings.HasPrefix(line, "PULUMI_SECRETS_PROVIDER=") ||
+			strings.HasPrefix(line, "PULUMI_CONFIG_PASSPHRASE=") {
+			continue
+		}
+		if line != "" {
+			newLines = append(newLines, line)
+		}
+	}
+
+	// Add the KMS key
+	newLines = append(newLines, fmt.Sprintf("PULUMI_SECRETS_PROVIDER=awskms://%s", kmsKey))
+	foundKMS = true
+	_ = foundKMS
+
+	content := strings.Join(newLines, "\n")
+	if !strings.HasSuffix(content, "\n") {
+		content += "\n"
+	}
+
+	return os.WriteFile(configFile, []byte(content), 0600)
+}
+
+// createWorkspaceWithSecretsProvider creates a workspace with the specified secrets provider
+func createWorkspaceWithSecretsProvider(ctx context.Context, secretsProvider string) (auto.Workspace, error) {
+	// Load saved S3 backend configuration
+	_ = common.LoadSavedConfig()
+
+	projectName := "sloth-kubernetes"
+
+	// Build project configuration with optional backend
+	project := workspace.Project{
+		Name:    tokens.PackageName(projectName),
+		Runtime: workspace.NewProjectRuntimeInfo("go", nil),
+	}
+
+	// If PULUMI_BACKEND_URL is set, configure backend in the project
+	if backendURL := os.Getenv("PULUMI_BACKEND_URL"); backendURL != "" {
+		project.Backend = &workspace.ProjectBackend{
+			URL: backendURL,
+		}
+	}
+
+	workspaceOpts := []auto.LocalWorkspaceOption{
+		auto.Project(project),
+	}
+
+	// Collect all AWS/S3 environment variables to pass to Pulumi subprocess
+	envVars := make(map[string]string)
+	awsEnvKeys := []string{
+		"AWS_ACCESS_KEY_ID",
+		"AWS_SECRET_ACCESS_KEY",
+		"AWS_SESSION_TOKEN",
+		"AWS_REGION",
+		"AWS_DEFAULT_REGION",
+		"AWS_PROFILE",
+	}
+
+	for _, key := range awsEnvKeys {
+		if val := os.Getenv(key); val != "" {
+			envVars[key] = val
+		}
+	}
+
+	// Add passphrase if using passphrase provider
+	if secretsProvider == "passphrase" {
+		if passphrase := os.Getenv("PULUMI_CONFIG_PASSPHRASE"); passphrase != "" {
+			envVars["PULUMI_CONFIG_PASSPHRASE"] = passphrase
+		}
+	}
+
+	// Set secrets provider
+	if secretsProvider != "" {
+		workspaceOpts = append(workspaceOpts, auto.SecretsProvider(secretsProvider))
+	}
+
+	// Add environment variables if we have any
+	if len(envVars) > 0 {
+		workspaceOpts = append(workspaceOpts, auto.EnvVars(envVars))
+	}
+
+	return auto.NewLocalWorkspace(ctx, workspaceOpts...)
+}
+
+// getPassphrase gets the passphrase from stdin, environment, or interactive prompt
+func getPassphrase() (string, error) {
+	// Option 1: Read from stdin if --password-stdin flag is set
+	if passwordStdin {
+		reader := bufio.NewReader(os.Stdin)
+		passphrase, err := reader.ReadString('\n')
+		if err != nil {
+			return "", fmt.Errorf("failed to read passphrase from stdin: %w", err)
+		}
+		return strings.TrimSpace(passphrase), nil
+	}
+
+	// Option 2: Check environment variable
+	if envPass := os.Getenv("PULUMI_CONFIG_PASSPHRASE"); envPass != "" {
+		color.Cyan("Using passphrase from PULUMI_CONFIG_PASSPHRASE environment variable")
+		return envPass, nil
+	}
+
+	// Option 3: Interactive prompt
+	fmt.Println()
+	fmt.Print("Enter encryption passphrase: ")
+	passBytes, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("failed to read passphrase: %w", err)
+	}
+	fmt.Println() // New line after hidden input
+
+	// Confirm passphrase
+	fmt.Print("Confirm passphrase: ")
+	confirmBytes, err := term.ReadPassword(int(syscall.Stdin))
+	if err != nil {
+		return "", fmt.Errorf("failed to read confirmation: %w", err)
+	}
+	fmt.Println()
+
+	if string(passBytes) != string(confirmBytes) {
+		return "", fmt.Errorf("passphrases do not match")
+	}
+
+	return string(passBytes), nil
+}
+
+// savePassphrase saves the passphrase to the config file
+func savePassphrase(passphrase string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+
+	configDir := filepath.Join(home, ".sloth-kubernetes")
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return err
+	}
+
+	configFile := filepath.Join(configDir, "config")
+
+	// Read existing config
+	existingConfig := make(map[string]string)
+	if data, err := os.ReadFile(configFile); err == nil {
+		lines := strings.Split(string(data), "\n")
+		for _, line := range lines {
+			line = strings.TrimSpace(line)
+			if line == "" || strings.HasPrefix(line, "#") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			if len(parts) == 2 {
+				existingConfig[strings.TrimSpace(parts[0])] = strings.TrimSpace(parts[1])
+			}
+		}
+	}
+
+	// Update passphrase
+	existingConfig["PULUMI_CONFIG_PASSPHRASE"] = passphrase
+
+	// Write back
+	var lines []string
+	lines = append(lines, "# Sloth Kubernetes Configuration")
+	lines = append(lines, "# Generated by sloth-kubernetes CLI")
+	lines = append(lines, "")
+	for key, value := range existingConfig {
+		lines = append(lines, fmt.Sprintf("%s=%s", key, value))
+	}
+
+	return os.WriteFile(configFile, []byte(strings.Join(lines, "\n")+"\n"), 0600)
 }
 
 func runStateDiff(cmd *cobra.Command, args []string) error {

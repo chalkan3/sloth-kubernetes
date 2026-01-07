@@ -6,6 +6,7 @@ import (
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -436,7 +437,7 @@ users:
 `, args[0].(string))
 	}).(pulumi.StringOutput)
 
-	r.ctx.Export("kubeconfig", r.kubeconfig)
+	secrets.Export(r.ctx, "kubeconfig", r.kubeconfig)
 }
 
 // GetKubeconfig returns the kubeconfig output
@@ -523,15 +524,15 @@ echo "Monitoring stack installed"
 
 // ExportClusterInfo exports cluster information
 func (r *RKE2Manager) ExportClusterInfo() {
-	r.ctx.Export("cluster_name", pulumi.String(r.ctx.Stack()))
-	r.ctx.Export("kubernetes_distribution", pulumi.String("rke2"))
-	r.ctx.Export("kubernetes_version", pulumi.String(r.rke2Config.Version))
-	r.ctx.Export("rke2_channel", pulumi.String(r.rke2Config.Channel))
-	r.ctx.Export("network_plugin", pulumi.String(r.config.NetworkPlugin))
-	r.ctx.Export("pod_cidr", pulumi.String(r.config.PodCIDR))
-	r.ctx.Export("service_cidr", pulumi.String(r.config.ServiceCIDR))
-	r.ctx.Export("cluster_dns", pulumi.String(r.config.ClusterDNS))
-	r.ctx.Export("cluster_domain", pulumi.String(r.config.ClusterDomain))
+	secrets.Export(r.ctx, "cluster_name", pulumi.String(r.ctx.Stack()))
+	secrets.Export(r.ctx, "kubernetes_distribution", pulumi.String("rke2"))
+	secrets.Export(r.ctx, "kubernetes_version", pulumi.String(r.rke2Config.Version))
+	secrets.Export(r.ctx, "rke2_channel", pulumi.String(r.rke2Config.Channel))
+	secrets.Export(r.ctx, "network_plugin", pulumi.String(r.config.NetworkPlugin))
+	secrets.Export(r.ctx, "pod_cidr", pulumi.String(r.config.PodCIDR))
+	secrets.Export(r.ctx, "service_cidr", pulumi.String(r.config.ServiceCIDR))
+	secrets.Export(r.ctx, "cluster_dns", pulumi.String(r.config.ClusterDNS))
+	secrets.Export(r.ctx, "cluster_domain", pulumi.String(r.config.ClusterDomain))
 
 	// Export node information
 	nodeInfo := make(map[string]interface{})
@@ -547,7 +548,7 @@ func (r *RKE2Manager) ExportClusterInfo() {
 			"region":       node.Region,
 		}
 	}
-	r.ctx.Export("nodes", pulumi.ToMap(nodeInfo))
+	secrets.Export(r.ctx, "nodes", pulumi.ToMap(nodeInfo))
 }
 
 // UpgradeCluster upgrades the RKE2 cluster to a new version

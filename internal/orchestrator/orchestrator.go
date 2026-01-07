@@ -11,6 +11,7 @@ import (
 	"github.com/chalkan3/sloth-kubernetes/pkg/ingress"
 	"github.com/chalkan3/sloth-kubernetes/pkg/network"
 	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/chalkan3/sloth-kubernetes/pkg/security"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -728,7 +729,7 @@ func (o *Orchestrator) installLoadBalancers() error {
 			return fmt.Errorf("failed to create load balancer %s: %w", lbConfig.Name, err)
 		}
 
-		o.ctx.Export(fmt.Sprintf("lb_%s_ip", lbConfig.Name), lb.IP)
+		secrets.Export(o.ctx, fmt.Sprintf("lb_%s_ip", lbConfig.Name), lb.IP)
 	}
 
 	return nil
@@ -739,9 +740,9 @@ func (o *Orchestrator) exportOutputs() {
 	o.ctx.Log.Info("Exporting cluster outputs", nil)
 
 	// Export metadata
-	o.ctx.Export("cluster_name", pulumi.String(o.config.Metadata.Name))
-	o.ctx.Export("environment", pulumi.String(o.config.Metadata.Environment))
-	o.ctx.Export("version", pulumi.String(o.config.Metadata.Version))
+	secrets.Export(o.ctx, "cluster_name", pulumi.String(o.config.Metadata.Name))
+	secrets.Export(o.ctx, "environment", pulumi.String(o.config.Metadata.Environment))
+	secrets.Export(o.ctx, "version", pulumi.String(o.config.Metadata.Version))
 
 	// Export node information
 	nodeOutputs := make(map[string]interface{})
@@ -757,7 +758,7 @@ func (o *Orchestrator) exportOutputs() {
 			}
 		}
 	}
-	o.ctx.Export("nodes", pulumi.ToMap(nodeOutputs))
+	secrets.Export(o.ctx, "nodes", pulumi.ToMap(nodeOutputs))
 
 	// Export network information
 	if o.networkManager != nil {
@@ -785,7 +786,7 @@ func (o *Orchestrator) exportOutputs() {
 				"services":   status.Services,
 			}
 		}
-		o.ctx.Export("health_status", pulumi.ToMap(healthOutputs))
+		secrets.Export(o.ctx, "health_status", pulumi.ToMap(healthOutputs))
 	}
 
 	// Export validation results
@@ -798,7 +799,7 @@ func (o *Orchestrator) exportOutputs() {
 				"message": result.Message,
 			}
 		}
-		o.ctx.Export("validation_results", pulumi.ToMap(validationOutputs))
+		secrets.Export(o.ctx, "validation_results", pulumi.ToMap(validationOutputs))
 	}
 
 	// Export VPN connectivity matrix
@@ -812,11 +813,11 @@ func (o *Orchestrator) exportOutputs() {
 			}
 			matrixOutputs[source] = targetOutputs
 		}
-		o.ctx.Export("vpn_connectivity_matrix", pulumi.ToMap(matrixOutputs))
+		secrets.Export(o.ctx, "vpn_connectivity_matrix", pulumi.ToMap(matrixOutputs))
 	}
 
 	// Export access information
-	o.ctx.Export("access_info", pulumi.Map{
+	secrets.Export(o.ctx, "access_info", pulumi.Map{
 		"wireguard_required": pulumi.Bool(o.config.Network.WireGuard != nil && o.config.Network.WireGuard.Enabled),
 		"api_endpoint":       pulumi.String(fmt.Sprintf("https://10.8.0.11:6443")), // Master 1 WireGuard IP
 		"ssh_user":           pulumi.String("root"),

@@ -8,6 +8,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 )
 
 // WireGuardManager handles WireGuard VPN server creation
@@ -127,10 +128,10 @@ func (m *WireGuardManager) createDigitalOceanWireGuard(cfg *config.WireGuardConf
 	}
 
 	// Export server information
-	m.ctx.Export("wireguard_server_id", droplet.ID())
-	m.ctx.Export("wireguard_server_ip", droplet.Ipv4Address)
-	m.ctx.Export("wireguard_server_name", droplet.Name)
-	m.ctx.Export("wireguard_port", pulumi.Int(cfg.Port))
+	secrets.Export(m.ctx, "wireguard_server_id", droplet.ID())
+	secrets.Export(m.ctx, "wireguard_server_ip", droplet.Ipv4Address)
+	secrets.Export(m.ctx, "wireguard_server_name", droplet.Name)
+	secrets.Export(m.ctx, "wireguard_port", pulumi.Int(cfg.Port))
 
 	return &WireGuardResult{
 		Provider:   "digitalocean",
@@ -172,10 +173,10 @@ func (m *WireGuardManager) createLinodeWireGuard(cfg *config.WireGuardConfig, ss
 	}
 
 	// Export server information
-	m.ctx.Export("wireguard_server_id", instance.ID())
-	m.ctx.Export("wireguard_server_ip", instance.IpAddress)
-	m.ctx.Export("wireguard_server_name", instance.Label)
-	m.ctx.Export("wireguard_port", pulumi.Int(cfg.Port))
+	secrets.Export(m.ctx, "wireguard_server_id", instance.ID())
+	secrets.Export(m.ctx, "wireguard_server_ip", instance.IpAddress)
+	secrets.Export(m.ctx, "wireguard_server_name", instance.Label)
+	secrets.Export(m.ctx, "wireguard_port", pulumi.Int(cfg.Port))
 
 	return &WireGuardResult{
 		Provider:   "linode",

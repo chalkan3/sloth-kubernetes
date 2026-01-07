@@ -9,6 +9,7 @@ import (
 
 	"github.com/chalkan3/sloth-kubernetes/internal/orchestrator/components"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/chalkan3/sloth-kubernetes/pkg/versioning"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -529,9 +530,12 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 	component.ConfigJSON = pulumi.String(string(configJSON)).ToStringOutput()
 	component.LispManifest = pulumi.String(lispManifest).ToStringOutput()
 
-	// Export manifests for retrieval
-	ctx.Export("configJson", pulumi.String(string(configJSON)))
-	ctx.Export("lispManifest", pulumi.String(lispManifest))
+	// Create secret exporter - ALL outputs are encrypted with passphrase
+	secretExporter := secrets.NewSecretExporter(ctx)
+
+	// Export manifests for retrieval (encrypted)
+	secretExporter.ExportString("configJson", string(configJSON))
+	secretExporter.ExportString("lispManifest", lispManifest)
 
 	// Generate deployment metadata for scale tracking
 	deployMeta := generateDeploymentMetadata(cfg, previousMeta, len(realNodes), lispManifest)
@@ -541,9 +545,9 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 		deployMetaJSON = []byte("{}")
 	}
 	component.DeploymentMeta = pulumi.String(string(deployMetaJSON)).ToStringOutput()
-	ctx.Export("deploymentMeta", pulumi.String(string(deployMetaJSON)))
+	secretExporter.ExportString("deploymentMeta", string(deployMetaJSON))
 
-	// Export detailed node information as a structured map for CLI commands
+	// Export detailed node information as a structured map for CLI commands (encrypted)
 	nodesMap := pulumi.Map{}
 	for i, node := range realNodes {
 		nodeKey := fmt.Sprintf("node_%d", i)
@@ -559,18 +563,18 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 			"status":     node.Status,
 		}
 	}
-	ctx.Export("nodes", nodesMap)
-	ctx.Export("node_count", pulumi.Int(len(realNodes)))
+	secretExporter.ExportMap("nodes", nodesMap)
+	secretExporter.ExportInt("node_count", len(realNodes))
 
-	// Export kubeconfig for kubectl access
-	ctx.Export("kubeConfig", pulumi.ToSecret(kubeConfig))
+	// Export kubeconfig for kubectl access (encrypted)
+	secretExporter.Export("kubeConfig", kubeConfig)
 
-	// Initialize operations history for CLI operations tracking
-	ctx.Export("operationsHistory", pulumi.String("{}"))
+	// Initialize operations history for CLI operations tracking (encrypted)
+	secretExporter.ExportString("operationsHistory", "{}")
 
-	// Export bastion information if enabled
+	// Export bastion information if enabled (encrypted)
 	if bastionComponent != nil {
-		ctx.Export("bastion", pulumi.Map{
+		secretExporter.ExportMap("bastion", pulumi.Map{
 			"name":       bastionComponent.BastionName,
 			"public_ip":  bastionComponent.PublicIP,
 			"private_ip": bastionComponent.PrivateIP,
@@ -580,35 +584,35 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 			"ssh_port":   bastionComponent.SSHPort,
 			"status":     bastionComponent.Status,
 		})
-		ctx.Export("bastion_enabled", pulumi.Bool(true))
+		secretExporter.ExportBool("bastion_enabled", true)
 	} else {
-		ctx.Export("bastion_enabled", pulumi.Bool(false))
+		secretExporter.ExportBool("bastion_enabled", false)
 	}
 
-	// Export ArgoCD information if installed
+	// Export ArgoCD information if installed (encrypted - contains admin password)
 	if argoCDComponent != nil {
-		ctx.Export("argocd_admin_password", argoCDComponent.AdminPassword)
-		ctx.Export("argocd_status", argoCDComponent.Status)
+		secretExporter.Export("argocd_admin_password", argoCDComponent.AdminPassword)
+		secretExporter.Export("argocd_status", argoCDComponent.Status)
 	}
 
-	// Export Salt Master information if installed
+	// Export Salt Master information if installed (encrypted - contains credentials)
 	if saltMasterComponent != nil {
-		ctx.Export("salt_master", pulumi.Map{
+		secretExporter.ExportMap("salt_master", pulumi.Map{
 			"master_ip":     saltMasterComponent.MasterIP,
 			"api_url":       saltMasterComponent.APIURL,
 			"api_username":  saltMasterComponent.APIUsername,
 			"api_password":  saltMasterComponent.APIPassword,
-			"cluster_token": saltMasterComponent.ClusterToken, // Secure auth token
+			"cluster_token": saltMasterComponent.ClusterToken,
 			"status":        saltMasterComponent.Status,
 		})
-		ctx.Export("salt_enabled", pulumi.Bool(true))
+		secretExporter.ExportBool("salt_enabled", true)
 	} else {
-		ctx.Export("salt_enabled", pulumi.Bool(false))
+		secretExporter.ExportBool("salt_enabled", false)
 	}
 
-	// Export Salt Minion information if configured
+	// Export Salt Minion information if configured (encrypted)
 	if saltMinionComponent != nil {
-		ctx.Export("salt_minions", pulumi.Map{
+		secretExporter.ExportMap("salt_minions", pulumi.Map{
 			"joined_count": saltMinionComponent.JoinedMinions,
 			"status":       saltMinionComponent.Status,
 		})

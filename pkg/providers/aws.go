@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/ec2"
 	"github.com/pulumi/pulumi-aws/sdk/v6/go/aws/lb"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
@@ -127,9 +128,9 @@ func (p *AWSProvider) setupKeyPair(ctx *pulumi.Context) error {
 		p.keyPair = keyPair
 
 		// Export key pair info
-		ctx.Export("aws_key_pair_id", keyPair.ID())
-		ctx.Export("aws_key_pair_name", keyPair.KeyName)
-		ctx.Export("aws_key_pair_fingerprint", keyPair.Fingerprint)
+		secrets.Export(ctx,"aws_key_pair_id", keyPair.ID())
+		secrets.Export(ctx,"aws_key_pair_name", keyPair.KeyName)
+		secrets.Export(ctx,"aws_key_pair_fingerprint", keyPair.Fingerprint)
 	} else if p.config.KeyPair != "" {
 		// Use existing key pair name - we'll reference it by name
 		ctx.Log.Info(fmt.Sprintf("Using existing key pair: %s", p.config.KeyPair), nil)
@@ -256,10 +257,10 @@ func (p *AWSProvider) CreateNetwork(ctx *pulumi.Context, network *config.Network
 	}
 
 	// Export network info
-	ctx.Export("aws_vpc_id", vpc.ID())
-	ctx.Export("aws_vpc_cidr", vpc.CidrBlock)
-	ctx.Export("aws_subnet_id", subnet.ID())
-	ctx.Export("aws_igw_id", igw.ID())
+	secrets.Export(ctx,"aws_vpc_id", vpc.ID())
+	secrets.Export(ctx,"aws_vpc_cidr", vpc.CidrBlock)
+	secrets.Export(ctx,"aws_subnet_id", subnet.ID())
+	secrets.Export(ctx,"aws_igw_id", igw.ID())
 
 	return &NetworkOutput{
 		ID:     vpc.ID(),
@@ -379,8 +380,8 @@ func (p *AWSProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.Firew
 	p.securityGroup = sg
 
 	// Export security group info
-	ctx.Export("aws_security_group_id", sg.ID())
-	ctx.Export("aws_security_group_name", sg.Name)
+	secrets.Export(ctx,"aws_security_group_id", sg.ID())
+	secrets.Export(ctx,"aws_security_group_name", sg.Name)
 
 	return nil
 }
@@ -463,9 +464,9 @@ func (p *AWSProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig) (
 		p.nodes = append(p.nodes, output)
 
 		// Export node info
-		ctx.Export(fmt.Sprintf("%s_public_ip", node.Name), spotRequest.PublicIp)
-		ctx.Export(fmt.Sprintf("%s_private_ip", node.Name), spotRequest.PrivateIp)
-		ctx.Export(fmt.Sprintf("%s_id", node.Name), spotRequest.SpotInstanceId)
+		secrets.Export(ctx,fmt.Sprintf("%s_public_ip", node.Name), spotRequest.PublicIp)
+		secrets.Export(ctx,fmt.Sprintf("%s_private_ip", node.Name), spotRequest.PrivateIp)
+		secrets.Export(ctx,fmt.Sprintf("%s_id", node.Name), spotRequest.SpotInstanceId)
 
 		return output, nil
 	}
@@ -513,10 +514,10 @@ func (p *AWSProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig) (
 	p.nodes = append(p.nodes, output)
 
 	// Export node info
-	ctx.Export(fmt.Sprintf("%s_public_ip", node.Name), instance.PublicIp)
-	ctx.Export(fmt.Sprintf("%s_private_ip", node.Name), instance.PrivateIp)
-	ctx.Export(fmt.Sprintf("%s_id", node.Name), instance.ID())
-	ctx.Export(fmt.Sprintf("%s_status", node.Name), instance.InstanceState)
+	secrets.Export(ctx,fmt.Sprintf("%s_public_ip", node.Name), instance.PublicIp)
+	secrets.Export(ctx,fmt.Sprintf("%s_private_ip", node.Name), instance.PrivateIp)
+	secrets.Export(ctx,fmt.Sprintf("%s_id", node.Name), instance.ID())
+	secrets.Export(ctx,fmt.Sprintf("%s_status", node.Name), instance.InstanceState)
 
 	return output, nil
 }
@@ -683,9 +684,9 @@ func (p *AWSProvider) CreateLoadBalancer(ctx *pulumi.Context, lbConfig *config.L
 	}
 
 	// Export load balancer info
-	ctx.Export("aws_nlb_dns_name", nlb.DnsName)
-	ctx.Export("aws_nlb_arn", nlb.Arn)
-	ctx.Export("aws_nlb_zone_id", nlb.ZoneId)
+	secrets.Export(ctx,"aws_nlb_dns_name", nlb.DnsName)
+	secrets.Export(ctx,"aws_nlb_arn", nlb.Arn)
+	secrets.Export(ctx,"aws_nlb_zone_id", nlb.ZoneId)
 
 	return &LoadBalancerOutput{
 		ID:       nlb.ID(),

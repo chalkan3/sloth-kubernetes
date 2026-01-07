@@ -21,6 +21,7 @@ import (
 	"github.com/chalkan3/sloth-kubernetes/internal/validation"
 	"github.com/chalkan3/sloth-kubernetes/pkg/addons"
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/chalkan3/sloth-kubernetes/pkg/vpc"
 )
 
@@ -238,16 +239,17 @@ func runDeploy(cmd *cobra.Command, args []string) error {
 			return fmt.Errorf("failed to create orchestrator: %w", err)
 		}
 
-		// Export outputs
-		ctx.Export("clusterName", clusterOrch.ClusterName)
-		ctx.Export("kubeConfig", clusterOrch.KubeConfig)
-		ctx.Export("sshPrivateKey", clusterOrch.SSHPrivateKey)
-		ctx.Export("apiEndpoint", clusterOrch.APIEndpoint)
+		// Export outputs (all encrypted with passphrase)
+		secretExporter := secrets.NewSecretExporter(ctx)
+		secretExporter.Export("clusterName", clusterOrch.ClusterName)
+		secretExporter.Export("kubeConfig", clusterOrch.KubeConfig)
+		secretExporter.Export("sshPrivateKey", clusterOrch.SSHPrivateKey)
+		secretExporter.Export("apiEndpoint", clusterOrch.APIEndpoint)
 
-		// Export VPC information
+		// Export VPC information (encrypted)
 		for provider, vpcResult := range vpcs {
-			ctx.Export(fmt.Sprintf("vpc_%s_id", provider), vpcResult.ID)
-			ctx.Export(fmt.Sprintf("vpc_%s_cidr", provider), pulumi.String(vpcResult.CIDR))
+			secretExporter.Export(fmt.Sprintf("vpc_%s_id", provider), vpcResult.ID)
+			secretExporter.ExportString(fmt.Sprintf("vpc_%s_cidr", provider), vpcResult.CIDR)
 		}
 
 		ctx.Log.Info("✅ All phases completed successfully!", nil)

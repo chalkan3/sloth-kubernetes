@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-tls/sdk/v4/go/tls"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 	"golang.org/x/crypto/ssh"
@@ -59,9 +60,10 @@ func (s *SSHKeyManager) GenerateKeyPair() error {
 		return cleaned
 	}).(pulumi.StringOutput)
 
-	// Export keys
-	s.ctx.Export("ssh_private_key", pulumi.ToSecret(s.privateKey))
-	s.ctx.Export("ssh_public_key", s.publicKey)
+	// Export keys (all encrypted with passphrase)
+	secretExporter := secrets.NewSecretExporter(s.ctx)
+	secretExporter.Export("ssh_private_key", s.privateKey)
+	secretExporter.Export("ssh_public_key", s.publicKey)
 
 	// Save private key to local file for SSH access
 	s.savePrivateKey()
@@ -111,7 +113,8 @@ func (s *SSHKeyManager) savePrivateKey() {
 			s.ctx.Log.Warn("Failed to save private key to file", nil)
 		} else {
 			s.ctx.Log.Info("SSH private key saved", nil)
-			s.ctx.Export("ssh_private_key_path", pulumi.String(keyPath))
+			secretExporter := secrets.NewSecretExporter(s.ctx)
+			secretExporter.ExportString("ssh_private_key_path", keyPath)
 		}
 		return key
 	})
@@ -142,9 +145,10 @@ func GenerateLocalKeyPair() (privateKey string, publicKey string, err error) {
 	return string(privateKeyBytes), string(publicKeyBytes), nil
 }
 
-// ExportSSHAccess exports SSH access information
+// ExportSSHAccess exports SSH access information (encrypted)
 func (s *SSHKeyManager) ExportSSHAccess(nodes []string) {
-	s.ctx.Export("ssh_access_info", pulumi.Map{
+	secretExporter := secrets.NewSecretExporter(s.ctx)
+	secretExporter.ExportMap("ssh_access_info", pulumi.Map{
 		"private_key_path": pulumi.String(fmt.Sprintf("~/.ssh/kubernetes-clusters/%s.pem", s.ctx.Stack())),
 		"nodes":            pulumi.ToStringArray(nodes),
 		"example_command":  pulumi.String(fmt.Sprintf("ssh -i ~/.ssh/kubernetes-clusters/%s.pem root@10.8.0.11", s.ctx.Stack())),

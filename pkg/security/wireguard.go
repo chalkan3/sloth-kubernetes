@@ -7,6 +7,7 @@ import (
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/chalkan3/sloth-kubernetes/pkg/providers"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-command/sdk/go/command/remote"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -327,19 +328,19 @@ func GenerateKeyPair() (privateKey, publicKey string, err error) {
 
 // ExportWireGuardInfo exports WireGuard information to Pulumi stack
 func (w *WireGuardManager) ExportWireGuardInfo() {
-	w.ctx.Export("wireguard_configured", pulumi.Bool(w.config.Enabled))
+	secrets.Export(w.ctx, "wireguard_configured", pulumi.Bool(w.config.Enabled))
 
 	if w.config.Enabled {
-		w.ctx.Export("wireguard_server_endpoint", pulumi.String(w.config.ServerEndpoint))
-		w.ctx.Export("wireguard_network", pulumi.String("10.8.0.0/24"))
-		w.ctx.Export("wireguard_port", pulumi.Int(w.config.Port))
+		secrets.Export(w.ctx, "wireguard_server_endpoint", pulumi.String(w.config.ServerEndpoint))
+		secrets.Export(w.ctx, "wireguard_network", pulumi.String("10.8.0.0/24"))
+		secrets.Export(w.ctx, "wireguard_port", pulumi.Int(w.config.Port))
 
 		// Export node WireGuard IPs
 		nodeIPs := pulumi.Map{}
 		for _, node := range w.nodes {
 			nodeIPs[node.Name] = pulumi.String(node.WireGuardIP)
 		}
-		w.ctx.Export("wireguard_node_ips", nodeIPs)
+		secrets.Export(w.ctx, "wireguard_node_ips", nodeIPs)
 	}
 }
 

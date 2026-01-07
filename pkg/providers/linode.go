@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	"github.com/pulumi/pulumi-linode/sdk/v4/go/linode"
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
@@ -118,10 +119,10 @@ func (p *LinodeProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig
 	}
 
 	// Export node information
-	ctx.Export(fmt.Sprintf("%s_public_ip", node.Name), instance.IpAddress)
-	ctx.Export(fmt.Sprintf("%s_private_ip", node.Name), instance.PrivateIpAddress)
-	ctx.Export(fmt.Sprintf("%s_id", node.Name), instance.ID())
-	ctx.Export(fmt.Sprintf("%s_status", node.Name), instance.Status)
+	secrets.Export(ctx,fmt.Sprintf("%s_public_ip", node.Name), instance.IpAddress)
+	secrets.Export(ctx,fmt.Sprintf("%s_private_ip", node.Name), instance.PrivateIpAddress)
+	secrets.Export(ctx,fmt.Sprintf("%s_id", node.Name), instance.ID())
+	secrets.Export(ctx,fmt.Sprintf("%s_status", node.Name), instance.Status)
 
 	p.nodes = append(p.nodes, output)
 	return output, nil
@@ -192,8 +193,8 @@ func (p *LinodeProvider) CreateNetwork(ctx *pulumi.Context, network *config.Netw
 		Region: p.config.Region,
 	}
 
-	ctx.Export("linode_network_name", pulumi.String(output.Name))
-	ctx.Export("linode_network_cidr", pulumi.String(output.CIDR))
+	secrets.Export(ctx,"linode_network_name", pulumi.String(output.Name))
+	secrets.Export(ctx,"linode_network_cidr", pulumi.String(output.CIDR))
 
 	return output, nil
 }
@@ -285,7 +286,7 @@ func (p *LinodeProvider) CreateFirewall(ctx *pulumi.Context, firewall *config.Fi
 	}
 
 	p.firewall = fw
-	ctx.Export("linode_firewall_id", fw.ID())
+	secrets.Export(ctx,"linode_firewall_id", fw.ID())
 
 	return nil
 }
@@ -363,8 +364,8 @@ func (p *LinodeProvider) CreateLoadBalancer(ctx *pulumi.Context, lb *config.Load
 		Status:   pulumi.String("active").ToStringOutput(),
 	}
 
-	ctx.Export(fmt.Sprintf("%s_ip", lb.Name), ipv4)
-	ctx.Export(fmt.Sprintf("%s_hostname", lb.Name), nodeBalancer.Hostname)
+	secrets.Export(ctx,fmt.Sprintf("%s_ip", lb.Name), ipv4)
+	secrets.Export(ctx,fmt.Sprintf("%s_hostname", lb.Name), nodeBalancer.Hostname)
 
 	return output, nil
 }

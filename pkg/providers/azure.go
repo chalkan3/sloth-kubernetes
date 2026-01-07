@@ -5,6 +5,7 @@ import (
 	"fmt"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 	azurecompute "github.com/pulumi/pulumi-azure-native-sdk/compute/v2"
 	azurenetwork "github.com/pulumi/pulumi-azure-native-sdk/network/v2"
 	azureresources "github.com/pulumi/pulumi-azure-native-sdk/resources/v2"
@@ -216,9 +217,9 @@ func (p *AzureProvider) CreateNode(ctx *pulumi.Context, node *config.NodeConfig)
 	}
 
 	// Export node information
-	ctx.Export(fmt.Sprintf("%s_public_ip", node.Name), publicIP.IpAddress)
-	ctx.Export(fmt.Sprintf("%s_private_ip", node.Name), nic.IpConfigurations.Index(pulumi.Int(0)).PrivateIPAddress())
-	ctx.Export(fmt.Sprintf("%s_id", node.Name), vm.ID())
+	secrets.Export(ctx,fmt.Sprintf("%s_public_ip", node.Name), publicIP.IpAddress)
+	secrets.Export(ctx,fmt.Sprintf("%s_private_ip", node.Name), nic.IpConfigurations.Index(pulumi.Int(0)).PrivateIPAddress())
+	secrets.Export(ctx,fmt.Sprintf("%s_id", node.Name), vm.ID())
 
 	p.nodes = append(p.nodes, output)
 	return output, nil
@@ -462,12 +463,12 @@ func (p *AzureProvider) CreateNetwork(ctx *pulumi.Context, network *config.Netwo
 	}
 
 	// Export network info
-	ctx.Export("azure_resource_group_id", rg.ID())
-	ctx.Export("azure_resource_group_name", rg.Name)
-	ctx.Export("azure_vnet_id", vnet.ID())
-	ctx.Export("azure_vnet_name", vnet.Name)
-	ctx.Export("azure_subnet_id", subnet.ID())
-	ctx.Export("azure_nsg_id", nsg.ID())
+	secrets.Export(ctx,"azure_resource_group_id", rg.ID())
+	secrets.Export(ctx,"azure_resource_group_name", rg.Name)
+	secrets.Export(ctx,"azure_vnet_id", vnet.ID())
+	secrets.Export(ctx,"azure_vnet_name", vnet.Name)
+	secrets.Export(ctx,"azure_subnet_id", subnet.ID())
+	secrets.Export(ctx,"azure_nsg_id", nsg.ID())
 
 	return output, nil
 }

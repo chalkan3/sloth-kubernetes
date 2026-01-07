@@ -9,6 +9,7 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 
 	"github.com/chalkan3/sloth-kubernetes/pkg/config"
+	"github.com/chalkan3/sloth-kubernetes/pkg/secrets"
 )
 
 // VPCManager handles VPC creation across providers
@@ -56,9 +57,9 @@ func (m *VPCManager) CreateDigitalOceanVPC(cfg *config.DigitalOceanProvider) (*V
 	}
 
 	// Export VPC information
-	m.ctx.Export("digitalocean_vpc_id", vpc.ID())
-	m.ctx.Export("digitalocean_vpc_urn", vpc.URN())
-	m.ctx.Export("digitalocean_vpc_ip_range", vpc.IpRange)
+	secrets.Export(m.ctx, "digitalocean_vpc_id", vpc.ID())
+	secrets.Export(m.ctx, "digitalocean_vpc_urn", vpc.URN())
+	secrets.Export(m.ctx, "digitalocean_vpc_ip_range", vpc.IpRange)
 
 	return &VPCResult{
 		Provider: "digitalocean",
@@ -96,8 +97,8 @@ func (m *VPCManager) CreateLinodeVPC(cfg *config.LinodeProvider) (*VPCResult, er
 	}
 
 	// Export VPC information
-	m.ctx.Export("linode_vpc_id", vpc.ID())
-	m.ctx.Export("linode_vpc_label", vpc.Label)
+	secrets.Export(m.ctx, "linode_vpc_id", vpc.ID())
+	secrets.Export(m.ctx, "linode_vpc_label", vpc.Label)
 
 	return &VPCResult{
 		Provider: "linode",
