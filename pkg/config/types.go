@@ -223,6 +223,7 @@ type NetworkConfig struct {
 	ServiceMesh             *ServiceMeshConfig     `yaml:"serviceMesh,omitempty" json:"serviceMesh,omitempty"`
 	NetworkPolicies         []NetworkPolicy        `yaml:"networkPolicies" json:"networkPolicies"`
 	WireGuard               *WireGuardConfig       `yaml:"wireguard,omitempty" json:"wireguard,omitempty"`
+	Tailscale               *TailscaleConfig       `yaml:"tailscale,omitempty" json:"tailscale,omitempty"`
 	Firewall                *FirewallConfig        `yaml:"firewall,omitempty" json:"firewall,omitempty"`
 	PrivateCluster          *PrivateClusterConfig  `yaml:"privateCluster,omitempty" json:"privateCluster,omitempty"`
 	Custom                  map[string]interface{} `yaml:"custom" json:"custom"`
@@ -266,6 +267,32 @@ type WireGuardPeer struct {
 	AllowedIPs   []string `yaml:"allowedIps" json:"allowedIps"`
 	Endpoint     string   `yaml:"endpoint" json:"endpoint"`
 	PresharedKey string   `yaml:"presharedKey" json:"presharedKey"`
+}
+
+// TailscaleConfig for Tailscale/Headscale VPN setup
+type TailscaleConfig struct {
+	// Basic settings
+	Enabled bool `yaml:"enabled" json:"enabled"`
+
+	// Headscale coordination server settings
+	HeadscaleURL string `yaml:"headscaleUrl" json:"headscaleUrl"` // e.g., https://headscale.example.com
+	APIKey       string `yaml:"apiKey" json:"apiKey"`             // Headscale admin API key
+	Namespace    string `yaml:"namespace" json:"namespace"`       // Tailnet namespace (default: "default")
+
+	// Authentication
+	AuthKey string `yaml:"authKey" json:"authKey"` // Pre-auth key for automatic node registration
+
+	// Node configuration
+	Tags         []string `yaml:"tags" json:"tags"`                 // ACL tags to apply to nodes
+	AcceptRoutes bool     `yaml:"acceptRoutes" json:"acceptRoutes"` // Accept routes from other nodes
+	ExitNode     string   `yaml:"exitNode" json:"exitNode"`         // Optional exit node
+
+	// Headscale server creation (similar to WireGuard)
+	Create   bool   `yaml:"create" json:"create"`     // Auto-create Headscale server
+	Provider string `yaml:"provider" json:"provider"` // Provider for Headscale server
+	Region   string `yaml:"region" json:"region"`     // Region for Headscale server
+	Size     string `yaml:"size" json:"size"`         // Server size
+	Domain   string `yaml:"domain" json:"domain"`     // Domain for Headscale (for TLS)
 }
 
 // SecurityConfig defines security settings

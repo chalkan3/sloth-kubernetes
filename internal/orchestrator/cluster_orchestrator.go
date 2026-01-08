@@ -289,47 +289,105 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 
 	ctx.Log.Info("✅ Cloud-init validation passed - Docker and WireGuard installed on all nodes", nil)
 
-	// Phase 3: WireGuard Mesh VPN (REAL) - includes bastion if enabled
+	// Phase 3: VPN Mesh Configuration (WireGuard or Tailscale)
 	ctx.Log.Info("", nil)
 	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
-	ctx.Log.Info("🔐 Phase 3: WIREGUARD MESH VPN CONFIGURATION", nil)
-	ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
-	ctx.Log.Info("", nil)
 
-	// Build dependency list - must wait for cloud-init validation
-	// CRITICAL: WireGuard must be installed (via cloud-init) before we configure the mesh
-	var wgDependencies []pulumi.Resource
-	wgDependencies = append(wgDependencies, cloudInitValidator)
-	if bastionComponent != nil {
-		ctx.Log.Info("🏰 WireGuard mesh will wait for bastion provisioning to complete...", nil)
-		wgDependencies = append(wgDependencies, bastionComponent)
+	// Determine which VPN mode to use
+	useTailscale := cfg.Network.Tailscale != nil && cfg.Network.Tailscale.Enabled
+
+	var vpnComponent pulumi.Resource
+	var tailscaleComponent *components.TailscaleMeshComponent
+
+	if useTailscale {
+		// Use Tailscale with Headscale coordination server
+		ctx.Log.Info("🔐 Phase 3: TAILSCALE MESH VPN CONFIGURATION (Headscale)", nil)
+		ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+		ctx.Log.Info("", nil)
+
+		// Build dependency list
+		var tsDependencies []pulumi.Resource
+		tsDependencies = append(tsDependencies, cloudInitValidator)
+		if bastionComponent != nil {
+			ctx.Log.Info("🏰 Tailscale mesh will wait for bastion provisioning to complete...", nil)
+			tsDependencies = append(tsDependencies, bastionComponent)
+		}
+
+		// Create args for Tailscale mesh
+		tailscaleArgs := &components.TailscaleMeshArgs{
+			Config:        cfg.Network.Tailscale,
+			SSHPrivateKey: sshKeyComponent.PrivateKey,
+			SSHPublicKey:  sshKeyComponent.PublicKey,
+			ClusterName:   cfg.Metadata.Name,
+		}
+
+		tsComponent, err := components.NewTailscaleMeshComponent(
+			ctx,
+			fmt.Sprintf("%s-tailscale", name),
+			realNodes,
+			tailscaleArgs,
+			bastionComponent,
+			pulumi.Parent(component),
+			pulumi.DependsOn(tsDependencies),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup Tailscale: %w", err)
+		}
+
+		vpnComponent = tsComponent
+		tailscaleComponent = tsComponent
+		ctx.Log.Info("✅ Tailscale mesh VPN configured", nil)
+
+	} else {
+		// Use WireGuard (default)
+		ctx.Log.Info("🔐 Phase 3: WIREGUARD MESH VPN CONFIGURATION", nil)
+		ctx.Log.Info("════════════════════════════════════════════════════════════", nil)
+		ctx.Log.Info("", nil)
+
+		// Build dependency list - must wait for cloud-init validation
+		// CRITICAL: WireGuard must be installed (via cloud-init) before we configure the mesh
+		var wgDependencies []pulumi.Resource
+		wgDependencies = append(wgDependencies, cloudInitValidator)
+		if bastionComponent != nil {
+			ctx.Log.Info("🏰 WireGuard mesh will wait for bastion provisioning to complete...", nil)
+			wgDependencies = append(wgDependencies, bastionComponent)
+		}
+
+		wgComponent, err := components.NewWireGuardMeshComponent(
+			ctx,
+			fmt.Sprintf("%s-wireguard", name),
+			realNodes,
+			sshKeyComponent.PrivateKey,
+			bastionComponent, // Pass bastion to be included in VPN mesh
+			pulumi.Parent(component),
+			pulumi.DependsOn(wgDependencies),
+		)
+		if err != nil {
+			return nil, fmt.Errorf("failed to setup WireGuard: %w", err)
+		}
+
+		vpnComponent = wgComponent
+		ctx.Log.Info("✅ WireGuard mesh VPN configured", nil)
 	}
-
-	wgComponent, err := components.NewWireGuardMeshComponent(
-		ctx,
-		fmt.Sprintf("%s-wireguard", name),
-		realNodes,
-		sshKeyComponent.PrivateKey,
-		bastionComponent, // Pass bastion to be included in VPN mesh
-		pulumi.Parent(component),
-		pulumi.DependsOn(wgDependencies),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("failed to setup WireGuard: %w", err)
-	}
-
-	ctx.Log.Info("✅ WireGuard mesh VPN configured", nil)
 
 	// Phase 3.5: Validate VPN connectivity before RKE2
 	ctx.Log.Info("🔍 Phase 3.5: Validating VPN connectivity...", nil)
-	vpnValidator, err := components.NewVPNValidatorComponent(
+
+	// Determine VPN mode for validation
+	vpnValidatorMode := components.VPNModeWireGuard
+	if useTailscale {
+		vpnValidatorMode = components.VPNModeTailscale
+	}
+
+	vpnValidator, err := components.NewVPNValidatorComponentWithMode(
 		ctx,
 		fmt.Sprintf("%s-vpn-validator", name),
 		realNodes,
 		sshKeyComponent.PrivateKey,
 		bastionComponent,
+		vpnValidatorMode,
 		pulumi.Parent(component),
-		pulumi.DependsOn([]pulumi.Resource{wgComponent}),
+		pulumi.DependsOn([]pulumi.Resource{vpnComponent}),
 	)
 	if err != nil {
 		return nil, fmt.Errorf("failed to validate VPN: %w", err)
@@ -616,6 +674,21 @@ func NewSimpleRealOrchestratorComponent(ctx *pulumi.Context, name string, cfg *c
 			"joined_count": saltMinionComponent.JoinedMinions,
 			"status":       saltMinionComponent.Status,
 		})
+	}
+
+	// Export Tailscale/Headscale information if configured (encrypted - contains API key)
+	if tailscaleComponent != nil {
+		secretExporter.ExportMap("tailscale", pulumi.Map{
+			"headscale_url": tailscaleComponent.HeadscaleURL,
+			"headscale_ip":  tailscaleComponent.HeadscaleIP,
+			"api_key":       tailscaleComponent.APIKey,
+			"namespace":     tailscaleComponent.Namespace,
+			"peer_count":    tailscaleComponent.PeerCount,
+			"status":        tailscaleComponent.Status,
+		})
+		secretExporter.ExportBool("tailscale_enabled", true)
+	} else {
+		secretExporter.ExportBool("tailscale_enabled", false)
 	}
 
 	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{

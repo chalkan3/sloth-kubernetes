@@ -228,6 +228,10 @@ func parseNetwork(l *List) NetworkConfig {
 		cfg.WireGuard = parseWireGuard(wg)
 	}
 
+	if ts := l.GetList("tailscale"); ts != nil {
+		cfg.Tailscale = parseTailscale(ts)
+	}
+
 	if dns := l.GetList("dns"); dns != nil {
 		cfg.DNS = parseDNS(dns)
 	}
@@ -261,6 +265,24 @@ func parseWireGuard(l *List) *WireGuardConfig {
 		AutoConfig:          l.GetBool("auto-config"),
 		MeshNetworking:      l.GetBool("mesh-networking"),
 		SubnetCIDR:          l.GetString("subnet-cidr"),
+	}
+}
+
+func parseTailscale(l *List) *TailscaleConfig {
+	return &TailscaleConfig{
+		Enabled:      l.GetBool("enabled"),
+		HeadscaleURL: l.GetString("headscale-url"),
+		APIKey:       l.GetString("api-key"),
+		Namespace:    l.GetString("namespace"),
+		AuthKey:      l.GetString("auth-key"),
+		Tags:         l.GetStringSlice("tags"),
+		AcceptRoutes: l.GetBool("accept-routes"),
+		ExitNode:     l.GetString("exit-node"),
+		Create:       l.GetBool("create"),
+		Provider:     l.GetString("provider"),
+		Region:       l.GetString("region"),
+		Size:         l.GetString("size"),
+		Domain:       l.GetString("domain"),
 	}
 }
 

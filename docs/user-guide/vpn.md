@@ -1,255 +1,200 @@
 ---
-title: WireGuard VPN
-description: Manage WireGuard VPN mesh network for secure cluster connectivity
+title: VPN Networking
+description: Secure mesh networking with WireGuard or Tailscale/Headscale
 sidebar_position: 10
 ---
 
-# WireGuard VPN
+# VPN Networking
 
-sloth-kubernetes automatically configures a WireGuard VPN mesh network between all cluster nodes, enabling secure encrypted communication across multiple clouds and regions.
+sloth-kubernetes provides secure mesh networking between all cluster nodes and your local machine. You can choose between two VPN providers:
 
-## Overview
-
-The VPN system provides:
-- **Automatic mesh networking**: All nodes interconnected via WireGuard
-- **Multi-cloud connectivity**: Secure tunnels between different cloud providers
-- **Client access**: Join your local machine or CI servers to the VPN
-- **Full mesh topology**: Direct peer-to-peer connections between all nodes
-- **Low overhead**: Minimal latency and CPU usage with WireGuard
-
-## Commands
-
-### vpn status
-
-Show VPN status and tunnel information.
-
-```bash
-sloth-kubernetes vpn status production
-```
-
-**Example output:**
-
-```
-═══════════════════════════════════════════════════════════════
-           VPN STATUS - Stack: production
-═══════════════════════════════════════════════════════════════
-
-METRIC          VALUE
-------          -----
-VPN Mode        WireGuard Mesh
-Total Nodes     6
-Total Tunnels   15
-VPN Subnet      10.8.0.0/24
-Status          All tunnels active
-```
-
-### vpn peers
-
-List all VPN peers in the mesh network.
-
-```bash
-sloth-kubernetes vpn peers production
-```
-
-**Example output:**
-
-```
-═══════════════════════════════════════════════════════════════
-           VPN PEERS - Stack: production
-═══════════════════════════════════════════════════════════════
-
-Fetching peer information from cluster nodes...
-
-NODE         LABEL      VPN IP       PUBLIC KEY        ENDPOINT            LAST HANDSHAKE   TRANSFER
-----         -----      ------       ----------        --------            --------------   --------
-master-1     -          10.8.0.10    ABC123def456...   167.71.1.1:51820    30s ago          1.2MB / 2.4MB
-master-2     -          10.8.0.11    DEF456ghi789...   167.71.1.2:51820    45s ago          800KB / 1.5MB
-worker-1     -          10.8.0.20    GHI789jkl012...   172.236.1.1:51820   1m ago           3.5MB / 5.2MB
-worker-2     -          10.8.0.21    JKL012mno345...   172.236.1.2:51820   25s ago          2.1MB / 3.8MB
-laptop       personal   10.8.0.100   MNO345pqr678...   N/A                 2m ago           500KB / 1.2MB
-
-Found 5 peers in VPN mesh
-```
-
-### vpn config
-
-Get WireGuard configuration for a specific node.
-
-```bash
-sloth-kubernetes vpn config production master-1
-```
-
-**Example output:**
-
-```
-═══════════════════════════════════════════════════════════════
-           VPN CONFIG - Node: master-1
-═══════════════════════════════════════════════════════════════
-
-Fetching WireGuard configuration from master-1...
-
-WireGuard Configuration:
-
-[Interface]
-PrivateKey = <private-key>
-Address = 10.8.0.10/24
-ListenPort = 51820
-
-[Peer]
-# master-2
-PublicKey = DEF456ghi789...
-AllowedIPs = 10.8.0.11/32
-Endpoint = 167.71.1.2:51820
-PersistentKeepalive = 25
-
-[Peer]
-# worker-1
-PublicKey = GHI789jkl012...
-AllowedIPs = 10.8.0.20/32
-Endpoint = 172.236.1.1:51820
-PersistentKeepalive = 25
-
-Node: master-1
-Public IP: 167.71.1.1
-VPN IP: 10.8.0.10
-Provider: digitalocean
-```
-
-### vpn test
-
-Test VPN connectivity between all nodes.
-
-```bash
-sloth-kubernetes vpn test production
-```
-
-**Example output:**
-
-```
-═══════════════════════════════════════════════════════════════
-      TESTING VPN CONNECTIVITY - Stack: production
-═══════════════════════════════════════════════════════════════
-
-Found 4 nodes to test
-
-Test 1/3: Testing ping connectivity via VPN...
-
-  [OK] master-1 -> master-2 (10.8.0.11)
-  [OK] master-1 -> worker-1 (10.8.0.20)
-  [OK] master-1 -> worker-2 (10.8.0.21)
-  [OK] master-2 -> master-1 (10.8.0.10)
-  [OK] master-2 -> worker-1 (10.8.0.20)
-  [OK] master-2 -> worker-2 (10.8.0.21)
-  ...
-
-Test 2/3: Checking WireGuard handshake status...
-
-  [OK] master-1 - 3 active peers
-  [OK] master-2 - 3 active peers
-  [OK] worker-1 - 3 active peers
-  [OK] worker-2 - 3 active peers
-
-Test 3/3: Summary
-
-METRIC              RESULT
-------              ------
-Total Nodes         4
-Ping Tests          12/12 passed (100.0%)
-Handshake Checks    4/4 nodes responding
-Overall Status      All tests passed
-```
-
-### vpn join
-
-Join your local machine or a remote host to the VPN mesh.
-
-```bash
-# Join local machine to VPN
-sloth-kubernetes vpn join production
-
-# Join with custom VPN IP
-sloth-kubernetes vpn join production --vpn-ip 10.8.0.100
-
-# Join with label
-sloth-kubernetes vpn join production --label laptop
-
-# Join a remote SSH host
-sloth-kubernetes vpn join production --remote user@host.com
-
-# Join and auto-install WireGuard config
-sloth-kubernetes vpn join production --install
-```
-
-**Flags:**
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--remote` | Remote SSH host to add (e.g., user@host.com) | - |
-| `--vpn-ip` | Custom VPN IP address | Auto-assign |
-| `--label` | Peer label/name (e.g., 'laptop', 'ci-server') | - |
-| `--install` | Auto-install WireGuard configuration | `false` |
-
-**What happens during join:**
-1. Generates a new WireGuard keypair
-2. Auto-assigns a VPN IP (10.8.0.100-254 range)
-3. Adds the peer to all cluster nodes
-4. Updates existing VPN clients
-5. Generates client configuration file
-6. Optionally installs and activates WireGuard
-
-### vpn leave
-
-Remove a machine from the VPN mesh.
-
-```bash
-# Remove local machine
-sloth-kubernetes vpn leave production
-
-# Remove specific peer by VPN IP
-sloth-kubernetes vpn leave production --vpn-ip 10.8.0.100
-```
-
-**Flags:**
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--vpn-ip` | VPN IP of peer to remove | Auto-detect local |
-
-### vpn client-config
-
-Generate a WireGuard client configuration file.
-
-```bash
-# Generate client config
-sloth-kubernetes vpn client-config production
-
-# Save to specific file
-sloth-kubernetes vpn client-config production --output client.conf
-
-# Generate QR code for mobile devices
-sloth-kubernetes vpn client-config production --qr
-```
-
-**Flags:**
-
-| Flag | Description | Default |
-|------|-------------|---------|
-| `--output` | Output file path | `./wg0-client.conf` |
-| `--qr` | Generate QR code for mobile | `false` |
+| Provider | Description | Best For |
+|----------|-------------|----------|
+| **WireGuard** | Direct peer-to-peer mesh network | Self-managed, full control |
+| **Tailscale/Headscale** | Managed mesh with coordination server | Easier management, NAT traversal |
 
 ---
 
-## VPN Architecture
+## Choosing a VPN Provider
 
-### IP Address Scheme
+### WireGuard
 
-| Range | Purpose |
-|-------|---------|
-| 10.8.0.1-9 | Reserved (bastion, gateways) |
-| 10.8.0.10-99 | Cluster nodes |
-| 10.8.0.100-254 | External clients |
+- **Pros**: No external dependencies, full control, minimal overhead
+- **Cons**: Manual peer management, requires open UDP port
 
-### Network Topology
+### Tailscale/Headscale
+
+- **Pros**: Automatic peer discovery, NAT traversal, embedded client
+- **Cons**: Requires Headscale coordination server
+
+---
+
+## Configuration
+
+### WireGuard Mode
+
+```lisp
+(cluster
+  (name "my-cluster")
+
+  (network
+    (mode "wireguard")
+    (cidr "10.8.0.0/24")
+
+    (wireguard
+      (enabled true)
+      (create true)
+      (mesh-networking true)
+      (port 51820))))
+```
+
+### Tailscale/Headscale Mode
+
+```lisp
+(cluster
+  (name "my-cluster")
+
+  (network
+    (mode "tailscale")
+    (cidr "100.64.0.0/10")
+
+    (tailscale
+      (enabled true)
+      (namespace "kubernetes")
+      (tags ("tag:k8s-node" "tag:production"))
+      (accept-routes true))))
+```
+
+---
+
+# Tailscale/Headscale
+
+When using Tailscale mode, sloth-kubernetes automatically deploys a Headscale coordination server and configures all nodes to join the mesh network.
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    Tailscale Mesh Network                       │
+│                     (100.64.0.0/10)                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│              ┌──────────────┐                                   │
+│              │  Headscale   │  (Coordination Server)            │
+│              │   Server     │                                   │
+│              └──────┬───────┘                                   │
+│                     │                                           │
+│     ┌───────────────┼───────────────┐                           │
+│     │               │               │                           │
+│  ┌──┴───┐       ┌───┴──┐       ┌────┴─┐                         │
+│  │master│◄─────►│worker│◄─────►│worker│  (Cluster Nodes)        │
+│  │  -1  │       │  -1  │       │  -2  │                         │
+│  └──┬───┘       └──────┘       └──────┘                         │
+│     │                                                           │
+│  ┌──┴───────┐                                                   │
+│  │  laptop  │  (Your Machine - Embedded Client)                 │
+│  │100.64.x.x│                                                   │
+│  └──────────┘                                                   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+## Commands
+
+### vpn connect
+
+Connect your local machine to the Tailscale mesh using the embedded client. No system-wide Tailscale installation required.
+
+```bash
+# Connect in foreground
+sloth-kubernetes vpn connect my-cluster
+
+# Connect in background (daemon mode) - recommended
+sloth-kubernetes vpn connect my-cluster --daemon
+
+# Connect with custom hostname
+sloth-kubernetes vpn connect my-cluster --daemon --hostname my-laptop
+```
+
+**What happens:**
+1. Reads Headscale URL and API key from Pulumi state
+2. Creates an auth key for your machine
+3. Starts embedded Tailscale client (tsnet)
+4. Starts SOCKS5 proxy for kubectl routing
+5. Saves connection state to `~/.sloth/vpn/<cluster>/`
+
+**Output:**
+```
+🔌 VPN Connect (Daemon) - Stack: my-cluster
+
+Starting VPN daemon in background...
+Waiting for VPN connection to establish...
+✓ VPN daemon started (PID: 12345)
+SOCKS5 proxy running on 127.0.0.1:64172
+
+  kubectl commands will automatically use the VPN tunnel
+  Use 'sloth vpn disconnect my-cluster' to stop
+```
+
+### vpn disconnect
+
+Disconnect from the Tailscale mesh.
+
+```bash
+sloth-kubernetes vpn disconnect my-cluster
+```
+
+**Output:**
+```
+🔌 VPN Disconnect - Stack: my-cluster
+
+Stopping VPN daemon (PID: 12345)...
+✓ VPN daemon stopped
+Cleaning up connection state...
+✓ Disconnected and cleaned up VPN state
+```
+
+### kubectl (Automatic VPN Routing)
+
+When connected to VPN, kubectl commands automatically route through the VPN tunnel:
+
+```bash
+# These commands work through VPN automatically
+sloth-kubernetes kubectl my-cluster get nodes
+sloth-kubernetes kubectl my-cluster get pods -A
+sloth-kubernetes kubectl my-cluster apply -f deployment.yaml
+```
+
+The embedded kubectl detects the running VPN daemon and configures the SOCKS5 proxy automatically.
+
+## Embedded Client Features
+
+The embedded Tailscale client provides:
+
+- **No Installation Required**: Uses tsnet library, no system Tailscale needed
+- **Isolated Network Stack**: Runs in userspace, doesn't affect system networking
+- **SOCKS5 Proxy**: Allows other tools (kubectl) to route through VPN
+- **Automatic Auth**: Creates ephemeral auth keys from Headscale
+- **State Persistence**: Saves connection state for reconnection
+
+## Files and State
+
+Connection state is stored in `~/.sloth/vpn/<cluster-name>/`:
+
+| File | Description |
+|------|-------------|
+| `connection.json` | Connection metadata (Headscale URL, hostname) |
+| `daemon.pid` | PID of running daemon process |
+| `proxy.port` | SOCKS5 proxy port number |
+| `tailscaled.state` | Tailscale client state |
+
+---
+
+# WireGuard
+
+WireGuard provides direct peer-to-peer mesh networking with minimal overhead.
+
+## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -273,65 +218,151 @@ sloth-kubernetes vpn client-config production --qr
 └─────────────────────────────────────────────────────────────────┘
 ```
 
----
+## IP Address Scheme
 
-## Examples
+| Range | Purpose |
+|-------|---------|
+| 10.8.0.1-9 | Reserved (bastion, gateways) |
+| 10.8.0.10-99 | Cluster nodes |
+| 10.8.0.100-254 | External clients |
 
-### Join Development Machine
+## Commands
+
+### vpn status
+
+Show VPN status and tunnel information.
 
 ```bash
-# Join your laptop to the VPN
-sloth-kubernetes vpn join production --label dev-laptop --install
-
-# After installation, verify connectivity
-ping 10.8.0.10  # Should reach master-1
-
-# Access cluster services directly
-kubectl --server=https://10.8.0.10:6443 get nodes
+sloth-kubernetes vpn status production
 ```
 
-### Join CI/CD Server
+**Output:**
+```
+═══════════════════════════════════════════════════════════════
+           VPN STATUS - Stack: production
+═══════════════════════════════════════════════════════════════
 
-```bash
-# Join a CI server to the VPN
-sloth-kubernetes vpn join production \
-  --remote ci@build-server.example.com \
-  --label ci-server \
-  --install
-
-# The CI server can now access the cluster directly
-ssh ci@build-server.example.com
-kubectl get nodes  # Works via VPN
+METRIC          VALUE
+------          -----
+VPN Mode        WireGuard Mesh
+Total Nodes     6
+Total Tunnels   15
+VPN Subnet      10.8.0.0/24
+Status          All tunnels active
 ```
 
-### Troubleshoot Connectivity
+### vpn peers
+
+List all VPN peers in the mesh network.
 
 ```bash
-# Run full connectivity test
-sloth-kubernetes vpn test production
-
-# Check specific node configuration
-sloth-kubernetes vpn config production worker-1
-
-# List all peers to see handshake times
 sloth-kubernetes vpn peers production
 ```
 
-### Remove Client Access
+**Output:**
+```
+NODE         LABEL      VPN IP       PUBLIC KEY        ENDPOINT            LAST HANDSHAKE   TRANSFER
+----         -----      ------       ----------        --------            --------------   --------
+master-1     -          10.8.0.10    ABC123def456...   167.71.1.1:51820    30s ago          1.2MB / 2.4MB
+master-2     -          10.8.0.11    DEF456ghi789...   167.71.1.2:51820    45s ago          800KB / 1.5MB
+worker-1     -          10.8.0.20    GHI789jkl012...   172.236.1.1:51820   1m ago           3.5MB / 5.2MB
+laptop       personal   10.8.0.100   MNO345pqr678...   N/A                 2m ago           500KB / 1.2MB
 
-```bash
-# Remove your machine from VPN
-sloth-kubernetes vpn leave production
-
-# Remove a specific client by IP
-sloth-kubernetes vpn leave production --vpn-ip 10.8.0.105
+Found 4 peers in VPN mesh
 ```
 
----
+### vpn config
 
-## Manual Client Setup
+Get WireGuard configuration for a specific node.
 
-If you prefer to set up WireGuard manually:
+```bash
+sloth-kubernetes vpn config production master-1
+```
+
+### vpn test
+
+Test VPN connectivity between all nodes.
+
+```bash
+sloth-kubernetes vpn test production
+```
+
+**Output:**
+```
+Test 1/3: Testing ping connectivity via VPN...
+  [OK] master-1 -> master-2 (10.8.0.11)
+  [OK] master-1 -> worker-1 (10.8.0.20)
+  ...
+
+Test 2/3: Checking WireGuard handshake status...
+  [OK] master-1 - 3 active peers
+  [OK] master-2 - 3 active peers
+  ...
+
+Test 3/3: Summary
+  Ping Tests          12/12 passed (100.0%)
+  Handshake Checks    4/4 nodes responding
+  Overall Status      All tests passed
+```
+
+### vpn join
+
+Join your local machine or a remote host to the WireGuard mesh.
+
+```bash
+# Join local machine
+sloth-kubernetes vpn join production
+
+# Join with custom VPN IP
+sloth-kubernetes vpn join production --vpn-ip 10.8.0.100
+
+# Join with label
+sloth-kubernetes vpn join production --label laptop
+
+# Join a remote SSH host
+sloth-kubernetes vpn join production --remote user@host.com
+
+# Join and auto-install WireGuard config
+sloth-kubernetes vpn join production --install
+```
+
+**Flags:**
+
+| Flag | Description | Default |
+|------|-------------|---------|
+| `--remote` | Remote SSH host to add | - |
+| `--vpn-ip` | Custom VPN IP address | Auto-assign |
+| `--label` | Peer label/name | - |
+| `--install` | Auto-install WireGuard | `false` |
+
+### vpn leave
+
+Remove a machine from the VPN mesh.
+
+```bash
+# Remove local machine
+sloth-kubernetes vpn leave production
+
+# Remove specific peer by VPN IP
+sloth-kubernetes vpn leave production --vpn-ip 10.8.0.100
+```
+
+### vpn client-config
+
+Generate a WireGuard client configuration file.
+
+```bash
+# Generate client config
+sloth-kubernetes vpn client-config production
+
+# Save to specific file
+sloth-kubernetes vpn client-config production --output client.conf
+
+# Generate QR code for mobile devices
+sloth-kubernetes vpn client-config production --qr
+```
+
+## Manual WireGuard Setup
 
 ### Linux
 
@@ -352,7 +383,7 @@ sudo systemctl enable wg-quick@wg0
 ### macOS
 
 ```bash
-# Install WireGuard (via Homebrew)
+# Install WireGuard
 brew install wireguard-tools
 
 # Copy configuration
@@ -363,7 +394,6 @@ sudo cp wg0-client.conf /opt/homebrew/etc/wireguard/wg0.conf
 sudo wg-quick up wg0
 
 # Or use WireGuard app from App Store
-# Import the .conf file
 ```
 
 ### Windows
@@ -372,23 +402,61 @@ sudo wg-quick up wg0
 2. Open WireGuard application
 3. Click "Import tunnel(s) from file"
 4. Select the `wg0-client.conf` file
-5. Click "Activate" to connect
+5. Click "Activate"
 
 ### Mobile (iOS/Android)
 
-1. Install WireGuard app from App Store / Play Store
+1. Install WireGuard app
 2. Generate QR code: `sloth-kubernetes vpn client-config production --qr`
-3. In app, tap "+" and "Create from QR code"
-4. Scan the QR code
-5. Activate the tunnel
+3. Scan QR code in app
+4. Activate tunnel
+
+---
+
+## Comparison: WireGuard vs Tailscale
+
+| Feature | WireGuard | Tailscale/Headscale |
+|---------|-----------|---------------------|
+| **Setup** | Manual peer config | Automatic discovery |
+| **NAT Traversal** | Requires open port | Built-in (DERP relays) |
+| **Client Install** | System WireGuard | Embedded (no install) |
+| **kubectl Integration** | Manual proxy setup | Automatic SOCKS5 |
+| **Peer Management** | Manual add/remove | Automatic via Headscale |
+| **Coordination** | None (peer-to-peer) | Headscale server |
+| **Overhead** | Minimal | Slightly higher |
+
+**Recommendation:**
+- Use **Tailscale/Headscale** for easier management and kubectl integration
+- Use **WireGuard** for minimal dependencies and full control
 
 ---
 
 ## Troubleshooting
 
-### VPN Handshake Not Completing
+### Tailscale: Connection Timeout
 
-Check firewall rules on all nodes:
+```bash
+# Check if Headscale server is reachable
+curl -k https://<headscale-url>/health
+
+# Check daemon logs
+cat ~/.sloth/vpn/<cluster>/tailscaled.log1.txt
+```
+
+### Tailscale: kubectl Not Working
+
+```bash
+# Verify daemon is running
+ps aux | grep "vpn connect"
+
+# Check proxy port
+cat ~/.sloth/vpn/<cluster>/proxy.port
+
+# Test proxy manually
+curl --socks5 127.0.0.1:<port> https://<kubernetes-api>:6443/healthz
+```
+
+### WireGuard: Handshake Not Completing
 
 ```bash
 # Verify UDP port 51820 is open
@@ -399,55 +467,13 @@ sudo iptables -L -n | grep 51820
 sudo wg show
 ```
 
-### Peer Not Reachable
-
-Verify peer configuration:
+### WireGuard: Peer Not Reachable
 
 ```bash
-# Check if peer is in config
+# Check peer configuration
 sloth-kubernetes vpn config production master-1 | grep -A5 "worker-1"
 
-# Test connectivity directly
+# Test connectivity
 sloth-kubernetes nodes ssh master-1
-ping 10.8.0.20  # Worker-1 VPN IP
-```
-
-### Join Command Fails
-
-Ensure SSH access is working:
-
-```bash
-# Test SSH to nodes
-sloth-kubernetes nodes ssh master-1
-
-# Check SSH key path
-ls -la ~/.sloth-kubernetes/keys/
-```
-
-### Local WireGuard Won't Start
-
-Check for conflicts:
-
-```bash
-# Stop any existing WireGuard
-sudo wg-quick down wg0
-
-# Check for interface conflicts
-ip link show
-
-# Verify configuration syntax
-sudo wg-quick strip wg0 < wg0-client.conf
-```
-
-### Performance Issues
-
-Check MTU settings:
-
-```bash
-# On nodes, verify MTU
-sloth-kubernetes nodes ssh master-1
-cat /etc/wireguard/wg0.conf | grep MTU
-
-# Typical MTU for WireGuard: 1420
-# Adjust if seeing packet fragmentation
+ping 10.8.0.20  # Worker VPN IP
 ```

@@ -13,9 +13,9 @@ func ValidateClusterConfig(cfg *config.ClusterConfig) error {
 		return fmt.Errorf("node distribution validation failed: %w", err)
 	}
 
-	// Validate WireGuard configuration
-	if err := ValidateWireGuardConfig(cfg); err != nil {
-		return fmt.Errorf("WireGuard validation failed: %w", err)
+	// Validate VPN configuration (WireGuard or Tailscale)
+	if err := ValidateVPNConfig(cfg); err != nil {
+		return fmt.Errorf("VPN validation failed: %w", err)
 	}
 
 	// Validate provider configuration
@@ -26,13 +26,31 @@ func ValidateClusterConfig(cfg *config.ClusterConfig) error {
 	return nil
 }
 
-// ValidateWireGuardConfig validates WireGuard configuration
-func ValidateWireGuardConfig(cfg *config.ClusterConfig) error {
-	// Verify WireGuard is enabled (required for private cluster)
-	if cfg.Network.WireGuard == nil || !cfg.Network.WireGuard.Enabled {
-		return fmt.Errorf("WireGuard must be enabled for private cluster deployment")
+// ValidateVPNConfig validates VPN configuration (WireGuard or Tailscale)
+func ValidateVPNConfig(cfg *config.ClusterConfig) error {
+	wireGuardEnabled := cfg.Network.WireGuard != nil && cfg.Network.WireGuard.Enabled
+	tailscaleEnabled := cfg.Network.Tailscale != nil && cfg.Network.Tailscale.Enabled
+
+	// At least one VPN must be enabled for private cluster deployment
+	if !wireGuardEnabled && !tailscaleEnabled {
+		return fmt.Errorf("VPN (WireGuard or Tailscale) must be enabled for private cluster deployment")
 	}
 
+	// Cannot have both enabled
+	if wireGuardEnabled && tailscaleEnabled {
+		return fmt.Errorf("cannot enable both WireGuard and Tailscale - choose one VPN solution")
+	}
+
+	// Validate the specific VPN configuration
+	if wireGuardEnabled {
+		return ValidateWireGuardConfig(cfg)
+	}
+
+	return ValidateTailscaleConfig(cfg)
+}
+
+// ValidateWireGuardConfig validates WireGuard configuration
+func ValidateWireGuardConfig(cfg *config.ClusterConfig) error {
 	// If auto-creating VPN, validate creation parameters
 	if cfg.Network.WireGuard.Create {
 		if cfg.Network.WireGuard.Provider == "" {
@@ -52,6 +70,32 @@ func ValidateWireGuardConfig(cfg *config.ClusterConfig) error {
 
 	if cfg.Network.WireGuard.ServerPublicKey == "" {
 		return fmt.Errorf("WireGuard server public key is required when using existing VPN server")
+	}
+
+	return nil
+}
+
+// ValidateTailscaleConfig validates Tailscale/Headscale configuration
+func ValidateTailscaleConfig(cfg *config.ClusterConfig) error {
+	// If auto-creating Headscale server, validate creation parameters
+	if cfg.Network.Tailscale.Create {
+		if cfg.Network.Tailscale.Provider == "" {
+			return fmt.Errorf("Tailscale provider is required when auto-creating Headscale server")
+		}
+		if cfg.Network.Tailscale.Region == "" {
+			return fmt.Errorf("Tailscale region is required when auto-creating Headscale server")
+		}
+		// HeadscaleURL and AuthKey will be generated during deployment
+		return nil
+	}
+
+	// If using existing Headscale, validate URL and auth key
+	if cfg.Network.Tailscale.HeadscaleURL == "" {
+		return fmt.Errorf("Headscale URL is required when using existing Headscale server")
+	}
+
+	if cfg.Network.Tailscale.AuthKey == "" {
+		return fmt.Errorf("Tailscale auth key is required when using existing Headscale server")
 	}
 
 	return nil

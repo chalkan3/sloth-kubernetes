@@ -176,12 +176,12 @@ func runValidate(cmd *cobra.Command, args []string) error {
 	printHeader("🌐 Validating Network Configuration")
 	fmt.Println()
 
-	// Validate WireGuard
-	if err := validation.ValidateWireGuardConfig(cfg); err != nil {
-		color.Red("❌ WireGuard validation failed")
+	// Validate VPN (WireGuard or Tailscale)
+	if err := validation.ValidateVPNConfig(cfg); err != nil {
+		color.Red("❌ VPN validation failed")
 		fmt.Printf("  %v\n", err)
 		fmt.Println()
-		color.Yellow("💡 WireGuard VPN is required for:")
+		color.Yellow("💡 VPN (WireGuard or Tailscale) is required for:")
 		fmt.Println("  • Private cluster networking")
 		fmt.Println("  • Secure node-to-node communication")
 		fmt.Println("  • Cross-provider mesh networking")
@@ -203,6 +203,27 @@ func runValidate(cmd *cobra.Command, args []string) error {
 			fmt.Println("  Mode: Using existing VPN server")
 			if cfg.Network.WireGuard.ServerEndpoint != "" {
 				fmt.Printf("  Endpoint: %s\n", cfg.Network.WireGuard.ServerEndpoint)
+			}
+		}
+	}
+
+	if cfg.Network.Tailscale != nil && cfg.Network.Tailscale.Enabled {
+		color.Green("✅ Tailscale VPN: enabled")
+		if cfg.Network.Tailscale.Create {
+			fmt.Println("  Mode: Auto-create Headscale server")
+			if cfg.Network.Tailscale.Provider != "" {
+				fmt.Printf("  Provider: %s\n", cfg.Network.Tailscale.Provider)
+			}
+			if cfg.Network.Tailscale.Region != "" {
+				fmt.Printf("  Region: %s\n", cfg.Network.Tailscale.Region)
+			}
+			if cfg.Network.Tailscale.Namespace != "" {
+				fmt.Printf("  Namespace: %s\n", cfg.Network.Tailscale.Namespace)
+			}
+		} else {
+			fmt.Println("  Mode: Using existing Headscale server")
+			if cfg.Network.Tailscale.HeadscaleURL != "" {
+				fmt.Printf("  Headscale URL: %s\n", cfg.Network.Tailscale.HeadscaleURL)
 			}
 		}
 	}

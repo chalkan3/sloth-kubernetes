@@ -94,6 +94,9 @@ func NewRKE2RealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeCom
 		}
 	}
 
+	// Detect VPN mode from config
+	useTailscale := cfg.Network.Tailscale != nil && cfg.Network.Tailscale.Enabled
+
 	firstMasterInstall, err := remote.NewCommand(ctx, fmt.Sprintf("%s-master-0-install", name), &remote.CommandArgs{
 		Connection: firstMasterConnArgs,
 		Create: pulumi.All(firstMaster.WireGuardIP, firstMaster.PublicIP, clusterTokenOutput).ApplyT(func(args []interface{}) string {
@@ -101,35 +104,66 @@ func NewRKE2RealComponent(ctx *pulumi.Context, name string, nodes []*RealNodeCom
 			publicIP := args[1].(string)
 			token := args[2].(string)
 
-			return fmt.Sprintf(`#!/bin/bash
-set -e
+			// Choose IP detection method based on VPN type
+			var vpnDetectionScript string
+			if useTailscale {
+				vpnDetectionScript = `# Detect Tailscale VPN IP
+echo "⏳ Waiting for Tailscale VPN..."
+timeout=60
+elapsed=0
+VPN_IP=""
+while [ $elapsed -lt $timeout ]; do
+  if command -v tailscale &>/dev/null; then
+    VPN_IP=$(sudo tailscale ip -4 2>/dev/null | head -1)
+    if [ -n "$VPN_IP" ]; then
+      echo "✅ Tailscale ready (IP: $VPN_IP)"
+      break
+    fi
+  fi
+  sleep 2
+  elapsed=$((elapsed + 2))
+  if [ $((elapsed % 10)) -eq 0 ]; then
+    echo "  Still waiting for Tailscale... (${elapsed}s)"
+  fi
+done
 
-echo "🔧 Installing RKE2 on first master..."
-
-# Wait for WireGuard to be ready (optimized: 20s timeout, 1s polling)
+if [ -z "$VPN_IP" ]; then
+  echo "❌ Failed to get Tailscale IP after ${timeout}s"
+  exit 1
+fi`
+			} else {
+				vpnDetectionScript = fmt.Sprintf(`# Wait for WireGuard to be ready
 echo "⏳ Waiting for WireGuard VPN interface (wg0)..."
 timeout=20
 elapsed=0
+VPN_IP="%s"
 while [ $elapsed -lt $timeout ]; do
-  if ip addr show wg0 &>/dev/null && ip addr show wg0 | grep -q "%s"; then
+  if ip addr show wg0 &>/dev/null && ip addr show wg0 | grep -q "$VPN_IP"; then
     break
   fi
   sleep 1
   elapsed=$((elapsed + 1))
 done
+echo "✅ WireGuard ready (IP: $VPN_IP)"`, wgIP)
+			}
 
-echo "✅ WireGuard ready (IP: %s)"
+			return fmt.Sprintf(`#!/bin/bash
+set -e
+
+echo "🔧 Installing RKE2 on first master..."
+
+%s
 
 # Create RKE2 config directory
 sudo mkdir -p /etc/rancher/rke2
 
-# Create RKE2 config
+# Create RKE2 config with detected VPN IP
 cat <<EOF | sudo tee /etc/rancher/rke2/config.yaml
-node-ip: %s
+node-ip: $VPN_IP
 node-external-ip: %s
-advertise-address: %s
+advertise-address: $VPN_IP
 tls-san:
-  - %s
+  - $VPN_IP
   - %s
   - 127.0.0.1
 token: %s
@@ -174,10 +208,10 @@ sudo cp /etc/rancher/rke2/rke2.yaml ~/.kube/config
 sudo chown $(id -u):$(id -g) ~/.kube/config
 
 # Update kubeconfig to use VPN IP
-sudo sed -i 's/127.0.0.1/%s/g' /etc/rancher/rke2/rke2.yaml
-sed -i 's/127.0.0.1/%s/g' ~/.kube/config
+sudo sed -i "s/127.0.0.1/$VPN_IP/g" /etc/rancher/rke2/rke2.yaml
+sed -i "s/127.0.0.1/$VPN_IP/g" ~/.kube/config
 
-echo "✅ Kubeconfig updated to use VPN IP %s"
+echo "✅ Kubeconfig updated to use VPN IP $VPN_IP"
 
 # Show nodes
 echo "📋 Cluster nodes:"
@@ -187,7 +221,7 @@ kubectl get nodes -o wide
 echo "---KUBECONFIG_START---"
 cat /etc/rancher/rke2/rke2.yaml
 echo "---KUBECONFIG_END---"
-`, wgIP, wgIP, wgIP, publicIP, wgIP, wgIP, publicIP, token, rke2Version, wgIP, wgIP, wgIP)
+`, vpnDetectionScript, publicIP, publicIP, token, rke2Version)
 		}).(pulumi.StringOutput),
 	}, pulumi.Parent(component), pulumi.Timeouts(&pulumi.CustomTimeouts{
 		Create: "15m",
@@ -260,18 +294,47 @@ echo "---KUBECONFIG_END---"
 			Create: pulumi.All(master.WireGuardIP, master.PublicIP, firstMaster.WireGuardIP, joinToken).ApplyT(func(args []interface{}) string {
 				wgIP := args[0].(string)
 				publicIP := args[1].(string)
-				firstMasterWgIP := args[2].(string)
+				_ = args[2].(string) // firstMasterWgIP - not used directly anymore
 				token := args[3].(string)
 
-				return fmt.Sprintf(`#!/bin/bash
-set -e
+				// Choose IP detection method based on VPN type
+				var vpnDetectionScript string
+				var firstMasterIPScript string
+				if useTailscale {
+					vpnDetectionScript = `# Detect Tailscale VPN IP
+echo "⏳ Waiting for Tailscale VPN..."
+timeout=60
+elapsed=0
+VPN_IP=""
+while [ $elapsed -lt $timeout ]; do
+  if command -v tailscale &>/dev/null; then
+    VPN_IP=$(sudo tailscale ip -4 2>/dev/null | head -1)
+    if [ -n "$VPN_IP" ]; then
+      echo "✅ Tailscale ready (IP: $VPN_IP)"
+      break
+    fi
+  fi
+  sleep 2
+  elapsed=$((elapsed + 2))
+done
 
-echo "🔧 Installing RKE2 on additional master..."
-
-# Wait for WireGuard (optimized: 20s timeout, 1s polling)
+if [ -z "$VPN_IP" ]; then
+  echo "❌ Failed to get Tailscale IP"
+  exit 1
+fi`
+					// For Tailscale, get first master IP from tailscale status
+					firstMasterIPScript = `# Get first master IP from Tailscale
+FIRST_MASTER_IP=$(sudo tailscale status 2>/dev/null | grep -i "masters-1" | awk '{print $1}')
+if [ -z "$FIRST_MASTER_IP" ]; then
+  FIRST_MASTER_IP=$(sudo tailscale status 2>/dev/null | grep -E "^100\." | head -1 | awk '{print $1}')
+fi
+echo "First master IP: $FIRST_MASTER_IP"`
+				} else {
+					vpnDetectionScript = fmt.Sprintf(`# Wait for WireGuard
 echo "⏳ Waiting for WireGuard..."
 timeout=20
 elapsed=0
+VPN_IP="%s"
 while [ $elapsed -lt $timeout ]; do
   if ip addr show wg0 &>/dev/null; then
     break
@@ -279,13 +342,25 @@ while [ $elapsed -lt $timeout ]; do
   sleep 1
   elapsed=$((elapsed + 1))
 done
+echo "✅ WireGuard ready (IP: $VPN_IP)"`, wgIP)
+					firstMasterIPScript = fmt.Sprintf(`FIRST_MASTER_IP="%s"`, args[2].(string))
+				}
+
+				return fmt.Sprintf(`#!/bin/bash
+set -e
+
+echo "🔧 Installing RKE2 on additional master..."
+
+%s
+
+%s
 
 # Create RKE2 config
 sudo mkdir -p /etc/rancher/rke2
 cat <<EOF | sudo tee /etc/rancher/rke2/config.yaml
-server: https://%s:9345
+server: https://$FIRST_MASTER_IP:9345
 token: %s
-node-ip: %s
+node-ip: $VPN_IP
 node-external-ip: %s
 cni: calico
 write-kubeconfig-mode: "0644"
@@ -311,7 +386,7 @@ while [ $elapsed -lt $timeout ]; do
 done
 
 echo "✅ Additional master joined successfully"
-`, firstMasterWgIP, token, wgIP, publicIP, rke2Version)
+`, vpnDetectionScript, firstMasterIPScript, token, publicIP, rke2Version)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{fetchToken}), pulumi.Timeouts(&pulumi.CustomTimeouts{
 			Create: "15m",
@@ -349,18 +424,47 @@ echo "✅ Additional master joined successfully"
 			Create: pulumi.All(worker.WireGuardIP, worker.PublicIP, firstMaster.WireGuardIP, joinToken).ApplyT(func(args []interface{}) string {
 				wgIP := args[0].(string)
 				publicIP := args[1].(string)
-				firstMasterWgIP := args[2].(string)
+				_ = args[2].(string) // firstMasterWgIP - not used directly anymore
 				token := args[3].(string)
 
-				return fmt.Sprintf(`#!/bin/bash
-set -e
+				// Choose IP detection method based on VPN type
+				var vpnDetectionScript string
+				var firstMasterIPScript string
+				if useTailscale {
+					vpnDetectionScript = `# Detect Tailscale VPN IP
+echo "⏳ Waiting for Tailscale VPN..."
+timeout=60
+elapsed=0
+VPN_IP=""
+while [ $elapsed -lt $timeout ]; do
+  if command -v tailscale &>/dev/null; then
+    VPN_IP=$(sudo tailscale ip -4 2>/dev/null | head -1)
+    if [ -n "$VPN_IP" ]; then
+      echo "✅ Tailscale ready (IP: $VPN_IP)"
+      break
+    fi
+  fi
+  sleep 2
+  elapsed=$((elapsed + 2))
+done
 
-echo "🔧 Installing RKE2 agent on worker..."
-
-# Wait for WireGuard (optimized: 20s timeout, 1s polling)
+if [ -z "$VPN_IP" ]; then
+  echo "❌ Failed to get Tailscale IP"
+  exit 1
+fi`
+					// For Tailscale, get first master IP from tailscale status
+					firstMasterIPScript = `# Get first master IP from Tailscale
+FIRST_MASTER_IP=$(sudo tailscale status 2>/dev/null | grep -i "masters-1" | awk '{print $1}')
+if [ -z "$FIRST_MASTER_IP" ]; then
+  FIRST_MASTER_IP=$(sudo tailscale status 2>/dev/null | grep -E "^100\." | head -1 | awk '{print $1}')
+fi
+echo "First master IP: $FIRST_MASTER_IP"`
+				} else {
+					vpnDetectionScript = fmt.Sprintf(`# Wait for WireGuard
 echo "⏳ Waiting for WireGuard..."
 timeout=20
 elapsed=0
+VPN_IP="%s"
 while [ $elapsed -lt $timeout ]; do
   if ip addr show wg0 &>/dev/null; then
     break
@@ -368,13 +472,25 @@ while [ $elapsed -lt $timeout ]; do
   sleep 1
   elapsed=$((elapsed + 1))
 done
+echo "✅ WireGuard ready (IP: $VPN_IP)"`, wgIP)
+					firstMasterIPScript = fmt.Sprintf(`FIRST_MASTER_IP="%s"`, args[2].(string))
+				}
+
+				return fmt.Sprintf(`#!/bin/bash
+set -e
+
+echo "🔧 Installing RKE2 agent on worker..."
+
+%s
+
+%s
 
 # Create RKE2 config
 sudo mkdir -p /etc/rancher/rke2
 cat <<EOF | sudo tee /etc/rancher/rke2/config.yaml
-server: https://%s:9345
+server: https://$FIRST_MASTER_IP:9345
 token: %s
-node-ip: %s
+node-ip: $VPN_IP
 node-external-ip: %s
 EOF
 
@@ -397,7 +513,7 @@ while [ $elapsed -lt $timeout ]; do
 done
 
 echo "✅ Worker joined successfully"
-`, firstMasterWgIP, token, wgIP, publicIP, rke2Version)
+`, vpnDetectionScript, firstMasterIPScript, token, publicIP, rke2Version)
 			}).(pulumi.StringOutput),
 		}, pulumi.Parent(component), pulumi.DependsOn([]pulumi.Resource{fetchToken}), pulumi.Timeouts(&pulumi.CustomTimeouts{
 			Create: "15m",

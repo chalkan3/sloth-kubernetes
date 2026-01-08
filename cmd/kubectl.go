@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/vpn/tailscale"
 	"github.com/spf13/cobra"
 	kubectlcmd "k8s.io/kubectl/pkg/cmd"
 )
@@ -87,6 +88,16 @@ func runKubectl(cmd *cobra.Command, args []string) error {
 
 	// Set KUBECONFIG environment
 	os.Setenv("KUBECONFIG", kubeconfigPath)
+
+	// Check if VPN daemon is running and configure SOCKS proxy
+	if tailscale.IsDaemonRunning(targetStack) {
+		proxyPort := tailscale.GetSavedProxyPort(targetStack)
+		if proxyPort > 0 {
+			proxyURL := fmt.Sprintf("socks5://127.0.0.1:%d", proxyPort)
+			os.Setenv("HTTPS_PROXY", proxyURL)
+			os.Setenv("https_proxy", proxyURL)
+		}
+	}
 
 	// Create the root kubectl command with all subcommands
 	kubectlRootCmd := kubectlcmd.NewDefaultKubectlCommand()

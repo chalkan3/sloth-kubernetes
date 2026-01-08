@@ -8,6 +8,7 @@
 <p align="center">
   <a href="#installation">Installation</a> •
   <a href="#quick-start">Quick Start</a> •
+  <a href="#vpn-networking">VPN</a> •
   <a href="#state-management">State Management</a> •
   <a href="#versioning-system">Versioning</a> •
   <a href="#manifest-registry">Manifest Registry</a> •
@@ -57,7 +58,7 @@ Deploy production-ready Kubernetes clusters across **AWS**, **Hetzner Cloud**, *
 | **Config Versioning** | Schema migrations, version tracking, rollback support |
 | **Manifest Registry** | Track all Kubernetes manifests with history |
 | **Audit Logging** | Complete audit trail of all changes |
-| **WireGuard VPN** | Automatic mesh networking across providers |
+| **VPN Networking** | WireGuard or Tailscale/Headscale mesh networking with embedded client |
 
 ---
 
@@ -143,6 +144,77 @@ sloth-kubernetes stacks create my-cluster --kms-key alias/sloth-secrets
 ```bash
 sloth-kubernetes deploy my-cluster --config cluster.lisp --verbose
 ```
+
+---
+
+## VPN Networking
+
+sloth-kubernetes provides secure mesh networking between all cluster nodes. Choose between **WireGuard** (direct mesh) or **Tailscale/Headscale** (managed mesh with embedded client).
+
+### Tailscale/Headscale (Recommended)
+
+Tailscale mode deploys a Headscale coordination server and provides an **embedded client** for your local machine - no system-wide Tailscale installation required.
+
+**Configuration:**
+```lisp
+(network
+  (mode "tailscale")
+  (tailscale
+    (enabled true)
+    (namespace "kubernetes")))
+```
+
+**Connect to cluster:**
+```bash
+# Connect in daemon mode (recommended)
+sloth-kubernetes vpn connect my-cluster --daemon
+
+# kubectl automatically routes through VPN
+sloth-kubernetes kubectl my-cluster get nodes
+sloth-kubernetes kubectl my-cluster get pods -A
+
+# Disconnect when done
+sloth-kubernetes vpn disconnect my-cluster
+```
+
+**Features:**
+- Embedded Tailscale client (no installation required)
+- Automatic SOCKS5 proxy for kubectl
+- NAT traversal via Headscale
+- Automatic peer discovery
+
+### WireGuard
+
+WireGuard mode creates a direct peer-to-peer mesh network.
+
+**Configuration:**
+```lisp
+(network
+  (mode "wireguard")
+  (wireguard
+    (enabled true)
+    (mesh-networking true)))
+```
+
+**Join the mesh:**
+```bash
+# Join your machine to VPN
+sloth-kubernetes vpn join my-cluster --install
+
+# Check status
+sloth-kubernetes vpn status my-cluster
+sloth-kubernetes vpn peers my-cluster
+
+# Leave VPN
+sloth-kubernetes vpn leave my-cluster
+```
+
+**Features:**
+- Minimal overhead
+- Full peer-to-peer connectivity
+- QR code generation for mobile
+
+See [VPN Documentation](docs/user-guide/vpn.md) for complete details.
 
 ---
 

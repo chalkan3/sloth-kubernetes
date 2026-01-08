@@ -44,7 +44,7 @@ Available Commands:
 **Node & Infrastructure:**
 - [`nodes`](#nodes) - Manage cluster nodes
 - [`salt`](#salt) - Node management with SaltStack
-- [`vpn`](#vpn) - WireGuard VPN management
+- [`vpn`](#vpn) - VPN management (WireGuard or Tailscale/Headscale)
 
 **Monitoring & Operations:**
 - [`health`](#health) - Cluster health checks (stack-aware)
@@ -302,86 +302,225 @@ sloth-kubernetes nodes drain NODE_NAME [flags]
 
 ## `vpn`
 
-Manage WireGuard VPN configuration and client access.
+Manage VPN networking with WireGuard or Tailscale/Headscale.
 
 ### Subcommands
 
-- `vpn status` - Show VPN status- `vpn client-config` - Generate client config- `vpn add-client` - Add new VPN client- `vpn remove-client` - Remove VPN client
-### `vpn status`
+**Tailscale/Headscale (Embedded Client):**
+- `vpn connect` - Connect local machine to Tailscale mesh
+- `vpn disconnect` - Disconnect from Tailscale mesh
 
-Show WireGuard VPN status and connected clients.
+**WireGuard:**
+- `vpn status` - Show VPN status
+- `vpn peers` - List VPN peers
+- `vpn join` - Join WireGuard mesh
+- `vpn leave` - Leave WireGuard mesh
+- `vpn test` - Test VPN connectivity
+- `vpn config` - Get node WireGuard config
+- `vpn client-config` - Generate client config
 
-```bash
-sloth-kubernetes vpn status [flags]
-```
+---
 
-**Example:**
+### `vpn connect` (Tailscale)
 
-```bash
-# Check VPN statussloth-kubernetes vpn status
-```
-
-**Output:**
-
-```
-🦥 WireGuard VPN Status
-
-Server: 203.0.113.10 (nyc3)
-Subnet: 10.8.0.0/24
-Port: 51820
-
-Connected Nodes:
-  do-master-1      10.8.0.2   ✓ Connected
-  linode-master-1  10.8.0.3   ✓ Connected
-  linode-master-2  10.8.0.4   ✓ Connected
-  do-worker-1      10.8.0.10  ✓ Connected
-  linode-worker-1  10.8.0.11  ✓ Connected
-
-Clients:
-  my-laptop        10.8.0.100 ✓ Connected
-```
-
-### `vpn client-config`
-
-Generate WireGuard client configuration.
+Connect your local machine to the Tailscale mesh using the embedded client. No system-wide Tailscale installation required.
 
 ```bash
-sloth-kubernetes vpn client-config --name CLIENT_NAME [flags]
+sloth-kubernetes vpn connect <stack-name> [flags]
 ```
 
 **Flags:**
 
-| Flag | Type | Description | Required |
-|------|------|-------------|----------|
-| `--name` | string | Client name | Yes |
-| `--output, -o` | string | Output file path | No |
+| Flag | Type | Description | Default |
+|------|------|-------------|---------|
+| `--daemon` | bool | Run in background | `false` |
+| `--hostname` | string | Custom hostname in tailnet | Auto-generated |
 
 **Example:**
 
 ```bash
-# Generate client configsloth-kubernetes vpn client-config --name my-laptop
+# Connect in daemon mode (recommended)
+sloth-kubernetes vpn connect my-cluster --daemon
 
-# Save to file
-sloth-kubernetes vpn client-config --name my-laptop -o laptop.conf
+# Connect with custom hostname
+sloth-kubernetes vpn connect my-cluster --daemon --hostname my-laptop
 ```
 
 **Output:**
 
 ```
-🦥 WireGuard Client Configuration
+🔌 VPN Connect (Daemon) - Stack: my-cluster
 
-[Interface]
-PrivateKey = <generated-private-key>
-Address = 10.8.0.100/24
-DNS = 10.8.0.1
+Starting VPN daemon in background...
+Waiting for VPN connection to establish...
+✓ VPN daemon started (PID: 12345)
+SOCKS5 proxy running on 127.0.0.1:64172
 
-[Peer]
-PublicKey = <server-public-key>
-Endpoint = 203.0.113.10:51820
-AllowedIPs = 10.8.0.0/24, 10.10.0.0/16, 10.11.0.0/16
-PersistentKeepalive = 25
+  kubectl commands will automatically use the VPN tunnel
+  Use 'sloth vpn disconnect my-cluster' to stop
+```
 
-Saved to: my-laptop.conf
+**Note:** When connected, kubectl commands automatically route through the VPN:
+```bash
+sloth-kubernetes kubectl my-cluster get nodes  # Works through VPN
+```
+
+---
+
+### `vpn disconnect` (Tailscale)
+
+Disconnect from the Tailscale mesh and stop the daemon.
+
+```bash
+sloth-kubernetes vpn disconnect <stack-name>
+```
+
+**Example:**
+
+```bash
+sloth-kubernetes vpn disconnect my-cluster
+```
+
+**Output:**
+
+```
+🔌 VPN Disconnect - Stack: my-cluster
+
+Stopping VPN daemon (PID: 12345)...
+✓ VPN daemon stopped
+Cleaning up connection state...
+✓ Disconnected and cleaned up VPN state
+```
+
+---
+
+### `vpn status` (WireGuard)
+
+Show WireGuard VPN status and connected nodes.
+
+```bash
+sloth-kubernetes vpn status <stack-name>
+```
+
+**Output:**
+
+```
+═══════════════════════════════════════════════════════════════
+           VPN STATUS - Stack: production
+═══════════════════════════════════════════════════════════════
+
+METRIC          VALUE
+------          -----
+VPN Mode        WireGuard Mesh
+Total Nodes     6
+Total Tunnels   15
+VPN Subnet      10.8.0.0/24
+Status          All tunnels active
+```
+
+---
+
+### `vpn peers` (WireGuard)
+
+List all VPN peers in the mesh.
+
+```bash
+sloth-kubernetes vpn peers <stack-name>
+```
+
+**Output:**
+
+```
+NODE         LABEL      VPN IP       PUBLIC KEY        LAST HANDSHAKE   TRANSFER
+----         -----      ------       ----------        --------------   --------
+master-1     -          10.8.0.10    ABC123def456...   30s ago          1.2MB / 2.4MB
+worker-1     -          10.8.0.20    GHI789jkl012...   1m ago           3.5MB / 5.2MB
+laptop       personal   10.8.0.100   MNO345pqr678...   2m ago           500KB / 1.2MB
+```
+
+---
+
+### `vpn join` (WireGuard)
+
+Join your local machine or a remote host to the WireGuard mesh.
+
+```bash
+sloth-kubernetes vpn join <stack-name> [flags]
+```
+
+**Flags:**
+
+| Flag | Type | Description | Default |
+|------|------|-------------|---------|
+| `--remote` | string | Remote SSH host to add | - |
+| `--vpn-ip` | string | Custom VPN IP address | Auto-assign |
+| `--label` | string | Peer label/name | - |
+| `--install` | bool | Auto-install WireGuard | `false` |
+
+**Example:**
+
+```bash
+# Join local machine
+sloth-kubernetes vpn join production --install
+
+# Join with label
+sloth-kubernetes vpn join production --label laptop --install
+
+# Join remote host
+sloth-kubernetes vpn join production --remote user@server.com
+```
+
+---
+
+### `vpn leave` (WireGuard)
+
+Remove a machine from the WireGuard mesh.
+
+```bash
+sloth-kubernetes vpn leave <stack-name> [flags]
+```
+
+**Flags:**
+
+| Flag | Type | Description | Default |
+|------|------|-------------|---------|
+| `--vpn-ip` | string | VPN IP of peer to remove | Auto-detect |
+
+**Example:**
+
+```bash
+# Leave VPN
+sloth-kubernetes vpn leave production
+
+# Remove specific peer
+sloth-kubernetes vpn leave production --vpn-ip 10.8.0.100
+```
+
+---
+
+### `vpn client-config` (WireGuard)
+
+Generate WireGuard client configuration file.
+
+```bash
+sloth-kubernetes vpn client-config <stack-name> [flags]
+```
+
+**Flags:**
+
+| Flag | Type | Description | Default |
+|------|------|-------------|---------|
+| `--output, -o` | string | Output file path | `wg0-client.conf` |
+| `--qr` | bool | Generate QR code | `false` |
+
+**Example:**
+
+```bash
+# Generate client config
+sloth-kubernetes vpn client-config production
+
+# Generate QR code for mobile
+sloth-kubernetes vpn client-config production --qr
 ```
 
 ---

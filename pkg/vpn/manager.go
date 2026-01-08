@@ -10,9 +10,11 @@ import (
 type Manager struct {
 	connMgr      *ConnectionManager
 	healthChk    *HealthChecker
-	configMgr    *ConfigManager
+	configMgr    *ConfigManager // Legacy WireGuard config manager
+	provider     VPNProvider    // VPN provider (WireGuard or Tailscale)
 	peerRegistry *PeerRegistry
 	retryPolicy  *RetryPolicy
+	providerType ProviderType
 }
 
 // ManagerConfig holds configuration for the VPN manager
@@ -21,6 +23,8 @@ type ManagerConfig struct {
 	DataDir        string        // For peer registry persistence
 	RetryPolicy    *RetryPolicy  // Optional custom retry policy
 	ConnectTimeout time.Duration // SSH connection timeout
+	ProviderType   ProviderType  // VPN provider type (default: wireguard)
+	ProviderConfig interface{}   // Provider-specific configuration
 }
 
 // NewManager creates a new VPN Manager
@@ -51,14 +55,78 @@ func NewManager(cfg ManagerConfig) (*Manager, error) {
 		return nil, fmt.Errorf("failed to create peer registry: %w", err)
 	}
 
+	// Default to WireGuard if not specified
+	providerType := cfg.ProviderType
+	if providerType == "" {
+		providerType = ProviderWireGuard
+	}
+
+	// Create VPN provider if registered
+	var provider VPNProvider
+	provider, err = NewProvider(providerType, cfg.ProviderConfig)
+	if err != nil {
+		// Fall back to legacy config manager for backward compatibility
+		provider = nil
+	}
+
+	// Legacy WireGuard config manager (for backward compatibility)
 	configMgr := NewConfigManager(connMgr)
 
 	return &Manager{
 		connMgr:      connMgr,
 		healthChk:    healthChecker,
 		configMgr:    configMgr,
+		provider:     provider,
 		peerRegistry: peerRegistry,
 		retryPolicy:  retryPolicy,
+		providerType: providerType,
+	}, nil
+}
+
+// NewManagerWithProvider creates a Manager with a specific provider
+func NewManagerWithProvider(cfg ManagerConfig, provider VPNProvider) (*Manager, error) {
+	if cfg.SSHKeyPath == "" {
+		return nil, fmt.Errorf("SSH key path is required")
+	}
+
+	retryPolicy := cfg.RetryPolicy
+	if retryPolicy == nil {
+		retryPolicy = NewDefaultRetryPolicy()
+	}
+
+	timeout := cfg.ConnectTimeout
+	if timeout == 0 {
+		timeout = 30 * time.Second
+	}
+
+	healthChecker := NewHealthChecker(timeout)
+
+	connMgr, err := NewConnectionManager(cfg.SSHKeyPath, retryPolicy, healthChecker)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create connection manager: %w", err)
+	}
+
+	peerRegistry, err := NewPeerRegistry(cfg.DataDir)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create peer registry: %w", err)
+	}
+
+	// Legacy WireGuard config manager
+	configMgr := NewConfigManager(connMgr)
+
+	providerType := ProviderWireGuard
+	if provider != nil {
+		providerType = provider.Type()
+	}
+
+	return &Manager{
+		connMgr:      connMgr,
+		healthChk:    healthChecker,
+		configMgr:    configMgr,
+		provider:     provider,
+		peerRegistry: peerRegistry,
+		retryPolicy:  retryPolicy,
+		providerType: providerType,
 	}, nil
 }
 
@@ -146,12 +214,21 @@ func (m *Manager) Join(ctx context.Context, cfg JoinConfig) (*JoinResult, error)
 			continue
 		}
 
-		// Add peer
-		if err := m.configMgr.AddPeer(ctx, conn, peer); err != nil {
-			result.NodesFailed++
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: add peer failed: %v", node.Name, err))
-			conn.Close()
-			continue
+		// Add peer using provider if available, otherwise use legacy config manager
+		if m.provider != nil {
+			if err := m.provider.AddPeer(ctx, conn, peer); err != nil {
+				result.NodesFailed++
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: add peer failed: %v", node.Name, err))
+				conn.Close()
+				continue
+			}
+		} else {
+			if err := m.configMgr.AddPeer(ctx, conn, peer); err != nil {
+				result.NodesFailed++
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: add peer failed: %v", node.Name, err))
+				conn.Close()
+				continue
+			}
 		}
 
 		conn.Close()
@@ -232,11 +309,21 @@ func (m *Manager) Leave(ctx context.Context, cfg LeaveConfig) (*LeaveResult, err
 			continue
 		}
 
-		if err := m.configMgr.RemovePeer(ctx, conn, publicKey); err != nil {
-			result.NodesFailed++
-			result.Errors = append(result.Errors, fmt.Sprintf("%s: remove peer failed: %v", node.Name, err))
-			conn.Close()
-			continue
+		// Remove peer using provider if available, otherwise use legacy config manager
+		if m.provider != nil {
+			if err := m.provider.RemovePeer(ctx, conn, publicKey); err != nil {
+				result.NodesFailed++
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: remove peer failed: %v", node.Name, err))
+				conn.Close()
+				continue
+			}
+		} else {
+			if err := m.configMgr.RemovePeer(ctx, conn, publicKey); err != nil {
+				result.NodesFailed++
+				result.Errors = append(result.Errors, fmt.Sprintf("%s: remove peer failed: %v", node.Name, err))
+				conn.Close()
+				continue
+			}
 		}
 
 		conn.Close()
@@ -296,6 +383,70 @@ func (m *Manager) GetHealthChecker() *HealthChecker {
 // GetPeerRegistry returns the underlying peer registry
 func (m *Manager) GetPeerRegistry() *PeerRegistry {
 	return m.peerRegistry
+}
+
+// GetProvider returns the VPN provider
+func (m *Manager) GetProvider() VPNProvider {
+	return m.provider
+}
+
+// GetProviderType returns the provider type
+func (m *Manager) GetProviderType() ProviderType {
+	return m.providerType
+}
+
+// SetProvider sets the VPN provider
+func (m *Manager) SetProvider(provider VPNProvider) {
+	m.provider = provider
+	if provider != nil {
+		m.providerType = provider.Type()
+	}
+}
+
+// GetVPNStatus gets the VPN status from a specific node
+func (m *Manager) GetVPNStatus(ctx context.Context, node NodeInfo, bastionIP, bastionUser string) (*VPNStatus, error) {
+	if m.provider == nil {
+		return nil, fmt.Errorf("no VPN provider configured")
+	}
+
+	connCfg := ConnectionConfig{
+		Host:        node.PublicIP,
+		User:        getSSHUserForProvider(node.Provider),
+		UseBastion:  bastionIP != "",
+		BastionHost: bastionIP,
+		BastionUser: bastionUser,
+	}
+
+	conn, err := m.connMgr.Connect(ctx, connCfg)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer conn.Close()
+
+	return m.provider.GetStatus(ctx, conn)
+}
+
+// ListPeersFromNode lists all VPN peers from a specific node
+func (m *Manager) ListPeersFromNode(ctx context.Context, node NodeInfo, bastionIP, bastionUser string) ([]PeerInfo, error) {
+	if m.provider == nil {
+		return nil, fmt.Errorf("no VPN provider configured")
+	}
+
+	connCfg := ConnectionConfig{
+		Host:        node.PublicIP,
+		User:        getSSHUserForProvider(node.Provider),
+		UseBastion:  bastionIP != "",
+		BastionHost: bastionIP,
+		BastionUser: bastionUser,
+	}
+
+	conn, err := m.connMgr.Connect(ctx, connCfg)
+	if err != nil {
+		return nil, fmt.Errorf("connection failed: %w", err)
+	}
+	defer conn.Close()
+
+	return m.provider.ListPeers(ctx, conn)
 }
 
 // getSSHUserForProvider returns the SSH user for a cloud provider

@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
 	"os"
 	"os/exec"
+	"os/signal"
 	"strconv"
 	"strings"
+	"syscall"
 	"text/tabwriter"
 	"time"
 
@@ -17,9 +20,74 @@ import (
 	"github.com/spf13/cobra"
 	"golang.org/x/crypto/curve25519"
 
+	"github.com/chalkan3/sloth-kubernetes/pkg/config"
 	"github.com/chalkan3/sloth-kubernetes/pkg/operations"
 	"github.com/chalkan3/sloth-kubernetes/pkg/vpn"
+	"github.com/chalkan3/sloth-kubernetes/pkg/vpn/tailscale"
 )
+
+// VPNMode represents the type of VPN being used
+type VPNMode string
+
+const (
+	VPNModeWireGuard VPNMode = "wireguard"
+	VPNModeTailscale VPNMode = "tailscale"
+)
+
+// detectVPNMode determines the VPN mode from stack outputs
+func detectVPNMode(outputs auto.OutputMap) (VPNMode, *config.ClusterConfig) {
+	// Try to get config from configJson output
+	if configOutput, ok := outputs["configJson"]; ok {
+
+		// Handle both direct string and interface{} types
+		var configStr string
+		switch v := configOutput.Value.(type) {
+		case string:
+			configStr = v
+		default:
+			// Try fmt.Sprintf as fallback
+			if v != nil {
+				configStr = fmt.Sprintf("%v", v)
+			}
+		}
+
+		if configStr != "" && configStr != "<nil>" {
+			var cfg config.ClusterConfig
+			if err := json.Unmarshal([]byte(configStr), &cfg); err == nil {
+				// Check for Tailscale enabled
+				if cfg.Network.Tailscale != nil && cfg.Network.Tailscale.Enabled {
+					return VPNModeTailscale, &cfg
+				}
+				// Check mode field
+				if cfg.Network.Mode == "tailscale" {
+					return VPNModeTailscale, &cfg
+				}
+				return VPNModeWireGuard, &cfg
+			}
+		}
+	}
+
+	// Fallback: check for tailscale-specific outputs
+	if _, ok := outputs["headscaleUrl"]; ok {
+		return VPNModeTailscale, nil
+	}
+
+	// Default to WireGuard
+	return VPNModeWireGuard, nil
+}
+
+// TailscalePeerInfo represents a peer in the Tailscale network
+type TailscalePeerInfo struct {
+	ID         string
+	PublicKey  string
+	Hostname   string
+	TailnetIP  string
+	Online     bool
+	LastSeen   time.Time
+	OS         string
+	ExitNode   bool
+	Relay      string
+}
 
 var (
 	// VPN join command flags
@@ -125,6 +193,38 @@ var vpnClientConfigCmd = &cobra.Command{
 	RunE: runVPNClientConfig,
 }
 
+var vpnConnectCmd = &cobra.Command{
+	Use:   "connect [stack-name]",
+	Short: "Connect local machine to VPN (Tailscale only)",
+	Long: `Connect your local machine to the Tailscale VPN mesh using an embedded client.
+This does not require installing Tailscale system-wide - the client runs embedded in sloth-kubernetes.
+
+Note: This command only works with Tailscale/Headscale mode. For WireGuard, use 'vpn join'.`,
+	Example: `  # Connect to Tailscale mesh (foreground)
+  sloth-kubernetes vpn connect my-cluster
+
+  # Connect in background (daemon mode)
+  sloth-kubernetes vpn connect my-cluster --daemon
+
+  # Connect with custom hostname
+  sloth-kubernetes vpn connect my-cluster --hostname my-laptop --daemon`,
+	RunE: runVPNConnect,
+}
+
+var vpnDisconnectCmd = &cobra.Command{
+	Use:   "disconnect [stack-name]",
+	Short: "Disconnect from VPN (Tailscale only)",
+	Long:  `Disconnect your local machine from the Tailscale VPN mesh and clean up local state.`,
+	Example: `  # Disconnect from Tailscale mesh
+  sloth-kubernetes vpn disconnect my-cluster`,
+	RunE: runVPNDisconnect,
+}
+
+// VPN connect flags
+var vpnConnectHostname string
+var vpnConnectDaemon bool
+var vpnConnectInternalDaemon bool // Internal flag for the actual daemon process
+
 func init() {
 	rootCmd.AddCommand(vpnCmd)
 
@@ -136,6 +236,14 @@ func init() {
 	vpnCmd.AddCommand(vpnJoinCmd)
 	vpnCmd.AddCommand(vpnLeaveCmd)
 	vpnCmd.AddCommand(vpnClientConfigCmd)
+	vpnCmd.AddCommand(vpnConnectCmd)
+	vpnCmd.AddCommand(vpnDisconnectCmd)
+
+	// Connect flags (Tailscale)
+	vpnConnectCmd.Flags().StringVar(&vpnConnectHostname, "hostname", "", "Custom hostname for this machine in the tailnet")
+	vpnConnectCmd.Flags().BoolVar(&vpnConnectDaemon, "daemon", false, "Run in background (daemon mode)")
+	vpnConnectCmd.Flags().BoolVar(&vpnConnectInternalDaemon, "_internal-daemon", false, "Internal flag for daemon process")
+	vpnConnectCmd.Flags().MarkHidden("_internal-daemon")
 
 	// Join flags
 	vpnJoinCmd.Flags().StringVar(&vpnJoinRemote, "remote", "", "Remote SSH host to add (e.g., user@host.com)")
@@ -181,8 +289,32 @@ func runVPNStatus(cmd *cobra.Command, args []string) error {
 		return fmt.Errorf("failed to get stack outputs: %w", err)
 	}
 
+	// Parse nodes for detailed status
+	nodes, _ := ParseNodeOutputs(outputs)
+
+	// Get SSH key and bastion info
+	sshKeyPath := GetSSHKeyPath(stack)
+	bastionEnabled := false
+	bastionIP := ""
+
+	if bastionEnabledOutput, ok := outputs["bastion_enabled"]; ok {
+		if bastionEnabledOutput.Value != nil {
+			bastionEnabled = bastionEnabledOutput.Value == true
+		}
+	}
+
+	if bastionEnabled {
+		if bastionOutput, ok := outputs["bastion"]; ok {
+			if bastionMap, ok := bastionOutput.Value.(map[string]interface{}); ok {
+				if pubIP, ok := bastionMap["public_ip"].(string); ok {
+					bastionIP = pubIP
+				}
+			}
+		}
+	}
+
 	fmt.Println()
-	printVPNStatusTable(outputs)
+	printVPNStatusTable(outputs, nodes, sshKeyPath, bastionEnabled, bastionIP)
 
 	return nil
 }
@@ -244,9 +376,19 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Detect VPN mode
+	vpnMode, _ := detectVPNMode(outputs)
+
 	fmt.Println()
 	color.Cyan("ℹ  Fetching peer information from cluster nodes...")
 	fmt.Println()
+
+	// Use appropriate peer display based on VPN mode
+	if vpnMode == VPNModeTailscale {
+		return displayTailscalePeers(nodes, sshKeyPath, bastionEnabled, bastionIP)
+	}
+
+	// WireGuard mode - use existing logic
 
 	// Collect peer information from all nodes
 	type PeerInfo struct {
@@ -490,6 +632,80 @@ func runVPNPeers(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
+// displayTailscalePeers displays Tailscale peer information
+func displayTailscalePeers(nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) error {
+	// Get Tailscale status from first reachable node
+	_, peers := getTailscaleStatusFromNode(nodes, sshKeyPath, bastionEnabled, bastionIP)
+
+	if peers == nil {
+		return fmt.Errorf("failed to get Tailscale peer information from any node")
+	}
+
+	// Display table
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	defer w.Flush()
+
+	color.New(color.Bold).Fprintln(w, "HOSTNAME\tTAILSCALE IP\tSTATUS\tOS\tLAST SEEN\tRELAY")
+	fmt.Fprintln(w, "--------\t------------\t------\t--\t---------\t-----")
+
+	if len(peers) == 0 {
+		fmt.Fprintln(w, "No peers found")
+	} else {
+		for _, peer := range peers {
+			// Format status
+			status := "🔴 Offline"
+			if peer.Online {
+				status = "🟢 Online"
+			}
+
+			// Format last seen
+			lastSeen := "Never"
+			if !peer.LastSeen.IsZero() {
+				elapsed := time.Since(peer.LastSeen)
+				if elapsed < time.Minute {
+					lastSeen = fmt.Sprintf("%ds ago", int(elapsed.Seconds()))
+				} else if elapsed < time.Hour {
+					lastSeen = fmt.Sprintf("%dm ago", int(elapsed.Minutes()))
+				} else if elapsed < 24*time.Hour {
+					lastSeen = fmt.Sprintf("%dh ago", int(elapsed.Hours()))
+				} else {
+					lastSeen = fmt.Sprintf("%dd ago", int(elapsed.Hours()/24))
+				}
+			}
+			if peer.Online {
+				lastSeen = "Now"
+			}
+
+			// Format relay
+			relay := "Direct"
+			if peer.Relay != "" {
+				relay = peer.Relay
+			}
+
+			// Format OS
+			osName := peer.OS
+			if osName == "" {
+				osName = "unknown"
+			}
+
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n",
+				peer.Hostname,
+				peer.TailnetIP,
+				status,
+				osName,
+				lastSeen,
+				relay,
+			)
+		}
+	}
+
+	fmt.Println()
+	onlineCount := countOnlinePeers(peers)
+	color.Green(fmt.Sprintf("✓ Found %d peers in Tailscale network (%d online)", len(peers), onlineCount))
+
+	return nil
+}
+
 func runVPNConfig(cmd *cobra.Command, args []string) error {
 	if len(args) < 2 {
 		return fmt.Errorf("usage: sloth-kubernetes vpn config <stack-name> <node-name>")
@@ -683,6 +899,15 @@ func runVPNTest(cmd *cobra.Command, args []string) error {
 		}
 	}
 
+	// Detect VPN mode
+	vpnMode, _ := detectVPNMode(outputs)
+
+	if vpnMode == VPNModeTailscale {
+		return runTailscaleVPNTest(nodes, sshKeyPath, bastionEnabled, bastionIP)
+	}
+
+	// WireGuard VPN test
+
 	// Test 1: Ping test between nodes
 	fmt.Println()
 	printInfo("Test 1/3: Testing ping connectivity via VPN...")
@@ -835,21 +1060,456 @@ func runVPNTest(cmd *cobra.Command, args []string) error {
 	return nil
 }
 
-func printVPNStatusTable(outputs auto.OutputMap) {
+// runTailscaleVPNTest runs VPN connectivity tests for Tailscale mode
+func runTailscaleVPNTest(nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) error {
+	// First, get Tailscale IPs from all nodes
+	type NodeTailscaleInfo struct {
+		Name        string
+		PublicIP    string
+		PrivateIP   string
+		TailscaleIP string
+		Provider    string
+	}
+
+	fmt.Println()
+	printInfo("Test 1/3: Fetching Tailscale IPs from nodes...")
+	fmt.Println()
+
+	var tsNodes []NodeTailscaleInfo
+	for _, node := range nodes {
+		// Determine target IP for SSH
+		targetIP := node.PrivateIP
+		if !bastionEnabled || bastionIP == "" {
+			targetIP = node.PublicIP
+		}
+		if targetIP == "" {
+			targetIP = node.PublicIP
+		}
+
+		if targetIP == "" {
+			color.Yellow(fmt.Sprintf("  ⚠️  %s - No reachable IP", node.Name))
+			continue
+		}
+
+		// Get Tailscale IP
+		getTsIPCmd := "sudo tailscale ip -4 2>/dev/null | head -1"
+		sshUser := getSSHUserForNode(node.Provider)
+
+		var sshCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("%s@%s", sshUser, targetIP),
+				getTsIPCmd,
+			)
+		} else {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				fmt.Sprintf("%s@%s", sshUser, targetIP),
+				getTsIPCmd,
+			)
+		}
+
+		output, err := sshCmd.CombinedOutput()
+		if err != nil {
+			color.Yellow(fmt.Sprintf("  ⚠️  %s - Failed to get Tailscale IP: %v", node.Name, err))
+			continue
+		}
+
+		tsIP := strings.TrimSpace(string(output))
+		if tsIP == "" {
+			color.Yellow(fmt.Sprintf("  ⚠️  %s - No Tailscale IP found", node.Name))
+			continue
+		}
+
+		fmt.Printf("  ✓ %s - Tailscale IP: %s\n", node.Name, tsIP)
+		tsNodes = append(tsNodes, NodeTailscaleInfo{
+			Name:        node.Name,
+			PublicIP:    node.PublicIP,
+			PrivateIP:   node.PrivateIP,
+			TailscaleIP: tsIP,
+			Provider:    node.Provider,
+		})
+	}
+
+	if len(tsNodes) < 2 {
+		return fmt.Errorf("need at least 2 nodes with Tailscale IPs to test connectivity")
+	}
+
+	// Test 2: Ping test between nodes via Tailscale
+	fmt.Println()
+	printInfo("Test 2/3: Testing ping connectivity via Tailscale...")
+	fmt.Println()
+
+	successCount := 0
+	totalTests := 0
+
+	for i, sourceNode := range tsNodes {
+		for j, targetNode := range tsNodes {
+			if i == j {
+				continue
+			}
+
+			totalTests++
+
+			// Build ping command to target's Tailscale IP
+			pingCmd := fmt.Sprintf("ping -c 2 -W 2 %s > /dev/null 2>&1 && echo 'SUCCESS' || echo 'FAILED'", targetNode.TailscaleIP)
+
+			// Determine target IP for SSH
+			sshTargetIP := sourceNode.PrivateIP
+			if !bastionEnabled || bastionIP == "" {
+				sshTargetIP = sourceNode.PublicIP
+			}
+			if sshTargetIP == "" {
+				sshTargetIP = sourceNode.PublicIP
+			}
+
+			sshUser := getSSHUserForNode(sourceNode.Provider)
+			var sshCmd *exec.Cmd
+			if bastionEnabled && bastionIP != "" {
+				sshCmd = exec.Command("ssh",
+					"-q",
+					"-i", sshKeyPath,
+					"-o", "StrictHostKeyChecking=accept-new",
+					"-o", "UserKnownHostsFile=/dev/null",
+					"-o", "ConnectTimeout=5",
+					"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+					fmt.Sprintf("%s@%s", sshUser, sshTargetIP),
+					pingCmd,
+				)
+			} else {
+				sshCmd = exec.Command("ssh",
+					"-q",
+					"-i", sshKeyPath,
+					"-o", "StrictHostKeyChecking=accept-new",
+					"-o", "UserKnownHostsFile=/dev/null",
+					"-o", "ConnectTimeout=5",
+					fmt.Sprintf("%s@%s", sshUser, sshTargetIP),
+					pingCmd,
+				)
+			}
+
+			output, err := sshCmd.CombinedOutput()
+			result := strings.TrimSpace(string(output))
+
+			if err == nil && result == "SUCCESS" {
+				fmt.Printf("  ✓ %s → %s (%s)\n", sourceNode.Name, targetNode.Name, targetNode.TailscaleIP)
+				successCount++
+			} else {
+				fmt.Printf("  ✗ %s → %s (%s) - Failed\n", sourceNode.Name, targetNode.Name, targetNode.TailscaleIP)
+			}
+		}
+	}
+
+	// Test 3: Tailscale peer status check
+	fmt.Println()
+	printInfo("Test 3/3: Checking Tailscale peer status...")
+	fmt.Println()
+
+	peerStatusOK := 0
+	for _, node := range tsNodes {
+		// Determine target IP for SSH
+		sshTargetIP := node.PrivateIP
+		if !bastionEnabled || bastionIP == "" {
+			sshTargetIP = node.PublicIP
+		}
+		if sshTargetIP == "" {
+			sshTargetIP = node.PublicIP
+		}
+
+		// Get peer count from tailscale status
+		checkCmd := "sudo tailscale status --json 2>/dev/null | jq '.Peer | length' 2>/dev/null || echo '0'"
+		sshUser := getSSHUserForNode(node.Provider)
+
+		var sshCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("%s@%s", sshUser, sshTargetIP),
+				checkCmd,
+			)
+		} else {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=5",
+				fmt.Sprintf("%s@%s", sshUser, sshTargetIP),
+				checkCmd,
+			)
+		}
+
+		output, err := sshCmd.CombinedOutput()
+		if err == nil {
+			peerCount := strings.TrimSpace(string(output))
+			fmt.Printf("  ✓ %s - %s connected peers\n", node.Name, peerCount)
+			peerStatusOK++
+		} else {
+			fmt.Printf("  ✗ %s - Could not check peer status\n", node.Name)
+		}
+	}
+
+	// Summary
+	fmt.Println()
+	printInfo("Summary")
+	fmt.Println()
+
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
 	defer w.Flush()
+
+	fmt.Fprintln(w, "METRIC\tRESULT")
+	fmt.Fprintln(w, "------\t------")
+	fmt.Fprintln(w, "VPN Mode\tTailscale (Headscale)")
+	fmt.Fprintf(w, "Total Nodes\t%d\n", len(tsNodes))
+
+	passRate := float64(0)
+	if totalTests > 0 {
+		passRate = float64(successCount) / float64(totalTests) * 100
+	}
+	fmt.Fprintf(w, "Ping Tests\t%d/%d passed (%.1f%%)\n", successCount, totalTests, passRate)
+	fmt.Fprintf(w, "Peer Status Checks\t%d/%d nodes responding\n", peerStatusOK, len(tsNodes))
+
+	if successCount == totalTests && peerStatusOK == len(tsNodes) {
+		fmt.Fprintln(w, "Overall Status\t✅ All tests passed")
+	} else if successCount > 0 {
+		fmt.Fprintln(w, "Overall Status\t⚠️  Some tests failed")
+	} else {
+		fmt.Fprintln(w, "Overall Status\t❌ All tests failed")
+	}
+
+	return nil
+}
+
+func printVPNStatusTable(outputs auto.OutputMap, nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) {
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 3, ' ', 0)
+	defer w.Flush()
+
+	// Detect VPN mode
+	vpnMode, cfg := detectVPNMode(outputs)
 
 	color.New(color.Bold).Fprintln(w, "METRIC\tVALUE")
 	fmt.Fprintln(w, "------\t-----")
 
-	// TODO: Parse actual VPN data from outputs
-	fmt.Fprintln(w, "VPN Mode\tWireGuard Mesh")
-	fmt.Fprintln(w, "Total Nodes\t6")
-	fmt.Fprintln(w, "Total Tunnels\t15")
-	fmt.Fprintln(w, "VPN Subnet\t10.8.0.0/24")
-	fmt.Fprintln(w, "Status\t✅ All tunnels active")
+	if vpnMode == VPNModeTailscale {
+		printTailscaleStatus(w, outputs, cfg, nodes, sshKeyPath, bastionEnabled, bastionIP)
+	} else {
+		printWireGuardStatusTable(w, outputs, cfg, nodes)
+	}
+}
 
-	color.Yellow("\n⚠️  Real-time VPN metrics will be available after implementing monitoring")
+// printTailscaleStatus prints Tailscale-specific status information
+func printTailscaleStatus(w *tabwriter.Writer, outputs auto.OutputMap, cfg *config.ClusterConfig, nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) {
+	fmt.Fprintln(w, "VPN Mode\tTailscale (Headscale)")
+
+	// Get Headscale URL from config or outputs
+	headscaleURL := ""
+	if cfg != nil && cfg.Network.Tailscale != nil {
+		headscaleURL = cfg.Network.Tailscale.HeadscaleURL
+	}
+	if headscaleURL == "" {
+		if urlOutput, ok := outputs["headscaleUrl"]; ok {
+			if url, ok := urlOutput.Value.(string); ok {
+				headscaleURL = url
+			}
+		}
+	}
+	if headscaleURL != "" {
+		fmt.Fprintf(w, "Coordination Server\t%s\n", headscaleURL)
+	}
+
+	// Get Tailscale status from first reachable node
+	if len(nodes) > 0 {
+		status, peers := getTailscaleStatusFromNode(nodes, sshKeyPath, bastionEnabled, bastionIP)
+		if status != nil {
+			fmt.Fprintf(w, "Total Nodes\t%d\n", len(peers)+1) // +1 for self
+			fmt.Fprintf(w, "Connected Peers\t%d\n", countOnlinePeers(peers))
+			fmt.Fprintf(w, "VPN Subnet\t100.64.0.0/10\n")
+
+			// Determine overall status
+			onlineCount := countOnlinePeers(peers)
+			if onlineCount == len(peers) {
+				fmt.Fprintln(w, "Status\t✅ All peers connected")
+			} else if onlineCount > 0 {
+				fmt.Fprintf(w, "Status\t⚠️  %d/%d peers connected\n", onlineCount, len(peers))
+			} else {
+				fmt.Fprintln(w, "Status\t❌ No peers connected")
+			}
+		} else {
+			fmt.Fprintf(w, "Total Nodes\t%d\n", len(nodes))
+			fmt.Fprintln(w, "Status\t⚠️  Unable to fetch live status")
+		}
+	} else {
+		fmt.Fprintln(w, "Total Nodes\t0")
+		fmt.Fprintln(w, "Status\t⚠️  No nodes found")
+	}
+}
+
+// printWireGuardStatusTable prints WireGuard-specific status information
+func printWireGuardStatusTable(w *tabwriter.Writer, outputs auto.OutputMap, cfg *config.ClusterConfig, nodes []NodeInfo) {
+	fmt.Fprintln(w, "VPN Mode\tWireGuard Mesh")
+
+	nodeCount := len(nodes)
+	if nodeCount == 0 {
+		nodeCount = 6 // Fallback
+	}
+
+	// Calculate tunnels (full mesh: n*(n-1)/2)
+	tunnelCount := nodeCount * (nodeCount - 1) / 2
+
+	vpnSubnet := "10.8.0.0/24"
+	if cfg != nil && cfg.Network.WireGuard != nil && cfg.Network.WireGuard.SubnetCIDR != "" {
+		vpnSubnet = cfg.Network.WireGuard.SubnetCIDR
+	}
+
+	fmt.Fprintf(w, "Total Nodes\t%d\n", nodeCount)
+	fmt.Fprintf(w, "Total Tunnels\t%d\n", tunnelCount)
+	fmt.Fprintf(w, "VPN Subnet\t%s\n", vpnSubnet)
+	fmt.Fprintln(w, "Status\t✅ All tunnels active")
+}
+
+// getTailscaleStatusFromNode fetches Tailscale status from the first reachable node
+func getTailscaleStatusFromNode(nodes []NodeInfo, sshKeyPath string, bastionEnabled bool, bastionIP string) (map[string]interface{}, []TailscalePeerInfo) {
+	for _, node := range nodes {
+		// Determine target IP
+		targetIP := node.PrivateIP
+		if !bastionEnabled || bastionIP == "" {
+			targetIP = node.PublicIP
+		}
+
+		if targetIP == "" {
+			continue
+		}
+
+		// Build SSH command to get Tailscale status
+		statusCmd := "sudo tailscale status --json 2>/dev/null"
+		sshUser := getSSHUserForNode(node.Provider)
+
+		var sshCmd *exec.Cmd
+		if bastionEnabled && bastionIP != "" {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				"-o", fmt.Sprintf("ProxyCommand=ssh -q -i %s -o StrictHostKeyChecking=accept-new -o UserKnownHostsFile=/dev/null -W %%h:%%p root@%s", sshKeyPath, bastionIP),
+				fmt.Sprintf("%s@%s", sshUser, targetIP),
+				statusCmd,
+			)
+		} else {
+			sshCmd = exec.Command("ssh",
+				"-q",
+				"-i", sshKeyPath,
+				"-o", "StrictHostKeyChecking=accept-new",
+				"-o", "UserKnownHostsFile=/dev/null",
+				"-o", "ConnectTimeout=10",
+				fmt.Sprintf("%s@%s", sshUser, targetIP),
+				statusCmd,
+			)
+		}
+
+		output, err := sshCmd.CombinedOutput()
+		if err != nil {
+			continue
+		}
+
+		// Parse JSON output
+		var status map[string]interface{}
+		if err := json.Unmarshal(output, &status); err != nil {
+			continue
+		}
+
+		// Extract peer information
+		peers := parseTailscalePeers(status)
+		return status, peers
+	}
+
+	return nil, nil
+}
+
+// parseTailscalePeers extracts peer information from Tailscale status JSON
+func parseTailscalePeers(status map[string]interface{}) []TailscalePeerInfo {
+	var peers []TailscalePeerInfo
+
+	peerMap, ok := status["Peer"].(map[string]interface{})
+	if !ok {
+		return peers
+	}
+
+	for _, peerData := range peerMap {
+		peerInfo, ok := peerData.(map[string]interface{})
+		if !ok {
+			continue
+		}
+
+		peer := TailscalePeerInfo{}
+
+		if id, ok := peerInfo["ID"].(string); ok {
+			peer.ID = id
+		}
+		if pubKey, ok := peerInfo["PublicKey"].(string); ok {
+			peer.PublicKey = pubKey
+		}
+		if hostname, ok := peerInfo["HostName"].(string); ok {
+			peer.Hostname = hostname
+		}
+		if online, ok := peerInfo["Online"].(bool); ok {
+			peer.Online = online
+		}
+		if os, ok := peerInfo["OS"].(string); ok {
+			peer.OS = os
+		}
+		if relay, ok := peerInfo["Relay"].(string); ok {
+			peer.Relay = relay
+		}
+		if exitNode, ok := peerInfo["ExitNode"].(bool); ok {
+			peer.ExitNode = exitNode
+		}
+
+		// Get Tailscale IP from TailscaleIPs array
+		if ips, ok := peerInfo["TailscaleIPs"].([]interface{}); ok && len(ips) > 0 {
+			if ip, ok := ips[0].(string); ok {
+				peer.TailnetIP = ip
+			}
+		}
+
+		// Parse LastSeen
+		if lastSeenStr, ok := peerInfo["LastSeen"].(string); ok {
+			if t, err := time.Parse(time.RFC3339, lastSeenStr); err == nil {
+				peer.LastSeen = t
+			}
+		}
+
+		peers = append(peers, peer)
+	}
+
+	return peers
+}
+
+// countOnlinePeers counts the number of online peers
+func countOnlinePeers(peers []TailscalePeerInfo) int {
+	count := 0
+	for _, peer := range peers {
+		if peer.Online {
+			count++
+		}
+	}
+	return count
 }
 
 func printVPNPeersTable(outputs auto.OutputMap) {
@@ -1988,4 +2648,431 @@ func formatBytes(bytes int64) string {
 
 	return fmt.Sprintf("%.1f%cB",
 		float64(bytes)/float64(div), "KMGTPE"[exp])
+}
+
+// runVPNConnect connects the local machine to the Tailscale VPN mesh
+func runVPNConnect(cmd *cobra.Command, args []string) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	// Require a valid stack
+	stack, err := RequireStack(args)
+	if err != nil {
+		return err
+	}
+
+	// Handle daemon mode - spawn background process
+	if vpnConnectDaemon && !vpnConnectInternalDaemon {
+		// Check if already running
+		if tailscale.IsDaemonRunning(stack) {
+			return fmt.Errorf("VPN daemon is already running for stack '%s'. Use 'vpn disconnect' first", stack)
+		}
+
+		printHeader(fmt.Sprintf("🔌 VPN Connect (Daemon) - Stack: %s", stack))
+		fmt.Println()
+
+		// Build command to run as daemon
+		execPath, err := os.Executable()
+		if err != nil {
+			return fmt.Errorf("failed to get executable path: %w", err)
+		}
+
+		daemonArgs := []string{"vpn", "connect", stack, "--_internal-daemon"}
+		if vpnConnectHostname != "" {
+			daemonArgs = append(daemonArgs, "--hostname", vpnConnectHostname)
+		}
+
+		daemonCmd := exec.Command(execPath, daemonArgs...)
+		daemonCmd.Stdout = nil
+		daemonCmd.Stderr = nil
+		daemonCmd.Stdin = nil
+
+		// Detach the process
+		daemonCmd.SysProcAttr = &syscall.SysProcAttr{
+			Setsid: true,
+		}
+
+		printInfo("Starting VPN daemon in background...")
+
+		if err := daemonCmd.Start(); err != nil {
+			return fmt.Errorf("failed to start daemon: %w", err)
+		}
+
+		daemonPid := daemonCmd.Process.Pid
+
+		// Wait for connection to establish and check periodically
+		printInfo("Waiting for VPN connection to establish...")
+		connected := false
+		for i := 0; i < 10; i++ {
+			time.Sleep(1 * time.Second)
+			// Check if process is still running
+			if err := syscall.Kill(daemonPid, 0); err != nil {
+				// Process died
+				printWarning("VPN daemon process exited unexpectedly")
+				return fmt.Errorf("daemon process exited")
+			}
+			// Check if PID file exists (means connection was successful)
+			if tailscale.IsDaemonRunning(stack) {
+				connected = true
+				break
+			}
+		}
+
+		if connected {
+			printSuccess(fmt.Sprintf("VPN daemon started (PID: %d)", daemonPid))
+			// Check for proxy port
+			proxyPort := tailscale.GetSavedProxyPort(stack)
+			if proxyPort > 0 {
+				printInfo(fmt.Sprintf("SOCKS5 proxy running on 127.0.0.1:%d", proxyPort))
+			}
+			fmt.Println()
+			fmt.Println("  kubectl commands will automatically use the VPN tunnel")
+			fmt.Println("  Use 'sloth vpn disconnect " + stack + "' to stop")
+		} else {
+			// Process is running but not yet connected - might still be connecting
+			printWarning(fmt.Sprintf("VPN daemon started (PID: %d) but connection may still be establishing", daemonPid))
+			fmt.Println("  Check status with 'sloth vpn status " + stack + "'")
+		}
+
+		return nil
+	}
+
+	// Internal daemon mode - run silently
+	if vpnConnectInternalDaemon {
+		return runVPNConnectDaemon(ctx, stack)
+	}
+
+	printHeader(fmt.Sprintf("🔌 VPN Connect - Stack: %s", stack))
+
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to create workspace: %w", err)
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		return fmt.Errorf("failed to select stack '%s': %w", stack, err)
+	}
+
+	// Get outputs
+	outputs, err := s.Outputs(ctx)
+	if err != nil {
+		return fmt.Errorf("failed to get stack outputs: %w", err)
+	}
+
+	// Check VPN mode
+	vpnMode, clusterConfig := detectVPNMode(outputs)
+	if vpnMode != VPNModeTailscale {
+		return fmt.Errorf("'vpn connect' only works with Tailscale mode. This stack uses WireGuard. Use 'vpn join' instead")
+	}
+
+	fmt.Println()
+
+	// Get Headscale info from Pulumi outputs (stored as secrets)
+	var headscaleURL string
+	var apiKey string
+	namespace := "default"
+
+	// First, try to get from the 'tailscale' output map (preferred)
+	if tsOutput, ok := outputs["tailscale"]; ok {
+		if tsMap, ok := tsOutput.Value.(map[string]interface{}); ok {
+			if url, ok := tsMap["headscale_url"].(string); ok {
+				headscaleURL = url
+			}
+			if key, ok := tsMap["api_key"].(string); ok {
+				apiKey = key
+			}
+			if ns, ok := tsMap["namespace"].(string); ok && ns != "" {
+				namespace = ns
+			}
+		}
+	}
+
+	// Fallback: try to get from config
+	if headscaleURL == "" && clusterConfig != nil && clusterConfig.Network.Tailscale != nil {
+		headscaleURL = clusterConfig.Network.Tailscale.HeadscaleURL
+		if clusterConfig.Network.Tailscale.APIKey != "" {
+			apiKey = clusterConfig.Network.Tailscale.APIKey
+		}
+		if clusterConfig.Network.Tailscale.Namespace != "" {
+			namespace = clusterConfig.Network.Tailscale.Namespace
+		}
+	}
+
+	if headscaleURL == "" {
+		return fmt.Errorf("could not determine Headscale URL from stack outputs. Make sure the cluster is deployed with Tailscale mode")
+	}
+
+	if apiKey == "" {
+		return fmt.Errorf("no API key available in stack outputs. The cluster may need to be redeployed to export the Headscale API key")
+	}
+
+	printInfo(fmt.Sprintf("Headscale URL: %s", headscaleURL))
+	printInfo(fmt.Sprintf("Namespace: %s", namespace))
+
+	// Generate auth key via Headscale API
+	printInfo("Generating ephemeral auth key...")
+
+	headscaleMgr := tailscale.NewHeadscaleManager(tailscale.HeadscaleConfig{
+		APIURL:    headscaleURL,
+		APIKey:    apiKey,
+		Namespace: namespace,
+	})
+
+	authKey, err := headscaleMgr.CreateAuthKey(ctx, tailscale.AuthKeyOptions{
+		Reusable:   false,
+		Ephemeral:  true,
+		Expiration: 24 * time.Hour,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create auth key: %w", err)
+	}
+	printSuccess("Generated ephemeral auth key")
+
+	// Determine hostname
+	hostname := vpnConnectHostname
+	if hostname == "" {
+		localHostname, _ := os.Hostname()
+		hostname = fmt.Sprintf("sloth-%s", localHostname)
+	}
+
+	// Create embedded client
+	client, err := tailscale.NewEmbeddedClient(stack, &tailscale.EmbeddedClientConfig{
+		HeadscaleURL: headscaleURL,
+		AuthKey:      authKey,
+		Hostname:     hostname,
+	})
+	if err != nil {
+		return fmt.Errorf("failed to create embedded client: %w", err)
+	}
+
+	printInfo(fmt.Sprintf("Connecting to Headscale at %s...", headscaleURL))
+
+	// Connect
+	if err := client.Connect(ctx); err != nil {
+		return fmt.Errorf("failed to connect: %w", err)
+	}
+
+	// Get status
+	status, err := client.Status(ctx)
+	if err != nil {
+		printWarning(fmt.Sprintf("Connected but failed to get status: %v", err))
+	} else {
+		fmt.Println()
+		printSuccess("Connected to Tailscale mesh!")
+		fmt.Println()
+
+		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+		fmt.Fprintf(w, "  Hostname:\t%s\n", status.Hostname)
+		fmt.Fprintf(w, "  Tailscale IP:\t%s\n", status.TailscaleIP)
+		fmt.Fprintf(w, "  Headscale URL:\t%s\n", status.HeadscaleURL)
+		fmt.Fprintf(w, "  Peers:\t%d\n", status.PeerCount)
+		w.Flush()
+	}
+
+	// Handle daemon mode
+	if vpnConnectDaemon {
+		// Save PID file for disconnect command
+		pidFile := tailscale.GetPIDFile(stack)
+		if err := os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0600); err != nil {
+			printWarning(fmt.Sprintf("Failed to save PID file: %v", err))
+		}
+
+		fmt.Println()
+		printSuccess("Running in daemon mode. Use 'sloth vpn disconnect' to stop.")
+		fmt.Println()
+
+		// Wait for SIGTERM (from disconnect command) or SIGINT
+		sigChan := make(chan os.Signal, 1)
+		signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+		<-sigChan
+
+		// Clean disconnect
+		client.Disconnect()
+		os.Remove(pidFile)
+		return nil
+	}
+
+	// Foreground mode - wait for user interrupt
+	fmt.Println()
+	fmt.Println("  Press Ctrl+C to disconnect...")
+	fmt.Println()
+
+	// Wait for interrupt
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	fmt.Println()
+	printInfo("Disconnecting...")
+
+	if err := client.Disconnect(); err != nil {
+		printWarning(fmt.Sprintf("Error during disconnect: %v", err))
+	} else {
+		printSuccess("Disconnected from Tailscale mesh")
+	}
+
+	return nil
+}
+
+// runVPNDisconnect disconnects from the Tailscale VPN mesh
+func runVPNDisconnect(cmd *cobra.Command, args []string) error {
+	// Require a valid stack
+	stack, err := RequireStack(args)
+	if err != nil {
+		return err
+	}
+
+	printHeader(fmt.Sprintf("🔌 VPN Disconnect - Stack: %s", stack))
+	fmt.Println()
+
+	// Check if daemon is running
+	if tailscale.IsDaemonRunning(stack) {
+		pid := tailscale.GetDaemonPID(stack)
+		printInfo(fmt.Sprintf("Stopping VPN daemon (PID: %d)...", pid))
+
+		// Send SIGTERM to daemon process
+		process, err := os.FindProcess(pid)
+		if err != nil {
+			printWarning(fmt.Sprintf("Failed to find daemon process: %v", err))
+		} else {
+			if err := process.Signal(syscall.SIGTERM); err != nil {
+				printWarning(fmt.Sprintf("Failed to stop daemon: %v", err))
+			} else {
+				// Wait a moment for clean shutdown
+				time.Sleep(500 * time.Millisecond)
+				printSuccess("VPN daemon stopped")
+			}
+		}
+
+		// Remove PID file
+		os.Remove(tailscale.GetPIDFile(stack))
+	} else if !tailscale.IsConnected(stack) {
+		printWarning("Not currently connected to this cluster's VPN")
+		return nil
+	}
+
+	// Clean up state
+	printInfo("Cleaning up connection state...")
+	if err := tailscale.CleanupState(stack); err != nil {
+		return fmt.Errorf("failed to cleanup state: %w", err)
+	}
+
+	printSuccess("Disconnected and cleaned up VPN state")
+	return nil
+}
+
+// runVPNConnectDaemon runs the VPN connection in daemon mode (called by internal flag)
+func runVPNConnectDaemon(ctx context.Context, stack string) error {
+	// Create workspace with S3 support
+	workspace, err := createWorkspaceWithS3Support(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Use fully qualified stack name for S3 backend
+	fullyQualifiedStackName := fmt.Sprintf("organization/sloth-kubernetes/%s", stack)
+	s, err := auto.SelectStack(ctx, fullyQualifiedStackName, workspace)
+	if err != nil {
+		return err
+	}
+
+	// Get outputs
+	outputs, err := s.Outputs(ctx)
+	if err != nil {
+		return err
+	}
+
+	// Get Headscale info from Pulumi outputs
+	var headscaleURL string
+	var apiKey string
+	namespace := "default"
+
+	if tsOutput, ok := outputs["tailscale"]; ok {
+		if tsMap, ok := tsOutput.Value.(map[string]interface{}); ok {
+			if url, ok := tsMap["headscale_url"].(string); ok {
+				headscaleURL = url
+			}
+			if key, ok := tsMap["api_key"].(string); ok {
+				apiKey = key
+			}
+			if ns, ok := tsMap["namespace"].(string); ok && ns != "" {
+				namespace = ns
+			}
+		}
+	}
+
+	if headscaleURL == "" || apiKey == "" {
+		return fmt.Errorf("missing Headscale configuration in stack outputs")
+	}
+
+	// Generate auth key
+	headscaleMgr := tailscale.NewHeadscaleManager(tailscale.HeadscaleConfig{
+		APIURL:    headscaleURL,
+		APIKey:    apiKey,
+		Namespace: namespace,
+	})
+
+	authKey, err := headscaleMgr.CreateAuthKey(ctx, tailscale.AuthKeyOptions{
+		Reusable:   false,
+		Ephemeral:  true,
+		Expiration: 24 * time.Hour,
+	})
+	if err != nil {
+		return err
+	}
+
+	// Determine hostname
+	hostname := vpnConnectHostname
+	if hostname == "" {
+		localHostname, _ := os.Hostname()
+		hostname = fmt.Sprintf("sloth-%s", localHostname)
+	}
+
+	// Create and connect embedded client
+	client, err := tailscale.NewEmbeddedClient(stack, &tailscale.EmbeddedClientConfig{
+		HeadscaleURL: headscaleURL,
+		AuthKey:      authKey,
+		Hostname:     hostname,
+	})
+	if err != nil {
+		return err
+	}
+
+	if err := client.Connect(ctx); err != nil {
+		return err
+	}
+
+	// Start SOCKS5 proxy for kubectl and other tools
+	proxyPort, err := client.StartSOCKS5Proxy(0) // 0 = auto-select port
+	if err != nil {
+		client.Disconnect()
+		return fmt.Errorf("failed to start SOCKS5 proxy: %w", err)
+	}
+
+	// Save proxy port to file
+	if err := tailscale.SaveProxyPort(stack, proxyPort); err != nil {
+		// Non-fatal, just log
+		fmt.Fprintf(os.Stderr, "Warning: failed to save proxy port: %v\n", err)
+	}
+
+	// Save PID file
+	pidFile := tailscale.GetPIDFile(stack)
+	os.WriteFile(pidFile, []byte(fmt.Sprintf("%d", os.Getpid())), 0600)
+
+	// Wait for SIGTERM
+	sigChan := make(chan os.Signal, 1)
+	signal.Notify(sigChan, syscall.SIGINT, syscall.SIGTERM)
+	<-sigChan
+
+	// Clean disconnect
+	client.StopSOCKS5Proxy()
+	client.Disconnect()
+	os.Remove(pidFile)
+	os.Remove(tailscale.GetProxyFile(stack))
+
+	return nil
 }

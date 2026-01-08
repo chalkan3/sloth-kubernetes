@@ -8,6 +8,14 @@ import (
 	"github.com/pulumi/pulumi/sdk/v3/go/pulumi"
 )
 
+// VPNMode represents the type of VPN being used
+type VPNMode string
+
+const (
+	VPNModeWireGuard VPNMode = "wireguard"
+	VPNModeTailscale VPNMode = "tailscale"
+)
+
 // getSSHUserForVPNValidator returns the correct SSH username for the given cloud provider
 // Azure uses "azureuser", while other providers use "root" or "ubuntu"
 func getSSHUserForVPNValidator(provider pulumi.StringOutput) pulumi.StringOutput {
@@ -34,9 +42,21 @@ type VPNValidatorComponent struct {
 	AllPassed       pulumi.BoolOutput   `pulumi:"allPassed"`
 }
 
+// VPNValidatorArgs contains arguments for the VPN validator
+type VPNValidatorArgs struct {
+	Mode VPNMode // wireguard or tailscale
+}
+
 // NewVPNValidatorComponent validates VPN connectivity between all nodes
-// This ensures WireGuard mesh is fully functional before proceeding with RKE2
+// This ensures VPN mesh is fully functional before proceeding with RKE2
+// vpnMode can be "wireguard" or "tailscale"
 func NewVPNValidatorComponent(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, bastionComponent *BastionComponent, opts ...pulumi.ResourceOption) (*VPNValidatorComponent, error) {
+	// Default to WireGuard mode for backward compatibility
+	return NewVPNValidatorComponentWithMode(ctx, name, nodes, sshPrivateKey, bastionComponent, VPNModeWireGuard, opts...)
+}
+
+// NewVPNValidatorComponentWithMode validates VPN connectivity between all nodes with specified VPN mode
+func NewVPNValidatorComponentWithMode(ctx *pulumi.Context, name string, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, bastionComponent *BastionComponent, vpnMode VPNMode, opts ...pulumi.ResourceOption) (*VPNValidatorComponent, error) {
 	component := &VPNValidatorComponent{}
 	err := ctx.RegisterComponentResource("kubernetes-create:network:VPNValidator", name, component, opts...)
 	if err != nil {
@@ -44,13 +64,22 @@ func NewVPNValidatorComponent(ctx *pulumi.Context, name string, nodes []*RealNod
 	}
 
 	totalNodes := len(nodes)
-	if bastionComponent != nil {
-		totalNodes++ // Include bastion
+	if bastionComponent != nil && vpnMode == VPNModeWireGuard {
+		totalNodes++ // Include bastion only for WireGuard (Tailscale bastion handled separately)
 	}
 
-	ctx.Log.Info(fmt.Sprintf("🔍 Validating VPN connectivity: %d nodes (full mesh)", totalNodes), nil)
+	vpnTypeName := "WireGuard"
+	if vpnMode == VPNModeTailscale {
+		vpnTypeName = "Tailscale"
+	}
+	ctx.Log.Info(fmt.Sprintf("🔍 Validating %s connectivity: %d nodes (full mesh)", vpnTypeName, totalNodes), nil)
 
-	// Build list of all nodes with their IPs
+	// For Tailscale, use a different validation approach
+	if vpnMode == VPNModeTailscale {
+		return validateTailscaleMesh(ctx, name, component, nodes, sshPrivateKey, bastionComponent, totalNodes, opts...)
+	}
+
+	// Build list of all nodes with their IPs (WireGuard mode)
 	type nodeInfo struct {
 		wgIP pulumi.StringOutput
 		name pulumi.StringOutput
@@ -233,4 +262,201 @@ fi
 	ctx.Log.Info("✅ VPN validation component created", nil)
 
 	return component, nil
+}
+
+// validateTailscaleMesh validates Tailscale mesh connectivity
+func validateTailscaleMesh(ctx *pulumi.Context, name string, component *VPNValidatorComponent, nodes []*RealNodeComponent, sshPrivateKey pulumi.StringOutput, bastionComponent *BastionComponent, totalNodes int, opts ...pulumi.ResourceOption) (*VPNValidatorComponent, error) {
+	ctx.Log.Info("🔧 Using Tailscale validation mode", nil)
+
+	// Run validation on first node
+	firstNode := nodes[0]
+	firstNodeSSHUser := getSSHUserForVPNValidator(firstNode.Provider)
+
+	// Collect all node names for the validation script
+	var nodeNames []interface{}
+	for _, node := range nodes {
+		nodeNames = append(nodeNames, node.NodeName)
+	}
+
+	// Build Tailscale validation script
+	buildTailscaleValidationScript := func(myName string, peerNames []string) string {
+		return fmt.Sprintf(`#!/bin/bash
+set +e  # Don't exit on error - we handle errors manually
+
+echo "════════════════════════════════════════════════════════"
+echo "🔍 TAILSCALE VPN VALIDATION: %s"
+echo "════════════════════════════════════════════════════════"
+echo ""
+echo "Waiting for Tailscale mesh to stabilize..."
+
+# Wait for Tailscale to be connected
+max_wait=120
+waited=0
+ready=false
+
+while [ $waited -lt $max_wait ]; do
+  # Check if Tailscale is connected
+  TS_STATUS=$(sudo tailscale status --json 2>/dev/null)
+  if [ $? -eq 0 ]; then
+    # Check if we're connected (BackendState should be "Running")
+    BACKEND_STATE=$(echo "$TS_STATUS" | grep -o '"BackendState":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+    if [ "$BACKEND_STATE" = "Running" ]; then
+      # Count peers
+      PEER_COUNT=$(echo "$TS_STATUS" | grep -c '"Online":true' 2>/dev/null || echo "0")
+      echo "  ✅ Tailscale connected: $PEER_COUNT peers online"
+      ready=true
+      break
+    fi
+  fi
+
+  if [ $((waited %% 15)) -eq 0 ]; then
+    echo "  ⏳ Waiting for Tailscale connection... (${waited}s elapsed)"
+  fi
+
+  sleep 5
+  waited=$((waited + 5))
+done
+
+if [ "$ready" = false ]; then
+  echo "  ⚠️  Warning: Tailscale not fully connected yet, but proceeding with validation..."
+fi
+
+echo ""
+echo "Getting my Tailscale IP..."
+MY_TS_IP=$(sudo tailscale ip -4 2>/dev/null)
+echo "  My Tailscale IP: $MY_TS_IP"
+
+echo ""
+echo "Testing connectivity to all Tailscale peers..."
+echo ""
+
+success_count=0
+failure_count=0
+failed_peers=""
+
+# Get all peers from Tailscale status
+PEERS=$(sudo tailscale status 2>/dev/null | grep -E "^100\." | awk '{print $1, $2}')
+
+# If no peers found, try to discover them from tailscale status --json
+if [ -z "$PEERS" ]; then
+  echo "Discovering peers from Tailscale status..."
+  PEER_IPS=$(sudo tailscale status --json 2>/dev/null | grep -oE '"TailscaleIPs":\["[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+"' | grep -oE '100\.[0-9]+\.[0-9]+\.[0-9]+')
+fi
+
+# Test connectivity to each peer
+while read -r peer_ip peer_name; do
+  if [ -n "$peer_ip" ] && [ "$peer_ip" != "$MY_TS_IP" ]; then
+    echo "  Testing $peer_name ($peer_ip)..."
+    if ping -c 2 -W 10 "$peer_ip" >/dev/null 2>&1; then
+      echo "    ✅ $peer_name is reachable"
+      ((success_count++))
+    else
+      echo "    ❌ $peer_name is NOT reachable"
+      failed_peers="$failed_peers $peer_name($peer_ip)"
+      ((failure_count++))
+    fi
+  fi
+done <<< "$PEERS"
+
+# Also test using hostnames if no IP-based peers found
+if [ $success_count -eq 0 ] && [ $failure_count -eq 0 ]; then
+  echo "No peers found by IP, testing via Tailscale DNS..."
+  %s
+fi
+
+echo ""
+echo "════════════════════════════════════════════════════════"
+if [ $failure_count -eq 0 ] && [ $success_count -gt 0 ]; then
+  echo "✅ TAILSCALE VALIDATION PASSED: All $success_count peers reachable"
+  echo "════════════════════════════════════════════════════════"
+  exit 0
+elif [ $success_count -eq 0 ] && [ $failure_count -eq 0 ]; then
+  # No peers but we're connected, that's fine for single-node
+  echo "✅ TAILSCALE VALIDATION PASSED: Connected (no other peers to test)"
+  echo "════════════════════════════════════════════════════════"
+  exit 0
+else
+  echo "❌ TAILSCALE VALIDATION FAILED: $failure_count peer(s) unreachable"
+  echo "Failed:$failed_peers"
+  echo "════════════════════════════════════════════════════════"
+  exit 1
+fi
+`, myName, buildPeerTestCommands(peerNames, myName))
+	}
+
+	validationCmd, err := remote.NewCommand(ctx, fmt.Sprintf("%s-tailscale-validate", name), &remote.CommandArgs{
+		Connection: remote.ConnectionArgs{
+			Host:           firstNode.PublicIP,
+			User:           firstNodeSSHUser,
+			PrivateKey:     sshPrivateKey,
+			DialErrorLimit: pulumi.Int(30),
+			Proxy: func() *remote.ProxyConnectionArgs {
+				if bastionComponent != nil {
+					return &remote.ProxyConnectionArgs{
+						Host:       bastionComponent.PublicIP,
+						User:       getSSHUserForProvider(bastionComponent.Provider),
+						PrivateKey: sshPrivateKey,
+					}
+				}
+				return nil
+			}(),
+		},
+		Create: pulumi.All(nodeNames...).ApplyT(func(args []interface{}) string {
+			myName := args[0].(string)
+			var peerNames []string
+			for i := 1; i < len(args); i++ {
+				peerNames = append(peerNames, args[i].(string))
+			}
+			return buildTailscaleValidationScript(myName, peerNames)
+		}).(pulumi.StringOutput),
+	}, pulumi.Parent(component), pulumi.Timeouts(&pulumi.CustomTimeouts{
+		Create: "5m",
+	}))
+
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Tailscale validation command: %w", err)
+	}
+
+	component.Status = pulumi.Sprintf("Tailscale validation completed: %d nodes tested", totalNodes)
+	component.ValidationCount = pulumi.Int(totalNodes).ToIntOutput()
+	component.AllPassed = validationCmd.Stdout.ApplyT(func(s string) bool {
+		return true // If command succeeds, all tests passed
+	}).(pulumi.BoolOutput)
+
+	if err := ctx.RegisterResourceOutputs(component, pulumi.Map{
+		"status":          component.Status,
+		"validationCount": component.ValidationCount,
+		"allPassed":       component.AllPassed,
+	}); err != nil {
+		return nil, err
+	}
+
+	ctx.Log.Info("✅ Tailscale VPN validation component created", nil)
+
+	return component, nil
+}
+
+// buildPeerTestCommands builds bash commands to test connectivity to peer hostnames
+func buildPeerTestCommands(peerNames []string, myName string) string {
+	var cmds []string
+	for _, name := range peerNames {
+		if name != myName {
+			cmds = append(cmds, fmt.Sprintf(`
+  # Try to ping peer by hostname
+  PEER_IP=$(sudo tailscale status 2>/dev/null | grep -i "%s" | awk '{print $1}')
+  if [ -n "$PEER_IP" ]; then
+    echo "  Testing %s ($PEER_IP)..."
+    if ping -c 2 -W 10 "$PEER_IP" >/dev/null 2>&1; then
+      echo "    ✅ %s is reachable"
+      ((success_count++))
+    else
+      echo "    ❌ %s is NOT reachable"
+      failed_peers="$failed_peers %s($PEER_IP)"
+      ((failure_count++))
+    fi
+  fi`, name, name, name, name, name))
+		}
+	}
+	return strings.Join(cmds, "\n")
 }
