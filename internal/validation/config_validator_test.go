@@ -53,7 +53,7 @@ func TestValidateClusterConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Invalid - WireGuard disabled",
+			name: "Invalid - VPN disabled",
 			config: &config.ClusterConfig{
 				Metadata: config.Metadata{
 					Name: "test-cluster",
@@ -74,7 +74,7 @@ func TestValidateClusterConfig(t *testing.T) {
 				},
 			},
 			wantErr:       true,
-			errorContains: "WireGuard must be enabled",
+			errorContains: "VPN (WireGuard or Tailscale) must be enabled",
 		},
 		{
 			name: "Invalid - No provider enabled",
@@ -189,26 +189,30 @@ func TestValidateWireGuardConfig(t *testing.T) {
 			wantErr: false,
 		},
 		{
-			name: "Invalid - WireGuard not enabled",
+			name: "Invalid - WireGuard not enabled but using existing",
 			config: &config.ClusterConfig{
 				Network: config.NetworkConfig{
 					WireGuard: &config.WireGuardConfig{
 						Enabled: false,
+						Create:  false,
 					},
 				},
 			},
 			wantErr:       true,
-			errorContains: "WireGuard must be enabled",
+			errorContains: "WireGuard server endpoint is required",
 		},
 		{
-			name: "Invalid - WireGuard nil",
+			name: "Invalid - WireGuard not enabled but creating",
 			config: &config.ClusterConfig{
 				Network: config.NetworkConfig{
-					WireGuard: nil,
+					WireGuard: &config.WireGuardConfig{
+						Enabled: false,
+						Create:  true,
+					},
 				},
 			},
 			wantErr:       true,
-			errorContains: "WireGuard must be enabled",
+			errorContains: "WireGuard provider is required",
 		},
 		{
 			name: "Invalid - Auto-create without provider",
