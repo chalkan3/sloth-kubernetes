@@ -58,27 +58,27 @@ type VPNProvider interface {
 
 // PeerInfo contains information about a VPN peer
 type PeerInfo struct {
-	ID           string    `json:"id"`
-	PublicKey    string    `json:"publicKey"`
-	VPNIP        string    `json:"vpnIP"`
-	Hostname     string    `json:"hostname"`
-	Online       bool      `json:"online"`
-	LastSeen     time.Time `json:"lastSeen"`
-	Endpoint     string    `json:"endpoint,omitempty"`
-	TransferRx   int64     `json:"transferRx,omitempty"`
-	TransferTx   int64     `json:"transferTx,omitempty"`
+	ID           string       `json:"id"`
+	PublicKey    string       `json:"publicKey"`
+	VPNIP        string       `json:"vpnIP"`
+	Hostname     string       `json:"hostname"`
+	Online       bool         `json:"online"`
+	LastSeen     time.Time    `json:"lastSeen"`
+	Endpoint     string       `json:"endpoint,omitempty"`
+	TransferRx   int64        `json:"transferRx,omitempty"`
+	TransferTx   int64        `json:"transferTx,omitempty"`
 	ProviderType ProviderType `json:"providerType"`
 }
 
 // VPNStatus contains status information for a VPN connection
 type VPNStatus struct {
-	Provider     ProviderType  `json:"provider"`
-	Connected    bool          `json:"connected"`
-	VPNIP        string        `json:"vpnIP"`
-	PublicKey    string        `json:"publicKey,omitempty"`
-	Peers        int           `json:"peers"`
-	Latency      time.Duration `json:"latency,omitempty"`
-	Error        string        `json:"error,omitempty"`
+	Provider  ProviderType  `json:"provider"`
+	Connected bool          `json:"connected"`
+	VPNIP     string        `json:"vpnIP"`
+	PublicKey string        `json:"publicKey,omitempty"`
+	Peers     int           `json:"peers"`
+	Latency   time.Duration `json:"latency,omitempty"`
+	Error     string        `json:"error,omitempty"`
 
 	// Provider-specific fields
 	CoordinatorURL string `json:"coordinatorUrl,omitempty"` // For Tailscale
@@ -88,19 +88,19 @@ type VPNStatus struct {
 
 // ClientConfigParams contains parameters for generating client configuration
 type ClientConfigParams struct {
-	VPNIP          string            // Client's VPN IP
-	PrivateKey     string            // Client's private key (for WireGuard)
-	PublicKey      string            // Client's public key
-	NodeEndpoints  []NodeEndpoint    // Cluster node endpoints
-	DNS            []string          // DNS servers
-	MTU            int               // MTU setting
-	PersistentKeepalive int          // Keepalive interval
+	VPNIP               string         // Client's VPN IP
+	PrivateKey          string         // Client's private key (for WireGuard)
+	PublicKey           string         // Client's public key
+	NodeEndpoints       []NodeEndpoint // Cluster node endpoints
+	DNS                 []string       // DNS servers
+	MTU                 int            // MTU setting
+	PersistentKeepalive int            // Keepalive interval
 
 	// Tailscale-specific
-	CoordinatorURL string            // Headscale URL
-	AuthKey        string            // Pre-auth key
-	Hostname       string            // Desired hostname in tailnet
-	Tags           []string          // ACL tags
+	CoordinatorURL string   // Headscale URL
+	AuthKey        string   // Pre-auth key
+	Hostname       string   // Desired hostname in tailnet
+	Tags           []string // ACL tags
 }
 
 // NodeEndpoint contains endpoint information for a cluster node

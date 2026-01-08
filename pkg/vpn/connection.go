@@ -28,13 +28,13 @@ type ConnectionConfig struct {
 
 // SSHConnection represents an established SSH connection
 type SSHConnection struct {
-	client       *ssh.Client
-	bastionConn  *ssh.Client
-	host         string
-	user         string
-	connectedAt  time.Time
-	mu           sync.Mutex
-	closed       bool
+	client      *ssh.Client
+	bastionConn *ssh.Client
+	host        string
+	user        string
+	connectedAt time.Time
+	mu          sync.Mutex
+	closed      bool
 }
 
 // ConnectionManager manages SSH connections with retry and health checking

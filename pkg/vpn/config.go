@@ -11,12 +11,12 @@ import (
 
 // PeerConfig holds configuration for a WireGuard peer
 type PeerConfig struct {
-	PublicKey   string   // WireGuard public key (base64, 44 chars)
-	AllowedIPs  []string // Allowed IP ranges (e.g., "10.8.0.5/32")
-	Endpoint    string   // Optional endpoint (e.g., "1.2.3.4:51820")
-	Keepalive   int      // PersistentKeepalive in seconds (0 to disable)
-	Label       string   // Human-readable label/comment
-	PresharedKey string  // Optional preshared key
+	PublicKey    string   // WireGuard public key (base64, 44 chars)
+	AllowedIPs   []string // Allowed IP ranges (e.g., "10.8.0.5/32")
+	Endpoint     string   // Optional endpoint (e.g., "1.2.3.4:51820")
+	Keepalive    int      // PersistentKeepalive in seconds (0 to disable)
+	Label        string   // Human-readable label/comment
+	PresharedKey string   // Optional preshared key
 }
 
 // ConfigManager manages WireGuard configuration safely
@@ -331,14 +331,14 @@ func (c *ConfigManager) GetPeerInfo(ctx context.Context, conn *SSHConnection, pu
 	}
 
 	info := map[string]string{
-		"public_key":      fields[0],
-		"preshared_key":   fields[1],
-		"endpoint":        fields[2],
-		"allowed_ips":     fields[3],
-		"last_handshake":  fields[4],
-		"transfer_rx":     fields[5],
-		"transfer_tx":     fields[6],
-		"keepalive":       fields[7],
+		"public_key":     fields[0],
+		"preshared_key":  fields[1],
+		"endpoint":       fields[2],
+		"allowed_ips":    fields[3],
+		"last_handshake": fields[4],
+		"transfer_rx":    fields[5],
+		"transfer_tx":    fields[6],
+		"keepalive":      fields[7],
 	}
 
 	return info, nil

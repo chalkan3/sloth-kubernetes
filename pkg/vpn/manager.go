@@ -132,25 +132,25 @@ func NewManagerWithProvider(cfg ManagerConfig, provider VPNProvider) (*Manager, 
 
 // JoinConfig holds configuration for joining the VPN
 type JoinConfig struct {
-	StackName    string
-	VPNIP        string   // Desired VPN IP (empty for auto-assign)
-	Label        string   // Human-readable label
-	PublicKey    string   // WireGuard public key
-	Nodes        []NodeInfo // Cluster nodes to add peer to
-	BastionIP    string   // Bastion host IP (if using bastion)
-	BastionUser  string   // Bastion SSH user
-	SubnetCIDR   string   // VPN subnet for IP assignment (e.g., "10.8.0.0/24")
-	ReservedIPs  []string // IPs reserved for cluster nodes
+	StackName   string
+	VPNIP       string     // Desired VPN IP (empty for auto-assign)
+	Label       string     // Human-readable label
+	PublicKey   string     // WireGuard public key
+	Nodes       []NodeInfo // Cluster nodes to add peer to
+	BastionIP   string     // Bastion host IP (if using bastion)
+	BastionUser string     // Bastion SSH user
+	SubnetCIDR  string     // VPN subnet for IP assignment (e.g., "10.8.0.0/24")
+	ReservedIPs []string   // IPs reserved for cluster nodes
 }
 
 // JoinResult contains the result of a join operation
 type JoinResult struct {
-	VPNIP          string
-	PublicKey      string
+	VPNIP           string
+	PublicKey       string
 	NodesConfigured int
-	NodesFailed    int
-	Duration       time.Duration
-	Errors         []string
+	NodesFailed     int
+	Duration        time.Duration
+	Errors          []string
 }
 
 // Join adds a peer to the VPN mesh
@@ -259,8 +259,8 @@ func (m *Manager) Join(ctx context.Context, cfg JoinConfig) (*JoinResult, error)
 // LeaveConfig holds configuration for leaving the VPN
 type LeaveConfig struct {
 	StackName   string
-	PublicKey   string   // Peer's public key to remove
-	VPNIP       string   // Alternative: identify by VPN IP
+	PublicKey   string // Peer's public key to remove
+	VPNIP       string // Alternative: identify by VPN IP
 	Nodes       []NodeInfo
 	BastionIP   string
 	BastionUser string

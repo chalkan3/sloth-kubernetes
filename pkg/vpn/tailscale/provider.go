@@ -377,10 +377,10 @@ func (p *Provider) CreateAuthKey(ctx context.Context, opts AuthKeyOptions) (stri
 // Tailscale status JSON structures
 
 type tailscaleStatusJSON struct {
-	BackendState string                       `json:"BackendState"`
-	Self         *tailscalePeerStatus         `json:"Self"`
-	Peer         map[string]tailscalePeerStatus `json:"Peer"`
-	MagicDNSSuffix string                     `json:"MagicDNSSuffix"`
+	BackendState   string                         `json:"BackendState"`
+	Self           *tailscalePeerStatus           `json:"Self"`
+	Peer           map[string]tailscalePeerStatus `json:"Peer"`
+	MagicDNSSuffix string                         `json:"MagicDNSSuffix"`
 }
 
 type tailscalePeerStatus struct {

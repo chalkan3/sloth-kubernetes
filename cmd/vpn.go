@@ -78,15 +78,15 @@ func detectVPNMode(outputs auto.OutputMap) (VPNMode, *config.ClusterConfig) {
 
 // TailscalePeerInfo represents a peer in the Tailscale network
 type TailscalePeerInfo struct {
-	ID         string
-	PublicKey  string
-	Hostname   string
-	TailnetIP  string
-	Online     bool
-	LastSeen   time.Time
-	OS         string
-	ExitNode   bool
-	Relay      string
+	ID        string
+	PublicKey string
+	Hostname  string
+	TailnetIP string
+	Online    bool
+	LastSeen  time.Time
+	OS        string
+	ExitNode  bool
+	Relay     string
 }
 
 var (

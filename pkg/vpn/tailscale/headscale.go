@@ -43,21 +43,21 @@ type AuthKeyOptions struct {
 
 // HeadscaleNode represents a node in Headscale
 type HeadscaleNode struct {
-	ID             string    `json:"id"`
-	MachineKey     string    `json:"machineKey"`
-	NodeKey        string    `json:"nodeKey"`
-	Name           string    `json:"name"`
-	GivenName      string    `json:"givenName"`
-	IPAddresses    []string  `json:"ipAddresses"`
-	Namespace      string    `json:"namespace"`
-	LastSeen       time.Time `json:"lastSeen"`
+	ID                   string    `json:"id"`
+	MachineKey           string    `json:"machineKey"`
+	NodeKey              string    `json:"nodeKey"`
+	Name                 string    `json:"name"`
+	GivenName            string    `json:"givenName"`
+	IPAddresses          []string  `json:"ipAddresses"`
+	Namespace            string    `json:"namespace"`
+	LastSeen             time.Time `json:"lastSeen"`
 	LastSuccessfulUpdate time.Time `json:"lastSuccessfulUpdate"`
-	Expiry         time.Time `json:"expiry"`
-	Online         bool      `json:"online"`
-	RegisterMethod string    `json:"registerMethod"`
-	ForcedTags     []string  `json:"forcedTags"`
-	ValidTags      []string  `json:"validTags"`
-	InvalidTags    []string  `json:"invalidTags"`
+	Expiry               time.Time `json:"expiry"`
+	Online               bool      `json:"online"`
+	RegisterMethod       string    `json:"registerMethod"`
+	ForcedTags           []string  `json:"forcedTags"`
+	ValidTags            []string  `json:"validTags"`
+	InvalidTags          []string  `json:"invalidTags"`
 }
 
 // HeadscalePreAuthKey represents a pre-auth key

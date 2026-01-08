@@ -19,15 +19,15 @@ import (
 )
 
 var (
-	saltAPIURL        string
-	saltUsername      string
-	saltPassword      string
-	saltTarget        string
-	saltOutputJSON    bool
-	pushApplyAfter    bool
-	pushRefreshAfter  bool
-	pushDryRun        bool
-	pushExcludes      []string
+	saltAPIURL       string
+	saltUsername     string
+	saltPassword     string
+	saltTarget       string
+	saltOutputJSON   bool
+	pushApplyAfter   bool
+	pushRefreshAfter bool
+	pushDryRun       bool
+	pushExcludes     []string
 )
 
 var saltCmd = &cobra.Command{
