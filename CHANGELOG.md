@@ -1,5 +1,12 @@
 # Changelog
 
+## [2.1.0](https://github.com/chalkan3/sloth-kubernetes/compare/v2.0.0...v2.1.0) (2026-01-08)
+
+
+### Features
+
+* **vpn:** add Tailscale/Headscale support with embedded client ([#90](https://github.com/chalkan3/sloth-kubernetes/issues/90)) ([6470e4c](https://github.com/chalkan3/sloth-kubernetes/commit/6470e4cbea6d379101318ff3049a293b6c8c92f6))
+
 ## [2.0.0](https://github.com/chalkan3/sloth-kubernetes/compare/v1.0.0...v2.0.0) (2026-01-07)
 
 
