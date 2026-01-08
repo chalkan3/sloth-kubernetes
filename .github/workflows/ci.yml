@@ -39,7 +39,9 @@ jobs:
       - name: Run tests
         # Note: -race flag removed due to false positives in Pulumi SDK
         # See: https://github.com/pulumi/pulumi/issues for known race conditions
-        run: go test -v -coverprofile=coverage.txt -covermode=atomic ./...
+        # Exclude main packages to avoid "go: no such tool covdata" warning
+        run: |
+          go test -v -coverprofile=coverage.txt -covermode=atomic $(go list ./... | grep -v -E '(^github.com/chalkan3/sloth-kubernetes$|/cmd/simple-wireguard-rke$)')
 
       - name: Generate coverage report
         run: go tool cover -func=coverage.txt
