@@ -1,5 +1,24 @@
 # Changelog
 
+## [2.2.0](https://github.com/chalkan3/sloth-kubernetes/compare/v2.1.0...v2.2.0) (2026-01-27)
+
+
+### Features
+
+* **tailscale:** add cross-platform support and comprehensive tests ([7edf416](https://github.com/chalkan3/sloth-kubernetes/commit/7edf416de9d197e3d7bcce186dc56bd7f091d62b))
+
+
+### Bug Fixes
+
+* **build:** add platform-specific process handling for Windows ([75ba2e9](https://github.com/chalkan3/sloth-kubernetes/commit/75ba2e96826d5e12da7b1bd36eb853e14f6e5e08))
+* **ci:** exclude main packages from coverage testing ([#94](https://github.com/chalkan3/sloth-kubernetes/issues/94)) ([888cf25](https://github.com/chalkan3/sloth-kubernetes/commit/888cf25f1078c362c96aed5b4be996d69d5c0f1a))
+* **ci:** simplify test command to avoid shell issues ([fbb7c28](https://github.com/chalkan3/sloth-kubernetes/commit/fbb7c281e7cc97bcb55ce89dd29323b2581f4ed6))
+* **ci:** use go-version-file to match go.mod version ([e12ca8a](https://github.com/chalkan3/sloth-kubernetes/commit/e12ca8a49e70e4d94f45996a0d4d3c98be8208df))
+* **lint:** apply gofmt formatting to VPN files ([#92](https://github.com/chalkan3/sloth-kubernetes/issues/92)) ([1ee9bb4](https://github.com/chalkan3/sloth-kubernetes/commit/1ee9bb4e9d9f4f4ce200bf67ca621e378ef6a824))
+* **tests:** increase orchestrator coverage and fix ArgoCD test timeouts ([ead0fcb](https://github.com/chalkan3/sloth-kubernetes/commit/ead0fcbb6eb0aeba4d6d673d8b5cb44cea4fb691))
+* **tests:** increase orchestrator coverage and fix ArgoCD test timeouts ([dbcf600](https://github.com/chalkan3/sloth-kubernetes/commit/dbcf600dc379932684b55ed48e241da2344df849))
+* **tests:** update validation tests for Tailscale support ([#95](https://github.com/chalkan3/sloth-kubernetes/issues/95)) ([cd67979](https://github.com/chalkan3/sloth-kubernetes/commit/cd67979c79d88110cf8ab350a026b0c681c6b355))
+
 ## [2.1.0](https://github.com/chalkan3/sloth-kubernetes/compare/v2.0.0...v2.1.0) (2026-01-08)
 
 
